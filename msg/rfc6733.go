@@ -39,17 +39,16 @@ func SessionID(s string) Avp {
 	return a
 }
 
-// AuthSessionState AVP
-func AuthSessionState(e Enumerated) Avp {
+// AuthSessionState AVP (true=STATE_MAINTAINED / false=STATE_NOT_MAINTAINED)
+func AuthSessionState(b bool) Avp {
 	a := Avp{Code: uint32(277), FlgV: false, FlgM: true, FlgP: false, VenID: uint32(0)}
-	a.Encode(e)
+	if b {
+		a.Encode(Enumerated(0))
+	} else {
+		a.Encode(Enumerated(1))
+	}
 	return a
 }
-
-const (
-	AuthSessionState_STATE_MAINTAINED    Enumerated = 0
-	AuthSessionState_NO_STATE_MAINTAINED Enumerated = 1
-)
 
 // OriginHost AVP
 func OriginHost(i DiameterIdentity) Avp {
@@ -108,39 +107,76 @@ func ResultCode(i uint32) Avp {
 }
 
 const (
-	DIAMETER_MULTI_ROUND_AUTH          uint32 = 1001
-	DIAMETER_SUCCESS                   uint32 = 2001
-	DIAMETER_LIMITED_SUCCESS           uint32 = 2002
-	DIAMETER_COMMAND_UNSUPPORTED       uint32 = 3001
-	DIAMETER_UNABLE_TO_DELIVER         uint32 = 3002
-	DIAMETER_REALM_NOT_SERVED          uint32 = 3003
-	DIAMETER_TOO_BUSY                  uint32 = 3004
-	DIAMETER_LOOP_DETECTED             uint32 = 3005
-	DIAMETER_REDIRECT_INDICATION       uint32 = 3006
-	DIAMETER_APPLICATION_UNSUPPORTED   uint32 = 3007
-	DIAMETER_INVALID_HDR_BITS          uint32 = 3008
-	DIAMETER_INVALID_AVP_BITS          uint32 = 3009
-	DIAMETER_UNKNOWN_PEER              uint32 = 3010
-	DIAMETER_AUTHENTICATION_REJECTED   uint32 = 4001
-	DIAMETER_OUT_OF_SPACE              uint32 = 4002
-	DIAMETER_ELECTION_LOST             uint32 = 4003
-	DIAMETER_AVP_UNSUPPORTED           uint32 = 5001
-	DIAMETER_UNKNOWN_SESSION_ID        uint32 = 5002
-	DIAMETER_AUTHORIZATION_REJECTED    uint32 = 5003
-	DIAMETER_INVALID_AVP_VALUE         uint32 = 5004
-	DIAMETER_MISSING_AVP               uint32 = 5005
-	DIAMETER_RESOURCES_EXCEEDED        uint32 = 5006
-	DIAMETER_CONTRADICTING_AVPS        uint32 = 5007
-	DIAMETER_AVP_NOT_ALLOWED           uint32 = 5008
-	DIAMETER_AVP_OCCURS_TOO_MANY_TIMES uint32 = 5009
-	DIAMETER_NO_COMMON_APPLICATION     uint32 = 5010
-	DIAMETER_UNSUPPORTED_VERSION       uint32 = 5011
-	DIAMETER_UNABLE_TO_COMPLY          uint32 = 5012
-	DIAMETER_INVALID_BIT_IN_HEADER     uint32 = 5013
-	DIAMETER_INVALID_AVP_LENGTH        uint32 = 5014
-	DIAMETER_INVALID_MESSAGE_LENGTH    uint32 = 5015
-	DIAMETER_INVALID_AVP_BIT_COMBO     uint32 = 5016
-	DIAMETER_NO_COMMON_SECURITY        uint32 = 5017
+	// DiameterMultiRoundAuth is Result-Code 1001
+	DiameterMultiRoundAuth uint32 = 1001
+
+	// DiameterSuccess is Result-Code 2001
+	DiameterSuccess uint32 = 2001
+	// DiameterLimitedSuccess is Result-Code 2002
+	DiameterLimitedSuccess uint32 = 2002
+
+	// DiameterCommandUnspported is Result-Code 3001
+	DiameterCommandUnspported uint32 = 3001
+	// DiameterUnableToDeliver is Result-Code 3002
+	DiameterUnableToDeliver uint32 = 3002
+	// DiameterRealmNotServed is Result-Code 3003
+	DiameterRealmNotServed uint32 = 3003
+	// DiameterTooBusy is Result-Code 3004
+	DiameterTooBusy uint32 = 3004
+	// DiameterLoopDetected is Result-Code 3005
+	DiameterLoopDetected uint32 = 3005
+	// DiameterRedirectIndication is Result-Code 3006
+	DiameterRedirectIndication uint32 = 3006
+	// DiameterApplicationUnsupported is Result-Code 3007
+	DiameterApplicationUnsupported uint32 = 3007
+	// DiameterInvalidHdrBits is Result-Code 3008
+	DiameterInvalidHdrBits uint32 = 3008
+	// DiameterInvalidAvpBits is Result-Code 3009
+	DiameterInvalidAvpBits uint32 = 3009
+	// DiameterUnknownPeer is Result-Code 3010
+	DiameterUnknownPeer uint32 = 3010
+
+	// DiameterAuthenticationRejected is Result-Code 4001
+	DiameterAuthenticationRejected uint32 = 4001
+	// DiameterOutOfSpace is Result-Code 4002
+	DiameterOutOfSpace uint32 = 4002
+	// DiameterElectionLost is Result-Code 4003
+	DiameterElectionLost uint32 = 4003
+
+	// DiameterAvpUnsupported is Result-Code 5001
+	DiameterAvpUnsupported uint32 = 5001
+	// DiameterUnknownSessionID is Result-Code 5002
+	DiameterUnknownSessionID uint32 = 5002
+	// DiameterAuthorizationRejected is Result-Code 5003
+	DiameterAuthorizationRejected uint32 = 5003
+	// DiameterInvalidAvpValue is Result-Code 5004
+	DiameterInvalidAvpValue uint32 = 5004
+	// DiameterMissingAvp is Result-Code 5005
+	DiameterMissingAvp uint32 = 5005
+	// DiameterResourcesExceeded is Result-Code 5006
+	DiameterResourcesExceeded uint32 = 5006
+	// DiameterContradictingAvps is Result-Code 5007
+	DiameterContradictingAvps uint32 = 5007
+	//DiameterAvpNotAllowed is Result-Code 5008
+	DiameterAvpNotAllowed uint32 = 5008
+	// DiameterAvpOccursTooManyTimes is Result-Code 5009
+	DiameterAvpOccursTooManyTimes uint32 = 5009
+	// DiameterNoCommonApplication is Result-Code 5010
+	DiameterNoCommonApplication uint32 = 5010
+	// DiameterUnsupportedVersion is Result-Code 5011
+	DiameterUnsupportedVersion uint32 = 5011
+	// DiameterUnableToComply is Result-Code 5012
+	DiameterUnableToComply uint32 = 5012
+	// DiameterInvalidBitInHeader is Result-Code 5013
+	DiameterInvalidBitInHeader uint32 = 5013
+	// DiameterInvalidAvpLength is Result-Code 5014
+	DiameterInvalidAvpLength uint32 = 5014
+	// DiameterInvalidMessageLength is Result-Code 5015
+	DiameterInvalidMessageLength uint32 = 5015
+	// DiameterInvalidAvpBitCombo is Result-Code 5016
+	DiameterInvalidAvpBitCombo uint32 = 5016
+	// DiameterNoCommonSecurity is Result-Code 5017
+	DiameterNoCommonSecurity uint32 = 5017
 )
 
 // DisconnectCause AVP
@@ -151,9 +187,12 @@ func DisconnectCause(i Enumerated) Avp {
 }
 
 const (
-	DisconnectCause_REBOOTING                  Enumerated = 0
-	DisconnectCause_BUSY                       Enumerated = 1
-	DisconnectCause_DO_NOT_WANT_TO_TALK_TO_YOU Enumerated = 2
+	// Rebooting is Enumerated value 0
+	Rebooting Enumerated = 0
+	// Busy is Enumerated value 1
+	Busy Enumerated = 1
+	// DoNotWantToTalkToYou is Enumerated value 2
+	DoNotWantToTalkToYou Enumerated = 2
 )
 
 // UserName AVP

@@ -40,7 +40,7 @@ func (a Avp) WriteTo(w io.Writer) (n int64, e error) {
 	}
 
 	i := 0
-	if i, e = w.Write(itob(a.Code)); e != nil {
+	if i, e = w.Write(ItoB(a.Code)); e != nil {
 		return
 	}
 	n += int64(i)
@@ -48,12 +48,12 @@ func (a Avp) WriteTo(w io.Writer) (n int64, e error) {
 		return
 	}
 	n += int64(i)
-	if i, e = w.Write(itob(a.leng)[1:4]); e != nil {
+	if i, e = w.Write(ItoB(a.leng)[1:4]); e != nil {
 		return
 	}
 	n += int64(i)
 	if a.FlgV {
-		if i, e = w.Write(itob(a.VenID)); e != nil {
+		if i, e = w.Write(ItoB(a.VenID)); e != nil {
 			return
 		}
 		n += int64(i)

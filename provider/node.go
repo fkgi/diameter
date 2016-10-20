@@ -3,7 +3,6 @@ package provider
 import (
 	"fmt"
 	"math/rand"
-	"monitor"
 	"net"
 	"time"
 
@@ -37,7 +36,6 @@ type PeerNode struct {
 	SupportedApps [][2]uint32
 	// for Vendor-Specific-Application-Id,
 	//     Auth-Application-Id, Supported-Vendor-Id AVP
-
 }
 
 // InitIDs initiate each IDs
@@ -82,13 +80,16 @@ func (l *LocalNode) Connect(p *PeerNode, laddr, raddr net.Addr, s time.Duration)
 		}
 	}
 
-	if e == nil {
-		lh, ph := c.hostnames()
-		la := c.conn.LocalAddr().String()
-		ra := c.conn.RemoteAddr().String()
-		monitor.Notify(monitor.Info, "transport connect success", lh, la, ph, ra)
-	} else {
-		monitor.Notify(monitor.Minor, "transport connect failed", e.Error())
+	// output logs
+	if Notify != nil {
+		if e == nil {
+			lh, ph := c.hostnames()
+			la := c.conn.LocalAddr()
+			pa := c.conn.RemoteAddr()
+			Notify(&TransportConnectSuccess{Local: lh, Peer: ph, LAddr: la, PAddr: pa})
+		} else {
+			Notify(&TransportConnectFail{Err: e})
+		}
 	}
 	return
 }
@@ -104,13 +105,16 @@ func (l *LocalNode) Accept(lnr net.Listener) (c *Connection, e error) {
 		}
 	}
 
-	if e == nil {
-		lh, ph := c.hostnames()
-		la := c.conn.LocalAddr().String()
-		ra := c.conn.RemoteAddr().String()
-		monitor.Notify(monitor.Info, "transport accept success", lh, la, ph, ra)
-	} else {
-		monitor.Notify(monitor.Minor, "transport accept failed", e.Error())
+	// output logs
+	if Notify != nil {
+		if e == nil {
+			lh, ph := c.hostnames()
+			la := c.conn.LocalAddr()
+			pa := c.conn.RemoteAddr()
+			Notify(&TransportConnectSuccess{Local: lh, Peer: ph, LAddr: la, PAddr: pa})
+		} else {
+			Notify(&TransportConnectFail{Err: e})
+		}
 	}
 	return
 }

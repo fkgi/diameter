@@ -2,7 +2,6 @@ package provider
 
 import (
 	"fmt"
-	"monitor"
 	"net"
 	"time"
 
@@ -24,7 +23,7 @@ func (c *Connection) IsAvailable() bool {
 // Close close Diameter connection
 func (c *Connection) Close() (e error) {
 	if c.conn == nil {
-		e = fmt.Errorf("connection is closed")
+		e = fmt.Errorf("connection has been closed")
 	} else {
 		tmp := c.conn
 		c.conn = nil
@@ -32,11 +31,13 @@ func (c *Connection) Close() (e error) {
 	}
 
 	// output logs
-	if e == nil {
+	if Notify != nil {
 		lh, ph := c.hostnames()
-		monitor.Notify(monitor.Info, "close connection", lh, ph)
-	} else {
-		monitor.Notify(monitor.Major, "close connection failed", e.Error())
+		if e == nil {
+			Notify(&TransportCloseSuccess{Local: lh, Peer: ph})
+		} else {
+			Notify(&TransportCloseFail{Local: lh, Peer: ph, Err: e})
+		}
 	}
 	return
 }
@@ -54,12 +55,14 @@ func (c *Connection) Write(s time.Duration, m msg.Message) (e error) {
 		_, e = m.WriteTo(c.conn)
 	}
 
-	if e == nil {
+	if Notify != nil {
 		lh, ph := c.hostnames()
-		monitor.Notify(monitor.Trace, "write message data", lh, ph)
-		monitor.Dump("== Diameter message stack ==", m.PrintStack)
-	} else {
-		monitor.Notify(monitor.Minor, "write message failed", e.Error())
+		if e == nil {
+			Notify(&WriteSuccess{Local: lh, Peer: ph})
+			Notify(&Dump{f: m.PrintStack})
+		} else {
+			Notify(&WriteFail{Local: lh, Peer: ph, Err: e})
+		}
 	}
 	return
 }
@@ -81,12 +84,14 @@ func (c *Connection) Read(s time.Duration) (m msg.Message, e error) {
 		*/
 	}
 
-	if e == nil {
+	if Notify != nil {
 		lh, ph := c.hostnames()
-		monitor.Notify(monitor.Trace, "read message data", lh, ph)
-		monitor.Dump("== Diameter message stack ==", m.PrintStack)
-	} else {
-		monitor.Notify(monitor.Minor, "read message failed", e.Error())
+		if e == nil {
+			Notify(&ReadSuccess{Local: lh, Peer: ph})
+			Notify(&Dump{f: m.PrintStack})
+		} else {
+			Notify(&ReadFail{Local: lh, Peer: ph, Err: e})
+		}
 	}
 	return
 }

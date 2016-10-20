@@ -54,7 +54,7 @@ func (m Message) WriteTo(w io.Writer) (n int64, e error) {
 		return
 	}
 	n += int64(i)
-	if i, e = b.Write(itob(m.leng)[1:4]); e != nil {
+	if i, e = b.Write(ItoB(m.leng)[1:4]); e != nil {
 		return
 	}
 	n += int64(i)
@@ -62,19 +62,19 @@ func (m Message) WriteTo(w io.Writer) (n int64, e error) {
 		return
 	}
 	n += int64(i)
-	if i, e = b.Write(itob(m.Code)[1:4]); e != nil {
+	if i, e = b.Write(ItoB(m.Code)[1:4]); e != nil {
 		return
 	}
 	n += int64(i)
-	if i, e = b.Write(itob(m.AppID)); e != nil {
+	if i, e = b.Write(ItoB(m.AppID)); e != nil {
 		return
 	}
 	n += int64(i)
-	if i, e = b.Write(itob(m.HbHID)); e != nil {
+	if i, e = b.Write(ItoB(m.HbHID)); e != nil {
 		return
 	}
 	n += int64(i)
-	if i, e = b.Write(itob(m.EtEID)); e != nil {
+	if i, e = b.Write(ItoB(m.EtEID)); e != nil {
 		return
 	}
 	n += int64(i)

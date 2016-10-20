@@ -6,8 +6,8 @@ import (
 	"fmt"
 )
 
-// Convert from uint32 to byte array
-func itob(i uint32) (b []byte) {
+// ItoB convert from uint32 to byte array
+func ItoB(i uint32) (b []byte) {
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, i)
 	return buf.Bytes()
@@ -40,8 +40,8 @@ func btobo(b []byte) (fs []bool) {
 	return
 }
 
-// Convert from string to TBCD string byte array
-func stotbcd(s string) []byte {
+// StoTbcd convert from string to TBCD string byte array
+func StoTbcd(s string) []byte {
 	if len(s)%2 != 0 {
 		s = s + " "
 	}
