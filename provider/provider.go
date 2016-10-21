@@ -82,16 +82,16 @@ func (p *Provider) run() {
 	for {
 		if event := <-p.notify; event == nil {
 			break
-		} else if e := event.exec(p); e != nil {
-			monitor.Notify(monitor.Info,
-				"not acceptable event for provider status",
-				e.Error(), stateStr[p.state])
+		} else if e := event.exec(p); e != nil && Notify != nil {
+			Notify(&InvalidEvent{Err: e, State: stateStr[p.state]})
 		}
 	}
 }
 
 func (p *Provider) open() {
-	monitor.Notify(monitor.Info, "start message handling process")
+	if Notify != nil {
+		Notify(&StateUpdate{"open"})
+	}
 
 	p.resetWatchdog()
 
@@ -152,7 +152,9 @@ func (p *Provider) open() {
 		p.wT.Stop()
 	}
 
-	monitor.Notify(monitor.Info, "stop message handling process")
+	if Notify != nil {
+		Notify(&StateUpdate{"close"})
+	}
 }
 
 func (p *Provider) activeConnection() *Connection {
@@ -177,13 +179,19 @@ func (p *Provider) resetWatchdog() {
 			p.notify <- eventStop{msg.Enumerated(0)}
 		} else {
 			r := c.makeDWR()
-			monitor.Notify(monitor.Debug, "-> DWR")
+			if Notify != nil {
+				Notify(&TxWatchdogReq{})
+			}
 			ap := sendReq(r, c, p)
 			if ap == nil {
-				monitor.Notify(monitor.Debug, "no DWA response")
+				if Notify != nil {
+					Notify(&NoWatchdogAns{})
+				}
 				p.notify <- eventStop{msg.Enumerated(0)}
 			} else {
-				monitor.Notify(monitor.Debug, "<- DWA")
+				if Notify != nil {
+					Notify(&RxWatchdogAns{})
+				}
 				p.resetWatchdog()
 			}
 		}
@@ -211,18 +219,26 @@ func (p *Provider) Send(r msg.Message) (a msg.Message, e error) {
 	r.EtEID = c.Local.NextEtE()
 
 	for i := 0; i <= c.Peer.Cp; i++ {
-		monitor.Notify(monitor.Debug, "-> REQ")
+		if Notify != nil {
+			Notify(&TxDataReq{})
+		}
 		ap := sendReq(r, c, p)
 		if ap == nil {
 			if i == c.Peer.Cp {
-				monitor.Notify(monitor.Debug, "no response")
+				if Notify != nil {
+					Notify(&NoDataAns{Retry: false})
+				}
 				e = fmt.Errorf("No answer")
 			} else {
-				monitor.Notify(monitor.Debug, "no response retry")
+				if Notify != nil {
+					Notify(&NoDataAns{Retry: true})
+				}
 			}
 			r.FlgT = true
 		} else {
-			monitor.Notify(monitor.Debug, "<- ANS")
+			if Notify != nil {
+				Notify(&RxDataAns{})
+			}
 			a = *ap
 			e = nil
 			break
@@ -256,14 +272,16 @@ func (p *Provider) Recieve() (r msg.Message, ch chan *msg.Message, e error) {
 		e = fmt.Errorf("Peer Node closed")
 		p.rcvstack <- nil
 	} else {
-		monitor.Notify(monitor.Debug, "<- REQ")
+		if Notify != nil {
+			Notify(&RxDataReq{})
+		}
 		r = *rp
 		ch = make(chan *msg.Message)
 		go func() {
-			if a := <-ch; a == nil {
-				monitor.Notify(monitor.Debug, "not send response")
-			} else {
-				monitor.Notify(monitor.Debug, "-> ANS")
+			if a := <-ch; a != nil {
+				if Notify != nil {
+					Notify(&TxDataAns{})
+				}
 				a.HbHID = r.HbHID
 				a.EtEID = r.EtEID
 				p.notify <- eventSndMsg{*a}
@@ -284,7 +302,9 @@ type eventStart struct {
 }
 
 func (v eventStart) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event Start")
+	if Notify != nil {
+		Notify(&StateUpdate{"start"})
+	}
 
 	switch p.state {
 	case closed:
@@ -332,8 +352,10 @@ type eventRConnCER struct {
 }
 
 func (v eventRConnCER) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Debug, "<- CER")
-	monitor.Notify(monitor.Trace, "event R-Conn-CER")
+	if Notify != nil {
+		Notify(&RxExchangeReq{})
+		Notify(&StateUpdate{"R-Conn-CER"})
+	}
 
 	switch p.state {
 	case closed:
@@ -341,7 +363,9 @@ func (v eventRConnCER) exec(p *Provider) (e error) {
 		m, c := v.c.makeCEA(v.m)
 
 		// R-Snd-CEA
-		monitor.Notify(monitor.Debug, "-> CEA")
+		if Notify != nil {
+			Notify(&TxExchangeAns{})
+		}
 		e = v.c.Write(v.c.Peer.Ts, m)
 
 		if c == 2001 && e == nil {
@@ -385,7 +409,9 @@ func (v eventRConnCER) exec(p *Provider) (e error) {
 type eventIRcvConAck struct{}
 
 func (v eventIRcvConAck) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event I-Rcv-Con-Ack")
+	if Notify != nil {
+		Notify(&StateUpdate{"I-Rcv-Con-Ack"})
+	}
 
 	switch p.state {
 	case waitConnAck:
@@ -444,7 +470,9 @@ func (v eventIRcvConAck) exec(p *Provider) (e error) {
 type eventIRcvConNack struct{}
 
 func (v eventIRcvConNack) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event I-Rcv-Con-Nack")
+	if Notify != nil {
+		Notify(&StateUpdate{"I-Rcv-Con-Nack"})
+	}
 
 	switch p.state {
 	case waitConnAck:
@@ -486,7 +514,9 @@ type eventTimeout struct {
 }
 
 func (v eventTimeout) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event Timeout")
+	if Notify != nil {
+		Notify(&StateUpdate{"Timeout"})
+	}
 
 	switch p.state {
 	case waitConnAck, waitICEA, waitConnAckElect, waitReturns, closing:
@@ -509,7 +539,9 @@ type eventRcvCER struct {
 }
 
 func (v eventRcvCER) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event Rcv-CER")
+	if Notify != nil {
+		Notify(&StateUpdate{"Rcv-CER"})
+	}
 	monitor.Notify(monitor.Debug, "<- CER")
 
 	e = fmt.Errorf("Rcv-CER")
@@ -521,7 +553,9 @@ type eventRRcvCEA struct {
 }
 
 func (v eventRRcvCEA) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event R-Rcv-CEA")
+	if Notify != nil {
+		Notify(&StateUpdate{"R-Rcv-CEA"})
+	}
 	monitor.Notify(monitor.Debug, "<- CEA")
 
 	e = fmt.Errorf("R-Rcv-CEA")
@@ -533,7 +567,9 @@ type eventIRcvCEA struct {
 }
 
 func (v eventIRcvCEA) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event I-Rcv-CEA")
+	if Notify != nil {
+		Notify(&StateUpdate{"I-Rcv-CEA"})
+	}
 	monitor.Notify(monitor.Debug, "<- CEA")
 
 	switch p.state {
@@ -583,7 +619,9 @@ type eventIRcvNonCEA struct {
 }
 
 func (v eventIRcvNonCEA) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event I-Rcv-Non-CEA")
+	if Notify != nil {
+		Notify(&StateUpdate{"I-Rcv-Non-CEA"})
+	}
 	monitor.Notify(monitor.Debug, "<- ANS")
 
 	switch p.state {
@@ -611,7 +649,9 @@ func (v eventIRcvNonCEA) exec(p *Provider) (e error) {
 type eventRPeerDisc struct{}
 
 func (v eventRPeerDisc) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event R-Peer-Disc")
+	if Notify != nil {
+		Notify(&StateUpdate{"R-Peer-Disc"})
+	}
 
 	switch p.state {
 	case waitConnAckElect:
@@ -644,7 +684,9 @@ func (v eventRPeerDisc) exec(p *Provider) (e error) {
 type eventIPeerDisc struct{}
 
 func (v eventIPeerDisc) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event I-Peer-Disc")
+	if Notify != nil {
+		Notify(&StateUpdate{"I-Peer-Disc"})
+	}
 
 	switch p.state {
 	case waitICEA, iOpen, closing:
@@ -683,7 +725,9 @@ type eventRcvDWR struct {
 }
 
 func (v eventRcvDWR) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event Rcv-DWR")
+	if Notify != nil {
+		Notify(&StateUpdate{"Rcv-DWR"})
+	}
 	monitor.Notify(monitor.Debug, "<- DWR")
 
 	switch p.state {
@@ -726,7 +770,9 @@ type eventRcvDWA struct {
 }
 
 func (v eventRcvDWA) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event Rcv-DWA")
+	if Notify != nil {
+		Notify(&StateUpdate{"Rcv-DWA"})
+	}
 
 	switch p.state {
 	case rOpen, iOpen:
@@ -758,7 +804,9 @@ type eventStop struct {
 }
 
 func (v eventStop) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event Stop")
+	if Notify != nil {
+		Notify(&StateUpdate{"Stop"})
+	}
 
 	switch p.state {
 	case rOpen:
@@ -806,7 +854,9 @@ type eventRcvDPR struct {
 }
 
 func (v eventRcvDPR) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event Rcv-DPR")
+	if Notify != nil {
+		Notify(&StateUpdate{"Rcv-DPR"})
+	}
 	monitor.Notify(monitor.Debug, "<- DPR")
 
 	switch p.state {
@@ -849,7 +899,9 @@ type eventRRcvDPA struct {
 }
 
 func (v eventRRcvDPA) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event R-Rcv-DPA")
+	if Notify != nil {
+		Notify(&StateUpdate{"R-Rcv-DPA"})
+	}
 	monitor.Notify(monitor.Debug, "<- DPA")
 
 	switch p.state {
@@ -878,7 +930,9 @@ type eventIRcvDPA struct {
 }
 
 func (v eventIRcvDPA) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event I-Rcv-DPA")
+	if Notify != nil {
+		Notify(&StateUpdate{"I-Rcv-DPA"})
+	}
 	monitor.Notify(monitor.Debug, "<- DPA")
 
 	switch p.state {
@@ -905,7 +959,9 @@ func (v eventIRcvDPA) exec(p *Provider) (e error) {
 type eventWinElection struct{}
 
 func (v eventWinElection) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event Win-Election")
+	if Notify != nil {
+		Notify(&StateUpdate{"Win-Election"})
+	}
 
 	switch p.state {
 	case waitReturns:
@@ -941,7 +997,9 @@ type eventSndMsg struct {
 }
 
 func (v eventSndMsg) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event Send-Message")
+	if Notify != nil {
+		Notify(&StateUpdate{"Send-Message"})
+	}
 
 	switch p.state {
 	case rOpen:
@@ -975,7 +1033,9 @@ type eventRcvMsg struct {
 }
 
 func (v eventRcvMsg) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Trace, "event Rcv-Message")
+	if Notify != nil {
+		Notify(&StateUpdate{"Rcv-Message"})
+	}
 
 	switch p.state {
 	case rOpen, iOpen:

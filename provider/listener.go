@@ -25,8 +25,17 @@ func Listen(n *LocalNode) (l *Listener) {
 // Bind bind network listener to Listener
 func (l *Listener) Bind(lnr net.Listener) {
 	for {
-		if c, e := l.local.Accept(lnr); e != nil {
-			monitor.Notify(monitor.Major, "listening failed", e.Error())
+		c, e := l.local.Accept(lnr)
+		// output logs
+		if Notify != nil {
+			lh, ph := c.hostnames()
+			if e == nil {
+				Notify(&TransportListenerBinded{})
+			} else {
+				Notify(&TransportListenerBindFailed{})
+			}
+		}
+		if e != nil {
 			break
 		} else {
 			go l.bindProvider(c)
@@ -41,7 +50,10 @@ func (l *Listener) bindProvider(c *Connection) {
 		e = fmt.Errorf("not CER")
 	}
 	if e != nil {
-		monitor.Notify(monitor.Minor, "invalid message received", e.Error())
+		// output logs
+		if Notify != nil {
+			Notify(&InvalidMessageReceived{Err: e})
+		}
 		c.Close()
 		return
 	}
@@ -65,7 +77,9 @@ func (l *Listener) bindProvider(c *Connection) {
 		}
 	}
 
-	monitor.Notify(monitor.Minor, "reject CER from unknown Peer", string(h), string(r))
+	if Notify != nil {
+		Notify(&CERfromUnknownPeer{Local: string(h), Peer: string(r)})
+	}
 	c.Close()
 }
 
