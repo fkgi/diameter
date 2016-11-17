@@ -28,12 +28,8 @@ func (l *Listener) Bind(lnr net.Listener) {
 		c, e := l.local.Accept(lnr)
 		// output logs
 		if Notify != nil {
-			lh, ph := c.hostnames()
-			if e == nil {
-				Notify(&TransportBind{Local: l.local, LAddr: lnr.Addr()})
-			} else {
-				Notify(&TransportBind{Local: l.local, LAddr: lnr.Addr(), Err: e})
-			}
+			Notify(&TransportBind{
+				Local: l.local, LAddr: lnr.Addr(), Err: e})
 		}
 		if e != nil {
 			break
@@ -52,7 +48,8 @@ func (l *Listener) bindProvider(c *Connection) {
 	if e != nil {
 		// output logs
 		if Notify != nil {
-			Notify(&RxMessage{Err: e})
+			Notify(&CapabilityExchangeEvent{
+				Tx: false, Req: true, Local: l.local, Peer: nil, Err: e})
 		}
 		c.Close()
 		return
@@ -78,7 +75,9 @@ func (l *Listener) bindProvider(c *Connection) {
 	}
 
 	if Notify != nil {
-		Notify(&ExchangeEvent{Req: true, Err: fmt.Errorf("CER from unknown peer")})
+		e = fmt.Errorf("CER from unknown peer")
+		Notify(&CapabilityExchangeEvent{
+			Tx: false, Req: true, Local: l.local, Peer: nil, Err: e})
 	}
 	c.Close()
 }

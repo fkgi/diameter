@@ -35,17 +35,8 @@ func (c *Connection) Close() (e error) {
 
 	// output logs
 	if Notify != nil {
-		lh, ph := c.hostnames()
-<<<<<<< HEAD
 		Notify(&TransportStateChange{
-			Open: false, Local: lh, Peer: ph, LAddr: la, PAddr: pa, Err: e})
-=======
-		if e == nil {
-			Notify(&TransportStateChange{Local: lh, Peer: ph})
-		} else {
-			Notify(&TransportStateChange{Local: lh, Peer: ph, Err: e})
-		}
->>>>>>> 5416165dd3d6d12f0f3f013f2bee2cb9f0cca31a
+			Open: false, Local: c.Local, Peer: c.Peer, LAddr: la, PAddr: pa, Err: e})
 	}
 	return
 }
@@ -53,7 +44,7 @@ func (c *Connection) Close() (e error) {
 // Low-level message writer
 func (c *Connection) Write(s time.Duration, m msg.Message) (e error) {
 	if c.conn == nil {
-		e = fmt.Errorf("connection is closed")
+		e = fmt.Errorf("connection has been closed")
 	} else {
 		t := time.Time{}
 		if s != time.Duration(0) {
@@ -64,17 +55,8 @@ func (c *Connection) Write(s time.Duration, m msg.Message) (e error) {
 	}
 
 	if Notify != nil {
-		lh, ph := c.hostnames()
-<<<<<<< HEAD
-		Notify(&TxMessage{
-			Local: lh, Peer: ph, Err: e, dump: m.PrintStack})
-=======
-		if e == nil {
-			Notify(&TxMessage{Local: lh, Peer: ph, dump: m.PrintStack})
-		} else {
-			Notify(&TxMessage{Local: lh, Peer: ph, Err: e})
-		}
->>>>>>> 5416165dd3d6d12f0f3f013f2bee2cb9f0cca31a
+		Notify(&MessageTransfer{
+			Tx: true, Local: c.Local, Peer: c.Peer, Err: e, dump: m.PrintStack})
 	}
 	return
 }
@@ -82,7 +64,7 @@ func (c *Connection) Write(s time.Duration, m msg.Message) (e error) {
 // Low-level message reader
 func (c *Connection) Read(s time.Duration) (m msg.Message, e error) {
 	if c.conn == nil {
-		e = fmt.Errorf("connection is closed")
+		e = fmt.Errorf("connection has been closed")
 	} else {
 		t := time.Time{}
 		if s != time.Duration(0) {
@@ -97,21 +79,13 @@ func (c *Connection) Read(s time.Duration) (m msg.Message, e error) {
 	}
 
 	if Notify != nil {
-		lh, ph := c.hostnames()
-<<<<<<< HEAD
-		Notify(&RxMessage{
-			Local: lh, Peer: ph, Err: e, dump: m.PrintStack})
-=======
-		if e == nil {
-			Notify(&RxMessage{Local: lh, Peer: ph, dump: m.PrintStack})
-		} else {
-			Notify(&RxMessage{Local: lh, Peer: ph, Err: e})
-		}
->>>>>>> 5416165dd3d6d12f0f3f013f2bee2cb9f0cca31a
+		Notify(&MessageTransfer{
+			Tx: false, Local: c.Local, Peer: c.Peer, Err: e, dump: m.PrintStack})
 	}
 	return
 }
 
+/*
 func (c *Connection) hostnames() (lh, ph string) {
 	if c.Local == nil {
 		lh = "unknown"
@@ -125,3 +99,4 @@ func (c *Connection) hostnames() (lh, ph string) {
 	}
 	return
 }
+*/
