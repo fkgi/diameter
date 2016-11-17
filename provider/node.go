@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/fkgi/diameter/msg"
+	"github.com/fkgi/extnet"
 )
 
 // LocalNode is local node of Diameter
@@ -69,10 +70,20 @@ func (l *LocalNode) Connect(p *PeerNode, laddr, raddr net.Addr, s time.Duration)
 		e = fmt.Errorf("Remote address is nil")
 	} else if p == nil {
 		e = fmt.Errorf("Peer node is nil")
-	} else {
+	} else if laddr.Network() != "sctp" {
 		dialer := net.Dialer{}
 		dialer.Timeout = s
 		dialer.LocalAddr = laddr
+
+		var con net.Conn
+		if con, e = dialer.Dial(raddr.Network(), raddr.String()); e == nil {
+			c = &Connection{p, l, con}
+		}
+	} else {
+		dialer := extnet.SCTPDialer{}
+		dialer.InitTimeout = s
+		var ok bool
+		dialer.LocalAddr, ok = laddr.(*extnet.SCTPAddr)
 
 		var con net.Conn
 		if con, e = dialer.Dial(raddr.Network(), raddr.String()); e == nil {
@@ -82,9 +93,20 @@ func (l *LocalNode) Connect(p *PeerNode, laddr, raddr net.Addr, s time.Duration)
 
 	// output logs
 	if Notify != nil {
+<<<<<<< HEAD
 		Notify(&TransportStateChange{
 			Open: true, Local: string(l.Host), Peer: string(p.Host),
 			LAddr: laddr, PAddr: raddr, Err: e})
+=======
+		if e == nil {
+			lh, ph := c.hostnames()
+			la := c.conn.LocalAddr()
+			pa := c.conn.RemoteAddr()
+			Notify(&TransportStateChange{Local: lh, Peer: ph, LAddr: la, PAddr: pa})
+		} else {
+			Notify(&TransportStateChange{Err: e})
+		}
+>>>>>>> 5416165dd3d6d12f0f3f013f2bee2cb9f0cca31a
 	}
 	return
 }
@@ -104,9 +126,18 @@ func (l *LocalNode) Accept(lnr net.Listener) (c *Connection, e error) {
 	if Notify != nil {
 		var paddr net.Addr
 		if e == nil {
+<<<<<<< HEAD
 			paddr = c.conn.RemoteAddr()
 		} else {
 			paddr = nil
+=======
+			lh, ph := c.hostnames()
+			la := c.conn.LocalAddr()
+			pa := c.conn.RemoteAddr()
+			Notify(&TransportStateChange{Local: lh, Peer: ph, LAddr: la, PAddr: pa})
+		} else {
+			Notify(&TransportStateChange{Err: e})
+>>>>>>> 5416165dd3d6d12f0f3f013f2bee2cb9f0cca31a
 		}
 		Notify(&TransportStateChange{
 			Open: true, Local: string(l.Host), Peer: "unknown",

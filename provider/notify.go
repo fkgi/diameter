@@ -136,12 +136,12 @@ func (e *StateUpdate) Error() string {
 	return fmt.Sprintf("provider state update, %s", e.State)
 }
 
-// DiameterStateChange notify event
-type DiameterStateChange struct {
+// DiameterConnectionStateChange notify event
+type DiameterConnectionStateChange struct {
 	Open bool
 }
 
-func (e *DiameterStateChange) Error() (s string) {
+func (e *DiameterConnectionStateChange) Error() (s string) {
 	if e == nil {
 		s = "<nil>"
 	} else if e.Open {
@@ -163,6 +163,7 @@ func (e *CapabilityExchangeEvent) Error() (s string) {
 	if e == nil {
 		s = "<nil>"
 	} else if e.Tx && e.Req && e.Err == nil {
+<<<<<<< HEAD
 		s = fmt.Sprintf("-> CER")
 	} else if e.Tx && e.Req {
 		s = fmt.Sprintf("-X CER failed, %s", e.Err)
@@ -181,10 +182,28 @@ func (e *CapabilityExchangeEvent) Error() (s string) {
 		s = fmt.Sprintf("<- CEA")
 	} else if !e.Tx && !e.Req {
 		s = fmt.Sprintf("X- CEA failed, %s", e.Err)
+=======
+		s = fmt.Sprintf("-> DWR")
+	} else if e.Tx && e.Req && e.Err != nil {
+		s = fmt.Sprintf("-> DWR failed, reason is %s", e.Err)
+	} else if e.Tx && !e.Req && e.Err == nil {
+		s = fmt.Sprintf("-> DWA")
+	} else if e.Tx && !e.Req && e.Err != nil {
+		s = fmt.Sprintf("-> DWA failed, reason is %s", e.Err)
+	} else if !e.Tx && e.Req && e.Err == nil {
+		s = fmt.Sprintf("<- DWR")
+	} else if !e.Tx && e.Req && e.Err != nil {
+		s = fmt.Sprintf("<- DWR failed, reason is %s", e.Err)
+	} else if !e.Tx && !e.Req && e.Err == nil {
+		s = fmt.Sprintf("<- DWA")
+	} else if !e.Tx && !e.Req && e.Err != nil {
+		s = fmt.Sprintf("<- DWA failed, reason is %s", e.Err)
+>>>>>>> 5416165dd3d6d12f0f3f013f2bee2cb9f0cca31a
 	}
 	return s
 }
 
+<<<<<<< HEAD
 // WatchdogEvent notify watchdog related event
 type WatchdogEvent struct {
 	Tx  bool
@@ -220,11 +239,16 @@ func (e *WatchdogEvent) Error() (s string) {
 
 // MessageEvent notify diameter message related event
 type MessageEvent struct {
+=======
+// ExchangeEvent notify capability exchange related event
+type ExchangeEvent struct {
+>>>>>>> 5416165dd3d6d12f0f3f013f2bee2cb9f0cca31a
 	Tx  bool
 	Req bool
 	Err error
 }
 
+<<<<<<< HEAD
 func (e *MessageEvent) Error() (s string) {
 	if e == nil {
 		s = "<nil>"
@@ -247,11 +271,36 @@ func (e *MessageEvent) Error() (s string) {
 		s = fmt.Sprintf("<- ANS")
 	} else if !e.Tx && !e.Req {
 		s = fmt.Sprintf("X- ANS failed, %s", e.Err)
+=======
+func (e *ExchangeEvent) Error() (s string) {
+	if e == nil {
+		s = "<nil>"
+	} else if e.Tx && e.Req && e.Err == nil {
+		s = fmt.Sprintf("-> CER")
+	} else if e.Tx && e.Req && e.Err != nil {
+		s = fmt.Sprintf("-> CER failed, reason is %s", e.Err)
+	} else if e.Tx && !e.Req && e.Err == nil {
+		s = fmt.Sprintf("-> CEA")
+	} else if e.Tx && !e.Req && e.Err != nil {
+		s = fmt.Sprintf("-> CEA failed, reason is %s", e.Err)
+	} else if !e.Tx && e.Req && e.Err == nil {
+		s = fmt.Sprintf("<- CER")
+	} else if !e.Tx && e.Req && e.Err != nil {
+		s = fmt.Sprintf("<- CER failed, reason is %s", e.Err)
+	} else if !e.Tx && !e.Req && e.Err == nil {
+		s = fmt.Sprintf("<- CEA")
+	} else if !e.Tx && !e.Req && e.Err != nil {
+		s = fmt.Sprintf("<- CEA failed, reason is %s", e.Err)
+>>>>>>> 5416165dd3d6d12f0f3f013f2bee2cb9f0cca31a
 	}
 	return s
 }
 
+<<<<<<< HEAD
 // PurgeEvent notify diameter message related event
+=======
+// PurgeEvent notify capability exchange related event
+>>>>>>> 5416165dd3d6d12f0f3f013f2bee2cb9f0cca31a
 type PurgeEvent struct {
 	Tx  bool
 	Req bool
@@ -262,6 +311,7 @@ func (e *PurgeEvent) Error() (s string) {
 	if e == nil {
 		s = "<nil>"
 	} else if e.Tx && e.Req && e.Err == nil {
+<<<<<<< HEAD
 		s = fmt.Sprintf("-> DPR")
 	} else if e.Tx && e.Req {
 		s = fmt.Sprintf("-X DPR failed, %s", e.Err)
@@ -280,6 +330,23 @@ func (e *PurgeEvent) Error() (s string) {
 		s = fmt.Sprintf("<- DPA")
 	} else if !e.Tx && !e.Req {
 		s = fmt.Sprintf("X- DPA failed, %s", e.Err)
+=======
+		s = fmt.Sprintf("-> PDR")
+	} else if e.Tx && e.Req && e.Err != nil {
+		s = fmt.Sprintf("-> DPR failed, reason is %s", e.Err)
+	} else if e.Tx && !e.Req && e.Err == nil {
+		s = fmt.Sprintf("-> DPA")
+	} else if e.Tx && !e.Req && e.Err != nil {
+		s = fmt.Sprintf("-> DPA failed, reason is %s", e.Err)
+	} else if !e.Tx && e.Req && e.Err == nil {
+		s = fmt.Sprintf("<- DPR")
+	} else if !e.Tx && e.Req && e.Err != nil {
+		s = fmt.Sprintf("<- DPR failed, reason is %s", e.Err)
+	} else if !e.Tx && !e.Req && e.Err == nil {
+		s = fmt.Sprintf("<- DPA")
+	} else if !e.Tx && !e.Req && e.Err != nil {
+		s = fmt.Sprintf("<- DPA failed, reason is %s", e.Err)
+>>>>>>> 5416165dd3d6d12f0f3f013f2bee2cb9f0cca31a
 	}
 	return s
 }

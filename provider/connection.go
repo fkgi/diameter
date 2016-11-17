@@ -36,8 +36,16 @@ func (c *Connection) Close() (e error) {
 	// output logs
 	if Notify != nil {
 		lh, ph := c.hostnames()
+<<<<<<< HEAD
 		Notify(&TransportStateChange{
 			Open: false, Local: lh, Peer: ph, LAddr: la, PAddr: pa, Err: e})
+=======
+		if e == nil {
+			Notify(&TransportStateChange{Local: lh, Peer: ph})
+		} else {
+			Notify(&TransportStateChange{Local: lh, Peer: ph, Err: e})
+		}
+>>>>>>> 5416165dd3d6d12f0f3f013f2bee2cb9f0cca31a
 	}
 	return
 }
@@ -57,8 +65,16 @@ func (c *Connection) Write(s time.Duration, m msg.Message) (e error) {
 
 	if Notify != nil {
 		lh, ph := c.hostnames()
+<<<<<<< HEAD
 		Notify(&TxMessage{
 			Local: lh, Peer: ph, Err: e, dump: m.PrintStack})
+=======
+		if e == nil {
+			Notify(&TxMessage{Local: lh, Peer: ph, dump: m.PrintStack})
+		} else {
+			Notify(&TxMessage{Local: lh, Peer: ph, Err: e})
+		}
+>>>>>>> 5416165dd3d6d12f0f3f013f2bee2cb9f0cca31a
 	}
 	return
 }
@@ -82,8 +98,16 @@ func (c *Connection) Read(s time.Duration) (m msg.Message, e error) {
 
 	if Notify != nil {
 		lh, ph := c.hostnames()
+<<<<<<< HEAD
 		Notify(&RxMessage{
 			Local: lh, Peer: ph, Err: e, dump: m.PrintStack})
+=======
+		if e == nil {
+			Notify(&RxMessage{Local: lh, Peer: ph, dump: m.PrintStack})
+		} else {
+			Notify(&RxMessage{Local: lh, Peer: ph, Err: e})
+		}
+>>>>>>> 5416165dd3d6d12f0f3f013f2bee2cb9f0cca31a
 	}
 	return
 }
