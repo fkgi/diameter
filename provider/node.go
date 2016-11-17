@@ -82,14 +82,9 @@ func (l *LocalNode) Connect(p *PeerNode, laddr, raddr net.Addr, s time.Duration)
 
 	// output logs
 	if Notify != nil {
-		if e == nil {
-			lh, ph := c.hostnames()
-			la := c.conn.LocalAddr()
-			pa := c.conn.RemoteAddr()
-			Notify(&TransportConnectSuccess{Local: lh, Peer: ph, LAddr: la, PAddr: pa})
-		} else {
-			Notify(&TransportConnectFail{Err: e})
-		}
+		Notify(&TransportStateChange{
+			Open: true, Local: string(l.Host), Peer: string(p.Host),
+			LAddr: laddr, PAddr: raddr, Err: e})
 	}
 	return
 }
@@ -107,14 +102,15 @@ func (l *LocalNode) Accept(lnr net.Listener) (c *Connection, e error) {
 
 	// output logs
 	if Notify != nil {
+		var paddr net.Addr
 		if e == nil {
-			lh, ph := c.hostnames()
-			la := c.conn.LocalAddr()
-			pa := c.conn.RemoteAddr()
-			Notify(&TransportConnectSuccess{Local: lh, Peer: ph, LAddr: la, PAddr: pa})
+			paddr = c.conn.RemoteAddr()
 		} else {
-			Notify(&TransportConnectFail{Err: e})
+			paddr = nil
 		}
+		Notify(&TransportStateChange{
+			Open: true, Local: string(l.Host), Peer: "unknown",
+			LAddr: lnr.Addr(), PAddr: paddr, Err: e})
 	}
 	return
 }

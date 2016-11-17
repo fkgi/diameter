@@ -22,9 +22,12 @@ func (c *Connection) IsAvailable() bool {
 
 // Close close Diameter connection
 func (c *Connection) Close() (e error) {
+	var la, pa net.Addr
 	if c.conn == nil {
 		e = fmt.Errorf("connection has been closed")
 	} else {
+		la = c.conn.LocalAddr()
+		pa = c.conn.RemoteAddr()
 		tmp := c.conn
 		c.conn = nil
 		e = tmp.Close()
@@ -33,11 +36,8 @@ func (c *Connection) Close() (e error) {
 	// output logs
 	if Notify != nil {
 		lh, ph := c.hostnames()
-		if e == nil {
-			Notify(&TransportCloseSuccess{Local: lh, Peer: ph})
-		} else {
-			Notify(&TransportCloseFail{Local: lh, Peer: ph, Err: e})
-		}
+		Notify(&TransportStateChange{
+			Open: false, Local: lh, Peer: ph, LAddr: la, PAddr: pa, Err: e})
 	}
 	return
 }
@@ -57,12 +57,8 @@ func (c *Connection) Write(s time.Duration, m msg.Message) (e error) {
 
 	if Notify != nil {
 		lh, ph := c.hostnames()
-		if e == nil {
-			Notify(&WriteSuccess{Local: lh, Peer: ph})
-			Notify(&Dump{f: m.PrintStack})
-		} else {
-			Notify(&WriteFail{Local: lh, Peer: ph, Err: e})
-		}
+		Notify(&TxMessage{
+			Local: lh, Peer: ph, Err: e, dump: m.PrintStack})
 	}
 	return
 }
@@ -86,12 +82,8 @@ func (c *Connection) Read(s time.Duration) (m msg.Message, e error) {
 
 	if Notify != nil {
 		lh, ph := c.hostnames()
-		if e == nil {
-			Notify(&ReadSuccess{Local: lh, Peer: ph})
-			Notify(&Dump{f: m.PrintStack})
-		} else {
-			Notify(&ReadFail{Local: lh, Peer: ph, Err: e})
-		}
+		Notify(&RxMessage{
+			Local: lh, Peer: ph, Err: e, dump: m.PrintStack})
 	}
 	return
 }
