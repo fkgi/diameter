@@ -156,15 +156,15 @@ func (e *StateUpdate) Error() string {
 	return fmt.Sprintf("provider state update, %s", e.State)
 }
 
-// DiameterStateChange notify event
-type DiameterStateChange struct {
+// DiameterConnectionStateChange notify event
+type DiameterConnectionStateChange struct {
 	Open bool
 }
 
-func (e *DiameterStateChange) Error() (s string) {
+func (e *DiameterConnectionStateChange) Error() (s string) {
 	if e == nil {
 		s = "<nil>"
-	} else if Open {
+	} else if e.Open {
 		s = "Diameter connection open"
 	} else {
 		s = "Diameter connection close"
@@ -176,167 +176,88 @@ func (e *DiameterStateChange) Error() (s string) {
 type WatchdogEvent struct {
 	Tx  bool
 	Req bool
-	Err bool
+	Err error
 }
 
 func (e *WatchdogEvent) Error() (s string) {
 	if e == nil {
 		s = "<nil>"
-	} else if Tx && Req {
+	} else if e.Tx && e.Req && e.Err == nil {
 		s = fmt.Sprintf("-> DWR")
-	} else if Tx && !Req {
+	} else if e.Tx && e.Req && e.Err != nil {
+		s = fmt.Sprintf("-> DWR failed, reason is %s", e.Err)
+	} else if e.Tx && !e.Req && e.Err == nil {
 		s = fmt.Sprintf("-> DWA")
-	} else if !Tx && Req {
+	} else if e.Tx && !e.Req && e.Err != nil {
+		s = fmt.Sprintf("-> DWA failed, reason is %s", e.Err)
+	} else if !e.Tx && e.Req && e.Err == nil {
 		s = fmt.Sprintf("<- DWR")
-	} else if !Tx && !Req {
+	} else if !e.Tx && e.Req && e.Err != nil {
+		s = fmt.Sprintf("<- DWR failed, reason is %s", e.Err)
+	} else if !e.Tx && !e.Req && e.Err == nil {
 		s = fmt.Sprintf("<- DWA")
+	} else if !e.Tx && !e.Req && e.Err != nil {
+		s = fmt.Sprintf("<- DWA failed, reason is %s", e.Err)
 	}
 	return s
 }
 
-// NoWatchdogAns notify event
-type NoWatchdogAns struct {
+// ExchangeEvent notify capability exchange related event
+type ExchangeEvent struct {
+	Tx  bool
+	Req bool
+	Err error
 }
 
-func (e *NoWatchdogAns) Error() string {
+func (e *ExchangeEvent) Error() (s string) {
 	if e == nil {
-		return "<nil>"
+		s = "<nil>"
+	} else if e.Tx && e.Req && e.Err == nil {
+		s = fmt.Sprintf("-> CER")
+	} else if e.Tx && e.Req && e.Err != nil {
+		s = fmt.Sprintf("-> CER failed, reason is %s", e.Err)
+	} else if e.Tx && !e.Req && e.Err == nil {
+		s = fmt.Sprintf("-> CEA")
+	} else if e.Tx && !e.Req && e.Err != nil {
+		s = fmt.Sprintf("-> CEA failed, reason is %s", e.Err)
+	} else if !e.Tx && e.Req && e.Err == nil {
+		s = fmt.Sprintf("<- CER")
+	} else if !e.Tx && e.Req && e.Err != nil {
+		s = fmt.Sprintf("<- CER failed, reason is %s", e.Err)
+	} else if !e.Tx && !e.Req && e.Err == nil {
+		s = fmt.Sprintf("<- CEA")
+	} else if !e.Tx && !e.Req && e.Err != nil {
+		s = fmt.Sprintf("<- CEA failed, reason is %s", e.Err)
 	}
-	return fmt.Sprintf("no DWA response")
+	return s
 }
 
-// RxWatchdogReq notify event
-type RxWatchdogReq struct {
+// PurgeEvent notify capability exchange related event
+type PurgeEvent struct {
+	Tx  bool
+	Req bool
+	Err error
 }
 
-func (e *RxWatchdogReq) Error() string {
+func (e *PurgeEvent) Error() (s string) {
 	if e == nil {
-		return "<nil>"
+		s = "<nil>"
+	} else if e.Tx && e.Req && e.Err == nil {
+		s = fmt.Sprintf("-> PDR")
+	} else if e.Tx && e.Req && e.Err != nil {
+		s = fmt.Sprintf("-> DPR failed, reason is %s", e.Err)
+	} else if e.Tx && !e.Req && e.Err == nil {
+		s = fmt.Sprintf("-> DPA")
+	} else if e.Tx && !e.Req && e.Err != nil {
+		s = fmt.Sprintf("-> DPA failed, reason is %s", e.Err)
+	} else if !e.Tx && e.Req && e.Err == nil {
+		s = fmt.Sprintf("<- DPR")
+	} else if !e.Tx && e.Req && e.Err != nil {
+		s = fmt.Sprintf("<- DPR failed, reason is %s", e.Err)
+	} else if !e.Tx && !e.Req && e.Err == nil {
+		s = fmt.Sprintf("<- DPA")
+	} else if !e.Tx && !e.Req && e.Err != nil {
+		s = fmt.Sprintf("<- DPA failed, reason is %s", e.Err)
 	}
-	return fmt.Sprintf("<- DWR")
-}
-
-// TxWatchdogAns notify event
-type TxWatchdogAns struct {
-}
-
-func (e *TxWatchdogAns) Error() string {
-	if e == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("-> DWA")
-}
-
-// TxExchangeReq notify event
-type TxExchangeReq struct {
-}
-
-func (e *TxExchangeReq) Error() string {
-	if e == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("-> CER")
-}
-
-// RxExchangeAns notify event
-type RxExchangeAns struct {
-}
-
-func (e *RxExchangeAns) Error() string {
-	if e == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("<- CEA")
-}
-
-// NoExchangeAns notify event
-type NoExchangeAns struct {
-}
-
-func (e *NoExchangeAns) Error() string {
-	if e == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("no CEA response")
-}
-
-// RxExchangeReq notify event
-type RxExchangeReq struct {
-}
-
-func (e *RxExchangeReq) Error() string {
-	if e == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("<- CER")
-}
-
-// TxExchangeAns notify event
-type TxExchangeAns struct {
-}
-
-func (e *TxExchangeAns) Error() string {
-	if e == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("-> CEA")
-}
-
-// TxDataReq notify event
-type TxDataReq struct {
-}
-
-func (e *TxDataReq) Error() string {
-	if e == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("-> REQ")
-}
-
-// RxDataAns notify event
-type RxDataAns struct {
-}
-
-func (e *RxDataAns) Error() string {
-	if e == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("<- ANS")
-}
-
-// NoDataAns notify event
-type NoDataAns struct {
-	Retry bool
-}
-
-func (e *NoDataAns) Error() string {
-	if e == nil {
-		return "<nil>"
-	}
-	if e.Retry {
-		return fmt.Sprintf("no response retry")
-	}
-	return fmt.Sprintf("no response")
-}
-
-// RxDataReq notify event
-type RxDataReq struct {
-}
-
-func (e *RxDataReq) Error() string {
-	if e == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("<- REQ")
-}
-
-// TxDataAns notify event
-type TxDataAns struct {
-}
-
-func (e *TxDataAns) Error() string {
-	if e == nil {
-		return "<nil>"
-	}
-	return fmt.Sprintf("-> ANS")
+	return s
 }

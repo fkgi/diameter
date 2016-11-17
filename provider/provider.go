@@ -180,17 +180,17 @@ func (p *Provider) resetWatchdog() {
 		} else {
 			r := c.makeDWR()
 			if Notify != nil {
-				Notify(&TxWatchdogReq{})
+				Notify(&WatchdogEvent{Tx: true, Req: true})
 			}
 			ap := sendReq(r, c, p)
 			if ap == nil {
 				if Notify != nil {
-					Notify(&NoWatchdogAns{})
+					Notify(&WatchdogEvent{Tx: false, Req: false, Err: fmt.Errorf("no answer")})
 				}
 				p.notify <- eventStop{msg.Enumerated(0)}
 			} else {
 				if Notify != nil {
-					Notify(&RxWatchdogAns{})
+					Notify(&WatchdogEvent{})
 				}
 				p.resetWatchdog()
 			}

@@ -30,9 +30,9 @@ func (l *Listener) Bind(lnr net.Listener) {
 		if Notify != nil {
 			lh, ph := c.hostnames()
 			if e == nil {
-				Notify(&TransportListenerBinded{})
+				Notify(&TransportBind{Local: l.local, LAddr: lnr.Addr()})
 			} else {
-				Notify(&TransportListenerBindFailed{})
+				Notify(&TransportBind{Local: l.local, LAddr: lnr.Addr(), Err: e})
 			}
 		}
 		if e != nil {
@@ -52,7 +52,7 @@ func (l *Listener) bindProvider(c *Connection) {
 	if e != nil {
 		// output logs
 		if Notify != nil {
-			Notify(&InvalidMessageReceived{Err: e})
+			Notify(&RxMessage{Err: e})
 		}
 		c.Close()
 		return
@@ -78,7 +78,7 @@ func (l *Listener) bindProvider(c *Connection) {
 	}
 
 	if Notify != nil {
-		Notify(&CERfromUnknownPeer{Local: string(h), Peer: string(r)})
+		Notify(&ExchangeEvent{Req: true, Err: fmt.Errorf("CER from unknown peer")})
 	}
 	c.Close()
 }

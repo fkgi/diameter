@@ -34,9 +34,9 @@ func (c *Connection) Close() (e error) {
 	if Notify != nil {
 		lh, ph := c.hostnames()
 		if e == nil {
-			Notify(&TransportCloseSuccess{Local: lh, Peer: ph})
+			Notify(&TransportStateChange{Local: lh, Peer: ph})
 		} else {
-			Notify(&TransportCloseFail{Local: lh, Peer: ph, Err: e})
+			Notify(&TransportStateChange{Local: lh, Peer: ph, Err: e})
 		}
 	}
 	return
@@ -58,10 +58,9 @@ func (c *Connection) Write(s time.Duration, m msg.Message) (e error) {
 	if Notify != nil {
 		lh, ph := c.hostnames()
 		if e == nil {
-			Notify(&WriteSuccess{Local: lh, Peer: ph})
-			Notify(&Dump{f: m.PrintStack})
+			Notify(&TxMessage{Local: lh, Peer: ph, dump: m.PrintStack})
 		} else {
-			Notify(&WriteFail{Local: lh, Peer: ph, Err: e})
+			Notify(&TxMessage{Local: lh, Peer: ph, Err: e})
 		}
 	}
 	return
@@ -87,10 +86,9 @@ func (c *Connection) Read(s time.Duration) (m msg.Message, e error) {
 	if Notify != nil {
 		lh, ph := c.hostnames()
 		if e == nil {
-			Notify(&ReadSuccess{Local: lh, Peer: ph})
-			Notify(&Dump{f: m.PrintStack})
+			Notify(&RxMessage{Local: lh, Peer: ph, dump: m.PrintStack})
 		} else {
-			Notify(&ReadFail{Local: lh, Peer: ph, Err: e})
+			Notify(&RxMessage{Local: lh, Peer: ph, Err: e})
 		}
 	}
 	return
