@@ -18,9 +18,9 @@ var Notify = func(e error) {
 
 // MessageTransfer indicate Diameter message sent
 type MessageTransfer struct {
+	Tx    bool
 	Local *LocalNode
 	Peer  *PeerNode
-	Tx    bool
 	Err   error
 	dump  func(io.Writer)
 }
@@ -31,25 +31,25 @@ func (e *MessageTransfer) Error() string {
 	}
 	if e.Tx && e.Err == nil {
 		return fmt.Sprintf(
-			"write Diameter message from %s to %s",
+			"write Diameter message %s -> %s",
 			e.Local, e.Peer)
 	}
 	if e.Tx && e.Err != nil {
 		return fmt.Sprintf(
-			"write Diameter message failed from %s to %s, reason is %s",
+			"write Diameter message %s -> %s failed: %s",
 			e.Local, e.Peer, e.Err)
 	}
 	if !e.Tx && e.Err == nil {
 		return fmt.Sprintf(
-			"read Diameter message from %s to %s",
+			"read Diameter message %s <- %s",
 			e.Local, e.Peer)
 	}
 	if !e.Tx && e.Err != nil {
 		return fmt.Sprintf(
-			"read Diameter message failed from %s to %s, reason is %s",
+			"read Diameter message %s <- %s failed: %s",
 			e.Local, e.Peer, e.Err)
 	}
-	return ""
+	return "invlid state of message transfer"
 }
 
 // Dump provide Diameter message dump
@@ -75,25 +75,25 @@ func (e *TransportStateChange) Error() string {
 	}
 	if e.Open && e.Err == nil {
 		return fmt.Sprintf(
-			"transport link from %s(%s) to %s(%s) open",
+			"transport link %s(%s) -> %s(%s) open",
 			e.Local, e.LAddr, e.Peer, e.PAddr)
 	}
 	if e.Open && e.Err != nil {
 		return fmt.Sprintf(
-			"transport link from %s to %s open failed, reason is %s",
+			"transport link %s -> %s open failed: %s",
 			e.Local, e.Peer, e.Err)
 	}
 	if !e.Open && e.Err == nil {
 		return fmt.Sprintf(
-			"transport link from %s(%s) to %s(%s) close",
+			"transport link %s(%s) -> %s(%s) closed",
 			e.Local, e.LAddr, e.Peer, e.PAddr)
 	}
 	if !e.Open && e.Err != nil {
 		return fmt.Sprintf(
-			"transport link from %s to %s close failed, reason is %s",
-			e.Local, e.Peer, e.Err)
+			"transport link %s(%s) -> %s(%s) close failed: %s",
+			e.Local, e.LAddr, e.Peer, e.PAddr, e.Err)
 	}
-	return ""
+	return "invlid state of transport state"
 }
 
 // TransportBind indicate transport listener binded to local node
@@ -108,16 +108,19 @@ func (e *TransportBind) Error() string {
 		return "<nil>"
 	}
 	if e.Err == nil {
-		return "transport listener binded"
+		return fmt.Sprintf(
+			"transport listener binded on %s(%s)",
+			e.Local, e.LAddr)
 	}
 	return fmt.Sprintf(
-		"transport listener bind failed, reason is %s",
-		e.Err)
+		"transport listener bind on %s(%s) failed: %s",
+		e.Local, e.LAddr, e.Err)
 }
 
 // StateUpdate notify event
 type StateUpdate struct {
 	State string
+	Event string
 	Local *LocalNode
 	Peer  *PeerNode
 	Err   error
@@ -127,11 +130,14 @@ func (e *StateUpdate) Error() string {
 	if e == nil {
 		return "<nil>"
 	}
-	if e.Err != nil {
+	if e.Err == nil {
 		return fmt.Sprintf(
-			"provider state invalid update to %s, %s", e.State, e.Err)
+			"provider %s -> %s state update event %s occured on %s",
+			e.Local, e.Peer, e.Event, e.State)
 	}
-	return fmt.Sprintf("provider state update to %s", e.State)
+	return fmt.Sprintf(
+		"provider %s -> %s state update event %s occured on %s failed: %s",
+		e.Local, e.Peer, e.Event, e.State, e.Err)
 }
 
 // ConnectionStateChange notify event
@@ -146,9 +152,13 @@ func (e *ConnectionStateChange) Error() string {
 		return "<nil>"
 	}
 	if e.Open {
-		return "Diameter connection open"
+		return fmt.Sprintf(
+			"Diameter connection %s -> %s open",
+			e.Local, e.Peer)
 	}
-	return "Diameter connection close"
+	return fmt.Sprintf(
+		"Diameter connection %s -> %s close",
+		e.Local, e.Peer)
 }
 
 // CapabilityExchangeEvent notify capability exchange related event
@@ -165,30 +175,38 @@ func (e *CapabilityExchangeEvent) Error() string {
 		return "<nil>"
 	}
 	if e.Tx && e.Req && e.Err == nil {
-		return fmt.Sprintf("-> CER")
+		return fmt.Sprintf(
+			"-> CER (%s -> %s)", e.Local, e.Peer)
 	}
 	if e.Tx && e.Req && e.Err != nil {
-		return fmt.Sprintf("-X CER failed, %s", e.Err)
+		return fmt.Sprintf(
+			"-X CER (%s -> %s), %s", e.Local, e.Peer, e.Err)
 	}
 	if e.Tx && !e.Req && e.Err == nil {
-		return fmt.Sprintf("-> CEA")
+		return fmt.Sprintf(
+			"-> CEA (%s -> %s)", e.Local, e.Peer)
 	}
 	if e.Tx && !e.Req && e.Err != nil {
-		return fmt.Sprintf("-X CEA failed, %s", e.Err)
+		return fmt.Sprintf(
+			"-X CEA (%s -> %s), %s", e.Local, e.Peer, e.Err)
 	}
 	if !e.Tx && e.Req && e.Err == nil {
-		return fmt.Sprintf("<- CER")
+		return fmt.Sprintf(
+			"<- CER (%s -> %s)", e.Local, e.Peer)
 	}
 	if !e.Tx && e.Req && e.Err != nil {
-		return fmt.Sprintf("X- CER failed, %s", e.Err)
+		return fmt.Sprintf(
+			"X- CER (%s -> %s), %s", e.Local, e.Peer, e.Err)
 	}
 	if !e.Tx && !e.Req && e.Err == nil {
-		return fmt.Sprintf("<- CEA")
+		return fmt.Sprintf(
+			"<- CEA (%s -> %s)", e.Local, e.Peer)
 	}
 	if !e.Tx && !e.Req && e.Err != nil {
-		return fmt.Sprintf("X- CEA failed, %s", e.Err)
+		return fmt.Sprintf(
+			"X- CEA (%s -> %s), %s", e.Local, e.Peer, e.Err)
 	}
-	return ""
+	return "invalid capability exchange state"
 }
 
 // WatchdogEvent notify watchdog related event
@@ -205,30 +223,38 @@ func (e *WatchdogEvent) Error() string {
 		return "<nil>"
 	}
 	if e.Tx && e.Req && e.Err == nil {
-		return fmt.Sprintf("-> DWR")
+		return fmt.Sprintf(
+			"-> DWR (%s -> %s)", e.Local, e.Peer)
 	}
 	if e.Tx && e.Req && e.Err != nil {
-		return fmt.Sprintf("-X DWR failed, %s", e.Err)
+		return fmt.Sprintf(
+			"-X DWR (%s -> %s), %s", e.Local, e.Peer, e.Err)
 	}
 	if e.Tx && !e.Req && e.Err == nil {
-		return fmt.Sprintf("-> DWA")
+		return fmt.Sprintf(
+			"-> DWA (%s -> %s)", e.Local, e.Peer)
 	}
 	if e.Tx && !e.Req && e.Err != nil {
-		return fmt.Sprintf("-X DWA failed, %s", e.Err)
+		return fmt.Sprintf(
+			"-X DWA (%s -> %s), %s", e.Local, e.Peer, e.Err)
 	}
 	if !e.Tx && e.Req && e.Err == nil {
-		return fmt.Sprintf("<- DWR")
+		return fmt.Sprintf(
+			"<- DWR (%s -> %s)", e.Local, e.Peer)
 	}
 	if !e.Tx && e.Req && e.Err != nil {
-		return fmt.Sprintf("X- DWR failed, %s", e.Err)
+		return fmt.Sprintf(
+			"X- DWR (%s -> %s), %s", e.Local, e.Peer, e.Err)
 	}
 	if !e.Tx && !e.Req && e.Err == nil {
-		return fmt.Sprintf("<- DWA")
+		return fmt.Sprintf(
+			"<- DWA (%s -> %s)", e.Local, e.Peer)
 	}
 	if !e.Tx && !e.Req && e.Err != nil {
-		return fmt.Sprintf("X- DWA failed, %s", e.Err)
+		return fmt.Sprintf(
+			"X- DWA (%s -> %s), %s", e.Local, e.Peer, e.Err)
 	}
-	return ""
+	return "invalid watchdog state"
 }
 
 // MessageEvent notify diameter message related event
@@ -245,30 +271,38 @@ func (e *MessageEvent) Error() string {
 		return "<nil>"
 	}
 	if e.Tx && e.Req && e.Err == nil {
-		return fmt.Sprintf("-> REQ")
+		return fmt.Sprintf(
+			"-> REQ (%s -> %s)", e.Local, e.Peer)
 	}
 	if e.Tx && e.Req && e.Err != nil {
-		return fmt.Sprintf("-X REQ failed, %s", e.Err)
+		return fmt.Sprintf(
+			"-X REQ (%s -> %s), %s", e.Local, e.Peer, e.Err)
 	}
 	if e.Tx && !e.Req && e.Err == nil {
-		return fmt.Sprintf("-> ANS")
+		return fmt.Sprintf(
+			"-> ANS (%s -> %s)", e.Local, e.Peer)
 	}
 	if e.Tx && !e.Req && e.Err != nil {
-		return fmt.Sprintf("-X ANS failed, %s", e.Err)
+		return fmt.Sprintf(
+			"-X ANS (%s -> %s), %s", e.Local, e.Peer, e.Err)
 	}
 	if !e.Tx && e.Req && e.Err == nil {
-		return fmt.Sprintf("<- REQ")
+		return fmt.Sprintf(
+			"<- REQ (%s -> %s)", e.Local, e.Peer)
 	}
 	if !e.Tx && e.Req && e.Err != nil {
-		return fmt.Sprintf("X- REQ failed, %s", e.Err)
+		return fmt.Sprintf(
+			"X- REQ (%s -> %s), %s", e.Local, e.Peer, e.Err)
 	}
 	if !e.Tx && !e.Req && e.Err == nil {
-		return fmt.Sprintf("<- ANS")
+		return fmt.Sprintf(
+			"<- ANS (%s -> %s)", e.Local, e.Peer)
 	}
 	if !e.Tx && !e.Req && e.Err != nil {
-		return fmt.Sprintf("X- ANS failed, %s", e.Err)
+		return fmt.Sprintf(
+			"X- ANS (%s -> %s), %s", e.Local, e.Peer, e.Err)
 	}
-	return ""
+	return "invalid message handle state"
 }
 
 // PurgeEvent notify diameter purge related event
@@ -285,28 +319,36 @@ func (e *PurgeEvent) Error() string {
 		return "<nil>"
 	}
 	if e.Tx && e.Req && e.Err == nil {
-		return fmt.Sprintf("-> DPR")
+		return fmt.Sprintf(
+			"-> DPR (%s -> %s)", e.Local, e.Peer)
 	}
 	if e.Tx && e.Req && e.Err != nil {
-		return fmt.Sprintf("-X DPR failed, %s", e.Err)
+		return fmt.Sprintf(
+			"-X DPR (%s -> %s), %s", e.Local, e.Peer, e.Err)
 	}
 	if e.Tx && !e.Req && e.Err == nil {
-		return fmt.Sprintf("-> DPA")
+		return fmt.Sprintf(
+			"-> DPA (%s -> %s)", e.Local, e.Peer)
 	}
 	if e.Tx && !e.Req && e.Err != nil {
-		return fmt.Sprintf("-X DPA failed, %s", e.Err)
+		return fmt.Sprintf(
+			"-X DPA (%s -> %s), %s", e.Local, e.Peer, e.Err)
 	}
 	if !e.Tx && e.Req && e.Err == nil {
-		return fmt.Sprintf("<- DPR")
+		return fmt.Sprintf(
+			"<- DPR (%s -> %s)", e.Local, e.Peer)
 	}
 	if !e.Tx && e.Req && e.Err != nil {
-		return fmt.Sprintf("X- DPR failed, %s", e.Err)
+		return fmt.Sprintf(
+			"X- DPR (%s -> %s), %s", e.Local, e.Peer, e.Err)
 	}
 	if !e.Tx && !e.Req && e.Err == nil {
-		return fmt.Sprintf("<- DPA")
+		return fmt.Sprintf(
+			"<- DPA (%s -> %s)", e.Local, e.Peer)
 	}
 	if !e.Tx && !e.Req && e.Err != nil {
-		return fmt.Sprintf("X- DPA failed, %s", e.Err)
+		return fmt.Sprintf(
+			"X- DPA (%s -> %s), %s", e.Local, e.Peer, e.Err)
 	}
-	return ""
+	return "invalid purge state"
 }

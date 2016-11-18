@@ -80,17 +80,25 @@ func (p *Provider) State() string {
 
 func (p *Provider) run() {
 	for {
-		if event := <-p.notify; event == nil {
+		event := <-p.notify
+		if event == nil {
 			break
-		} else if e := event.exec(p); e != nil && Notify != nil {
-			Notify(&InvalidEvent{Err: e, State: stateStr[p.state]})
+		}
+		e := event.exec(p)
+
+		if Notify != nil {
+			c := p.activeConnection()
+			Notify(&StateUpdate{
+				State: stateStr[p.state], Event: event.name(),
+				Local: c.Local, Peer: c.Peer,
+				Err: e})
 		}
 	}
 }
 
 func (p *Provider) open() {
 	if Notify != nil {
-		Notify(&StateUpdate{"open"})
+		Notify(&ConnectionStateChange{Open: true})
 	}
 
 	p.resetWatchdog()
@@ -153,7 +161,7 @@ func (p *Provider) open() {
 	}
 
 	if Notify != nil {
-		Notify(&StateUpdate{"close"})
+		Notify(&ConnectionStateChange{Open: false})
 	}
 }
 
@@ -220,24 +228,28 @@ func (p *Provider) Send(r msg.Message) (a msg.Message, e error) {
 
 	for i := 0; i <= c.Peer.Cp; i++ {
 		if Notify != nil {
-			Notify(&TxDataReq{})
+			Notify(&MessageEvent{
+				Tx: true, Req: true, Local: c.Local, Peer: c.Peer})
 		}
 		ap := sendReq(r, c, p)
 		if ap == nil {
 			if i == c.Peer.Cp {
-				if Notify != nil {
-					Notify(&NoDataAns{Retry: false})
-				}
 				e = fmt.Errorf("No answer")
+				if Notify != nil {
+					Notify(&MessageEvent{
+						Tx: false, Req: false, Local: c.Local, Peer: c.Peer, Err: e})
+				}
 			} else {
 				if Notify != nil {
-					Notify(&NoDataAns{Retry: true})
+					Notify(&MessageEvent{
+						Tx: false, Req: false, Local: c.Local, Peer: c.Peer, Err: fmt.Errorf("No answer retry")})
 				}
 			}
 			r.FlgT = true
 		} else {
 			if Notify != nil {
-				Notify(&RxDataAns{})
+				Notify(&MessageEvent{
+					Tx: false, Req: false, Local: c.Local, Peer: c.Peer})
 			}
 			a = *ap
 			e = nil
@@ -273,14 +285,16 @@ func (p *Provider) Recieve() (r msg.Message, ch chan *msg.Message, e error) {
 		p.rcvstack <- nil
 	} else {
 		if Notify != nil {
-			Notify(&RxDataReq{})
+			Notify(&MessageEvent{
+				Tx: false, Req: true})
 		}
 		r = *rp
 		ch = make(chan *msg.Message)
 		go func() {
 			if a := <-ch; a != nil {
 				if Notify != nil {
-					Notify(&TxDataAns{})
+					Notify(&MessageEvent{
+						Tx: true, Req: false})
 				}
 				a.HbHID = r.HbHID
 				a.EtEID = r.EtEID
@@ -293,6 +307,7 @@ func (p *Provider) Recieve() (r msg.Message, ch chan *msg.Message, e error) {
 
 type stateEvent interface {
 	exec(p *Provider) error
+	name() string
 }
 
 type eventStart struct {
@@ -301,11 +316,11 @@ type eventStart struct {
 	p        *PeerNode
 }
 
-func (v eventStart) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"start"})
-	}
+func (v eventStart) name() string {
+	return "Start"
+}
 
+func (v eventStart) exec(p *Provider) (e error) {
 	switch p.state {
 	case closed:
 		// I-Snd-Conn-Req
@@ -329,7 +344,7 @@ func (v eventStart) exec(p *Provider) (e error) {
 		// closing
 		// shutdown
 
-		e = fmt.Errorf("Start")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
@@ -351,31 +366,39 @@ type eventRConnCER struct {
 	c *Connection
 }
 
+func (v eventRConnCER) name() string {
+	return "R-Conn-CER"
+}
+
 func (v eventRConnCER) exec(p *Provider) (e error) {
 	if Notify != nil {
-		Notify(&RxExchangeReq{})
-		Notify(&StateUpdate{"R-Conn-CER"})
+		c := p.activeConnection()
+		Notify(&CapabilityExchangeEvent{
+			Tx: false, Req: true, Local: c.Local, Peer: c.Peer})
 	}
 
 	switch p.state {
 	case closed:
 		// R-Accept, Process-CER
-		m, c := v.c.makeCEA(v.m)
+		m, code := v.c.makeCEA(v.m)
 
 		// R-Snd-CEA
-		if Notify != nil {
-			Notify(&TxExchangeAns{})
-		}
 		e = v.c.Write(v.c.Peer.Ts, m)
-
-		if c == 2001 && e == nil {
+		if e != nil {
+			v.c.Close()
+		} else if code != 2001 {
+			e = fmt.Errorf("close with error response %d", code)
+			v.c.Close()
+		} else {
 			p.rcon = v.c
 			p.state = rOpen
 			go p.open()
-		} else {
-			// Close
-			monitor.Notify(monitor.Info, "DEA send failed")
-			v.c.Close()
+		}
+
+		if Notify != nil {
+			c := p.activeConnection()
+			Notify(&CapabilityExchangeEvent{
+				Tx: true, Req: false, Local: c.Local, Peer: c.Peer})
 		}
 	case waitConnAck:
 		p.state = waitConnAckElect
@@ -401,18 +424,18 @@ func (v eventRConnCER) exec(p *Provider) (e error) {
 
 		// R-Reject
 		v.c.Close()
-		e = fmt.Errorf("R-Conn-CER")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
 
 type eventIRcvConAck struct{}
 
-func (v eventIRcvConAck) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"I-Rcv-Con-Ack"})
-	}
+func (v eventIRcvConAck) name() string {
+	return "I-Rcv-Con-Ack"
+}
 
+func (v eventIRcvConAck) exec(p *Provider) (e error) {
 	switch p.state {
 	case waitConnAck:
 		p.state = waitICEA
@@ -462,18 +485,18 @@ func (v eventIRcvConAck) exec(p *Provider) (e error) {
 		// closing
 		// shutdown
 
-		e = fmt.Errorf("I-Rcv-Conn-Ack")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
 
 type eventIRcvConNack struct{}
 
-func (v eventIRcvConNack) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"I-Rcv-Con-Nack"})
-	}
+func (v eventIRcvConNack) name() string {
+	return "I-Rcv-Con-Nack"
+}
 
+func (v eventIRcvConNack) exec(p *Provider) (e error) {
 	switch p.state {
 	case waitConnAck:
 		// Cleanup
@@ -504,7 +527,7 @@ func (v eventIRcvConNack) exec(p *Provider) (e error) {
 		// closing
 		// shutdown
 
-		e = fmt.Errorf("I-Rcv-Conn-Nack")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
@@ -513,11 +536,11 @@ type eventTimeout struct {
 	s string
 }
 
-func (v eventTimeout) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"Timeout"})
-	}
+func (v eventTimeout) name() string {
+	return "Timeout"
+}
 
+func (v eventTimeout) exec(p *Provider) (e error) {
 	switch p.state {
 	case waitConnAck, waitICEA, waitConnAckElect, waitReturns, closing:
 		// Error
@@ -529,7 +552,7 @@ func (v eventTimeout) exec(p *Provider) (e error) {
 		// i_open
 		// shutdown
 
-		e = fmt.Errorf("Timeout")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
@@ -538,13 +561,14 @@ type eventRcvCER struct {
 	m msg.Message
 }
 
+func (v eventRcvCER) name() string {
+	return "Rcv-CER"
+}
+
 func (v eventRcvCER) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"Rcv-CER"})
-	}
 	monitor.Notify(monitor.Debug, "<- CER")
 
-	e = fmt.Errorf("Rcv-CER")
+	e = fmt.Errorf("not acceptable event")
 	return
 }
 
@@ -552,13 +576,14 @@ type eventRRcvCEA struct {
 	m msg.Message
 }
 
+func (v eventRRcvCEA) name() string {
+	return "R-Rcv-CEA"
+}
+
 func (v eventRRcvCEA) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"R-Rcv-CEA"})
-	}
 	monitor.Notify(monitor.Debug, "<- CEA")
 
-	e = fmt.Errorf("R-Rcv-CEA")
+	e = fmt.Errorf("not acceptable event")
 	return
 }
 
@@ -566,10 +591,11 @@ type eventIRcvCEA struct {
 	m msg.Message
 }
 
+func (v eventIRcvCEA) name() string {
+	return "I-Rcv-CEA"
+}
+
 func (v eventIRcvCEA) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"I-Rcv-CEA"})
-	}
 	monitor.Notify(monitor.Debug, "<- CEA")
 
 	switch p.state {
@@ -609,7 +635,7 @@ func (v eventIRcvCEA) exec(p *Provider) (e error) {
 		// closing
 		// shutdown
 
-		e = fmt.Errorf("I-Rcv-CEA")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
@@ -618,10 +644,11 @@ type eventIRcvNonCEA struct {
 	m msg.Message
 }
 
+func (v eventIRcvNonCEA) name() string {
+	return "I-Rcv-Non-CEA"
+}
+
 func (v eventIRcvNonCEA) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"I-Rcv-Non-CEA"})
-	}
 	monitor.Notify(monitor.Debug, "<- ANS")
 
 	switch p.state {
@@ -641,18 +668,18 @@ func (v eventIRcvNonCEA) exec(p *Provider) (e error) {
 		// closing
 		// shutdown
 
-		e = fmt.Errorf("I-Rcv-Non-CEA")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
 
 type eventRPeerDisc struct{}
 
-func (v eventRPeerDisc) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"R-Peer-Disc"})
-	}
+func (v eventRPeerDisc) name() string {
+	return "R-Peer-Disc"
+}
 
+func (v eventRPeerDisc) exec(p *Provider) (e error) {
 	switch p.state {
 	case waitConnAckElect:
 		// R-Disc
@@ -676,18 +703,18 @@ func (v eventRPeerDisc) exec(p *Provider) (e error) {
 		// i_open
 		// shutdown
 
-		e = fmt.Errorf("R-Peer-Disc")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
 
 type eventIPeerDisc struct{}
 
-func (v eventIPeerDisc) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"I-Peer-Disc"})
-	}
+func (v eventIPeerDisc) name() string {
+	return "I-Peer-Disc"
+}
 
+func (v eventIPeerDisc) exec(p *Provider) (e error) {
 	switch p.state {
 	case waitICEA, iOpen, closing:
 		// I-Disc
@@ -715,7 +742,7 @@ func (v eventIPeerDisc) exec(p *Provider) (e error) {
 		// r_open
 		// shutdown
 
-		e = fmt.Errorf("I-Peer-Disc")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
@@ -724,10 +751,11 @@ type eventRcvDWR struct {
 	m msg.Message
 }
 
+func (v eventRcvDWR) name() string {
+	return "Rcv-DWR"
+}
+
 func (v eventRcvDWR) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"Rcv-DWR"})
-	}
 	monitor.Notify(monitor.Debug, "<- DWR")
 
 	switch p.state {
@@ -760,7 +788,7 @@ func (v eventRcvDWR) exec(p *Provider) (e error) {
 		// closing
 		// shutdown
 
-		e = fmt.Errorf("Rcv-DWR")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
@@ -769,11 +797,11 @@ type eventRcvDWA struct {
 	m msg.Message
 }
 
-func (v eventRcvDWA) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"Rcv-DWA"})
-	}
+func (v eventRcvDWA) name() string {
+	return "Rcv-DWA"
+}
 
+func (v eventRcvDWA) exec(p *Provider) (e error) {
 	switch p.state {
 	case rOpen, iOpen:
 		// Process-DWA
@@ -794,7 +822,7 @@ func (v eventRcvDWA) exec(p *Provider) (e error) {
 		// closing
 		// shutdown
 
-		e = fmt.Errorf("Rcv-DWA")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
@@ -803,11 +831,11 @@ type eventStop struct {
 	c msg.Enumerated
 }
 
-func (v eventStop) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"Stop"})
-	}
+func (v eventStop) name() string {
+	return "Stop"
+}
 
+func (v eventStop) exec(p *Provider) (e error) {
 	switch p.state {
 	case rOpen:
 		// R-Snd-DPR
@@ -844,7 +872,7 @@ func (v eventStop) exec(p *Provider) (e error) {
 		// closing
 		// shutdown
 
-		e = fmt.Errorf("Stop")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
@@ -853,10 +881,11 @@ type eventRcvDPR struct {
 	m msg.Message
 }
 
+func (v eventRcvDPR) name() string {
+	return "Rcv-DPR"
+}
+
 func (v eventRcvDPR) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"Rcv-DPR"})
-	}
 	monitor.Notify(monitor.Debug, "<- DPR")
 
 	switch p.state {
@@ -889,7 +918,7 @@ func (v eventRcvDPR) exec(p *Provider) (e error) {
 		// closing
 		// shutdown
 
-		e = fmt.Errorf("Rcv-DPR")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
@@ -898,10 +927,11 @@ type eventRRcvDPA struct {
 	m msg.Message
 }
 
+func (v eventRRcvDPA) name() string {
+	return "R-Rcv-DPA"
+}
+
 func (v eventRRcvDPA) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"R-Rcv-DPA"})
-	}
 	monitor.Notify(monitor.Debug, "<- DPA")
 
 	switch p.state {
@@ -920,7 +950,7 @@ func (v eventRRcvDPA) exec(p *Provider) (e error) {
 		// i_open
 		// shutdown
 
-		e = fmt.Errorf("R-Rcv-DPA")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
@@ -929,10 +959,11 @@ type eventIRcvDPA struct {
 	m msg.Message
 }
 
+func (v eventIRcvDPA) name() string {
+	return "I-Rcv-DPA"
+}
+
 func (v eventIRcvDPA) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"I-Rcv-DPA"})
-	}
 	monitor.Notify(monitor.Debug, "<- DPA")
 
 	switch p.state {
@@ -951,18 +982,18 @@ func (v eventIRcvDPA) exec(p *Provider) (e error) {
 		// i_open
 		// shutdown
 
-		e = fmt.Errorf("I-Rcv-DPA")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
 
 type eventWinElection struct{}
 
-func (v eventWinElection) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"Win-Election"})
-	}
+func (v eventWinElection) name() string {
+	return "Win-Election"
+}
 
+func (v eventWinElection) exec(p *Provider) (e error) {
 	switch p.state {
 	case waitReturns:
 		// I-Disc
@@ -987,7 +1018,7 @@ func (v eventWinElection) exec(p *Provider) (e error) {
 		// closing
 		// shutdown
 
-		e = fmt.Errorf("Win-Election")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
@@ -996,9 +1027,13 @@ type eventSndMsg struct {
 	m msg.Message
 }
 
+func (v eventSndMsg) name() string {
+	return "Send-Message"
+}
+
 func (v eventSndMsg) exec(p *Provider) (e error) {
 	if Notify != nil {
-		Notify(&StateUpdate{"Send-Message"})
+		Notify(&StateUpdate{State: "Send-Message"})
 	}
 
 	switch p.state {
@@ -1023,7 +1058,7 @@ func (v eventSndMsg) exec(p *Provider) (e error) {
 		// closing
 		// shutdown
 
-		e = fmt.Errorf("Send-Message")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
@@ -1032,11 +1067,11 @@ type eventRcvMsg struct {
 	m msg.Message
 }
 
-func (v eventRcvMsg) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{"Rcv-Message"})
-	}
+func (v eventRcvMsg) name() string {
+	return "Rcv-Message"
+}
 
+func (v eventRcvMsg) exec(p *Provider) (e error) {
 	switch p.state {
 	case rOpen, iOpen:
 		// Process
@@ -1058,7 +1093,7 @@ func (v eventRcvMsg) exec(p *Provider) (e error) {
 		// closing
 		// shutdown
 
-		e = fmt.Errorf("Rcv-Message")
+		e = fmt.Errorf("not acceptable event")
 	}
 	return
 }
