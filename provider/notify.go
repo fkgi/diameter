@@ -132,12 +132,12 @@ func (e *StateUpdate) Error() string {
 	}
 	if e.Err == nil {
 		return fmt.Sprintf(
-			"provider %s -> %s state update event %s occured on %s",
-			e.Local, e.Peer, e.Event, e.State)
+			"event %s on state %s provider %s -> %s",
+			e.Event, e.State, e.Local, e.Peer)
 	}
 	return fmt.Sprintf(
-		"provider %s -> %s state update event %s occured on %s failed: %s",
-		e.Local, e.Peer, e.Event, e.State, e.Err)
+		"event %s on state %s provider %s -> %s failed: %s",
+		e.Event, e.State, e.Local, e.Peer, e.Err)
 }
 
 // ConnectionStateChange notify event

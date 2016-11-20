@@ -90,17 +90,17 @@ func (p *Provider) run() {
 			c := p.activeConnection()
 			Notify(&StateUpdate{
 				State: stateStr[p.state], Event: event.name(),
-				Local: c.Local, Peer: c.Peer,
-				Err: e})
+				Local: c.Local, Peer: c.Peer, Err: e})
 		}
 	}
 }
 
 func (p *Provider) open() {
 	if Notify != nil {
-		Notify(&ConnectionStateChange{Open: true})
+		c := p.activeConnection()
+		Notify(&ConnectionStateChange{
+			Open: true, Local: c.Local, Peer: c.Peer})
 	}
-
 	p.resetWatchdog()
 
 	for p.state == rOpen {
@@ -156,12 +156,14 @@ func (p *Provider) open() {
 			p.notify <- eventRcvMsg{m}
 		}
 	}
+
 	if p.wT != nil {
 		p.wT.Stop()
 	}
-
 	if Notify != nil {
-		Notify(&ConnectionStateChange{Open: false})
+		c := p.activeConnection()
+		Notify(&ConnectionStateChange{
+			Open: false, Local: c.Local, Peer: c.Peer})
 	}
 }
 
@@ -444,16 +446,35 @@ func (v eventIRcvConAck) exec(p *Provider) (e error) {
 		r.HbHID = p.icon.Local.NextHbH()
 
 		go func() {
-			monitor.Notify(monitor.Debug, "-> CER")
-			if e = p.icon.Write(p.icon.Peer.Ts, r); e != nil {
-				p.notify <- eventIPeerDisc{}
-			} else if a, e := p.icon.Read(0); e != nil {
-				p.notify <- eventIPeerDisc{}
-			} else if r.HbHID == a.HbHID && a.AppID == 0 && a.Code == 257 && !a.FlgR {
-				p.notify <- eventIRcvCEA{a}
-			} else {
-				p.notify <- eventIRcvNonCEA{a}
+			e := p.icon.Write(p.icon.Peer.Ts, r)
+			if Notify != nil {
+				c := p.activeConnection()
+				Notify(&CapabilityExchangeEvent{
+					Tx: true, Req: true, Local: c.Local, Peer: c.Peer, Err: e})
 			}
+			if e != nil {
+				p.notify <- eventIPeerDisc{}
+				return
+			}
+
+			a, e := p.icon.Read(0)
+			var ret stateEvent
+			if e != nil {
+				ret = eventIPeerDisc{}
+			} else if r.HbHID == a.HbHID && a.AppID == 0 && a.Code == 257 && !a.FlgR {
+				ret = eventIRcvCEA{a}
+			} else {
+				e = fmt.Errorf("invarid response (AppID=%d, Code=%d, Response=%b) of CER",
+					a.AppID, a.Code, !a.FlgR)
+				ret = eventIRcvNonCEA{a}
+			}
+
+			if Notify != nil {
+				c := p.activeConnection()
+				Notify(&CapabilityExchangeEvent{
+					Tx: false, Req: false, Local: c.Local, Peer: c.Peer, Err: e})
+			}
+			p.notify <- ret
 		}()
 	case waitConnAckElect:
 		p.state = waitReturns
@@ -462,19 +483,40 @@ func (v eventIRcvConAck) exec(p *Provider) (e error) {
 		r.HbHID = p.icon.Local.NextHbH()
 
 		go func() {
-			monitor.Notify(monitor.Debug, "-> CER")
-			if e = p.icon.Write(p.icon.Peer.Ts, r); e != nil {
+			e := p.icon.Write(p.icon.Peer.Ts, r)
+			if Notify != nil {
+				c := p.activeConnection()
+				Notify(&CapabilityExchangeEvent{
+					Tx: true, Req: true, Local: c.Local, Peer: c.Peer, Err: e})
+			}
+			if e != nil {
 				p.notify <- eventIPeerDisc{}
-			} else if msg.Compare(p.rcon.Local.Host, p.rcon.Peer.Host) > 0 {
+				return
+			}
+			if msg.Compare(p.rcon.Local.Host, p.rcon.Peer.Host) > 0 {
 				// Elect
 				p.notify <- eventWinElection{}
-			} else if a, e := p.icon.Read(0); e != nil {
-				p.notify <- eventIPeerDisc{}
-			} else if r.HbHID == a.HbHID && a.AppID == 0 && a.Code == 257 && a.FlgR {
-				p.notify <- eventIRcvCEA{a}
-			} else {
-				p.notify <- eventIRcvNonCEA{a}
+				return
 			}
+
+			a, e := p.icon.Read(0)
+			var ret stateEvent
+			if e != nil {
+				ret = eventIPeerDisc{}
+			} else if r.HbHID == a.HbHID && a.AppID == 0 && a.Code == 257 && a.FlgR {
+				ret = eventIRcvCEA{a}
+			} else {
+				e = fmt.Errorf("invarid response (AppID=%d, Code=%d, Response=%b) of CER",
+					a.AppID, a.Code, !a.FlgR)
+				ret = eventIRcvNonCEA{a}
+			}
+
+			if Notify != nil {
+				c := p.activeConnection()
+				Notify(&CapabilityExchangeEvent{
+					Tx: false, Req: false, Local: c.Local, Peer: c.Peer, Err: e})
+			}
+			p.notify <- ret
 		}()
 	default:
 		// closed
@@ -513,8 +555,13 @@ func (v eventIRcvConNack) exec(p *Provider) (e error) {
 		go p.open()
 		// R-Snd-CEA
 		go func() {
-			monitor.Notify(monitor.Debug, "-> CEA")
-			if e = p.rcon.Write(p.rcon.Peer.Ts, p.cachemsg); e != nil {
+			e := p.rcon.Write(p.rcon.Peer.Ts, p.cachemsg)
+			if Notify != nil {
+				c := p.activeConnection()
+				Notify(&CapabilityExchangeEvent{
+					Tx: true, Req: false, Local: c.Local, Peer: c.Peer, Err: e})
+			}
+			if e != nil {
 				p.notify <- eventRPeerDisc{}
 			}
 		}()
@@ -544,7 +591,7 @@ func (v eventTimeout) exec(p *Provider) (e error) {
 	switch p.state {
 	case waitConnAck, waitICEA, waitConnAckElect, waitReturns, closing:
 		// Error
-		monitor.Notify(monitor.Major, "request timeout", v.s)
+		// monitor.Notify(monitor.Major, "request timeout", v.s)
 		p.state = closed
 	default:
 		// closed
@@ -566,7 +613,7 @@ func (v eventRcvCER) name() string {
 }
 
 func (v eventRcvCER) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Debug, "<- CER")
+	// monitor.Notify(monitor.Debug, "<- CER")
 
 	e = fmt.Errorf("not acceptable event")
 	return
@@ -581,7 +628,7 @@ func (v eventRRcvCEA) name() string {
 }
 
 func (v eventRRcvCEA) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Debug, "<- CEA")
+	// monitor.Notify(monitor.Debug, "<- CEA")
 
 	e = fmt.Errorf("not acceptable event")
 	return
@@ -596,7 +643,7 @@ func (v eventIRcvCEA) name() string {
 }
 
 func (v eventIRcvCEA) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Debug, "<- CEA")
+	// monitor.Notify(monitor.Debug, "<- CEA")
 
 	switch p.state {
 	case waitICEA:
@@ -673,7 +720,9 @@ func (v eventIRcvNonCEA) exec(p *Provider) (e error) {
 	return
 }
 
-type eventRPeerDisc struct{}
+type eventRPeerDisc struct {
+	Err error
+}
 
 func (v eventRPeerDisc) name() string {
 	return "R-Peer-Disc"
@@ -708,7 +757,9 @@ func (v eventRPeerDisc) exec(p *Provider) (e error) {
 	return
 }
 
-type eventIPeerDisc struct{}
+type eventIPeerDisc struct {
+	Err error
+}
 
 func (v eventIPeerDisc) name() string {
 	return "I-Peer-Disc"
