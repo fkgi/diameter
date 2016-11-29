@@ -894,11 +894,21 @@ func (v eventRcvDWA) exec(p *Provider) (e error) {
 	case rOpen, iOpen:
 		// Process-DWA
 		if ch, ok := p.sndstack[v.m.HbHID]; ok {
+			if Notify != nil {
+				c := p.activeConnection()
+				Notify(&WatchdogEvent{
+					Tx: false, Req: false, Local: c.Local, Peer: c.Peer})
+			}
 			// readed message is stacked answer
 			delete(p.sndstack, v.m.HbHID)
 			ch <- &v.m
 		} else {
-			monitor.Notify(monitor.Debug, "unknown DWA recieved")
+			if Notify != nil {
+				c := p.activeConnection()
+				Notify(&WatchdogEvent{
+					Tx: false, Req: false, Local: c.Local, Peer: c.Peer,
+					Err: fmt.Errorf("unknown DWA recieved")})
+			}
 		}
 	default:
 		// closed
@@ -932,8 +942,13 @@ func (v eventStop) exec(p *Provider) (e error) {
 
 		p.state = closing
 		go func() {
-			monitor.Notify(monitor.Debug, "-> DPR")
-			if e = p.rcon.Write(p.rcon.Peer.Ts, r); e != nil {
+			e := p.rcon.Write(p.rcon.Peer.Ts, r)
+			if Notify != nil {
+				c := p.activeConnection()
+				Notify(&PurgeEvent{
+					Tx: true, Req: true, Local: c.Local, Peer: c.Peer, Err: e})
+			}
+			if e != nil {
 				p.notify <- eventRPeerDisc{}
 			}
 		}()
@@ -944,8 +959,13 @@ func (v eventStop) exec(p *Provider) (e error) {
 
 		p.state = closing
 		go func() {
-			monitor.Notify(monitor.Debug, "-> DPR")
-			if e = p.icon.Write(p.icon.Peer.Ts, r); e != nil {
+			e := p.icon.Write(p.icon.Peer.Ts, r)
+			if Notify != nil {
+				c := p.activeConnection()
+				Notify(&PurgeEvent{
+					Tx: true, Req: true, Local: c.Local, Peer: c.Peer, Err: e})
+			}
+			if e != nil {
 				p.notify <- eventIPeerDisc{}
 			}
 		}()
@@ -974,7 +994,11 @@ func (v eventRcvDPR) name() string {
 }
 
 func (v eventRcvDPR) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Debug, "<- DPR")
+	if Notify != nil {
+		c := p.activeConnection()
+		Notify(&PurgeEvent{
+			Tx: false, Req: true, Local: c.Local, Peer: c.Peer})
+	}
 
 	switch p.state {
 	case rOpen:
@@ -982,8 +1006,13 @@ func (v eventRcvDPR) exec(p *Provider) (e error) {
 		a, _ := p.rcon.makeDPA(v.m)
 		p.state = closing
 		go func() {
-			monitor.Notify(monitor.Debug, "-> DPA")
-			if e = p.rcon.Write(p.rcon.Peer.Ts, a); e != nil {
+			e := p.rcon.Write(p.rcon.Peer.Ts, a)
+			if Notify != nil {
+				c := p.activeConnection()
+				Notify(&PurgeEvent{
+					Tx: true, Req: false, Local: c.Local, Peer: c.Peer, Err: e})
+			}
+			if e != nil {
 				p.notify <- eventRPeerDisc{}
 			}
 		}()
@@ -992,8 +1021,13 @@ func (v eventRcvDPR) exec(p *Provider) (e error) {
 		a, _ := p.icon.makeDPA(v.m)
 		p.state = closing
 		go func() {
-			monitor.Notify(monitor.Debug, "-> DPA")
-			if e = p.icon.Write(p.icon.Peer.Ts, a); e != nil {
+			e := p.icon.Write(p.icon.Peer.Ts, a)
+			if Notify != nil {
+				c := p.activeConnection()
+				Notify(&PurgeEvent{
+					Tx: true, Req: false, Local: c.Local, Peer: c.Peer, Err: e})
+			}
+			if e != nil {
 				p.notify <- eventIPeerDisc{}
 			}
 		}()
@@ -1020,7 +1054,11 @@ func (v eventRRcvDPA) name() string {
 }
 
 func (v eventRRcvDPA) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Debug, "<- DPA")
+	if Notify != nil {
+		c := p.activeConnection()
+		Notify(&PurgeEvent{
+			Tx: false, Req: false, Local: c.Local, Peer: c.Peer})
+	}
 
 	switch p.state {
 	case closing:
@@ -1052,7 +1090,11 @@ func (v eventIRcvDPA) name() string {
 }
 
 func (v eventIRcvDPA) exec(p *Provider) (e error) {
-	monitor.Notify(monitor.Debug, "<- DPA")
+	if Notify != nil {
+		c := p.activeConnection()
+		Notify(&PurgeEvent{
+			Tx: false, Req: false, Local: c.Local, Peer: c.Peer})
+	}
 
 	switch p.state {
 	case closing:
@@ -1091,8 +1133,13 @@ func (v eventWinElection) exec(p *Provider) (e error) {
 		p.state = rOpen
 		// R-Snd-CEA
 		go func() {
-			monitor.Notify(monitor.Debug, "-> CER")
-			if e = p.rcon.Write(p.rcon.Peer.Ts, p.cachemsg); e != nil {
+			e := p.rcon.Write(p.rcon.Peer.Ts, p.cachemsg)
+			if Notify != nil {
+				c := p.activeConnection()
+				Notify(&CapabilityExchangeEvent{
+					Tx: true, Req: true, Local: c.Local, Peer: c.Peer, Err: e})
+			}
+			if e != nil {
 				p.notify <- eventRPeerDisc{}
 			}
 		}()
@@ -1120,20 +1167,28 @@ func (v eventSndMsg) name() string {
 }
 
 func (v eventSndMsg) exec(p *Provider) (e error) {
-	if Notify != nil {
-		Notify(&StateUpdate{State: "Send-Message"})
-	}
-
 	switch p.state {
 	case rOpen:
 		go func() {
-			if e = p.rcon.Write(p.rcon.Peer.Ts, v.m); e != nil {
+			e := p.rcon.Write(p.rcon.Peer.Ts, v.m)
+			if Notify != nil {
+				c := p.activeConnection()
+				Notify(&MessageEvent{
+					Tx: true, Req: true, Local: c.Local, Peer: c.Peer, Err: e})
+			}
+			if e != nil {
 				p.notify <- eventRPeerDisc{}
 			}
 		}()
 	case iOpen:
 		go func() {
-			if e = p.icon.Write(p.icon.Peer.Ts, v.m); e != nil {
+			e := p.icon.Write(p.icon.Peer.Ts, v.m)
+			if Notify != nil {
+				c := p.activeConnection()
+				Notify(&MessageEvent{
+					Tx: true, Req: true, Local: c.Local, Peer: c.Peer, Err: e})
+			}
+			if e != nil {
 				p.notify <- eventIPeerDisc{}
 			}
 		}()
@@ -1165,12 +1220,27 @@ func (v eventRcvMsg) exec(p *Provider) (e error) {
 		// Process
 		if v.m.FlgR {
 			// readed message is request
+			if Notify != nil {
+				c := p.activeConnection()
+				Notify(&MessageEvent{
+					Tx: false, Req: true, Local: c.Local, Peer: c.Peer})
+			}
 			p.rcvstack <- &v.m
 		} else if ch, ok := p.sndstack[v.m.HbHID]; ok {
 			// readed message is stacked answer
+			if Notify != nil {
+				c := p.activeConnection()
+				Notify(&MessageEvent{
+					Tx: false, Req: false, Local: c.Local, Peer: c.Peer})
+			}
 			ch <- &v.m
 		} else {
-			monitor.Notify(monitor.Debug, "unknown answer message recieved")
+			if Notify != nil {
+				c := p.activeConnection()
+				Notify(&MessageEvent{
+					Tx: false, Req: false, Local: c.Local, Peer: c.Peer,
+					Err: fmt.Errorf("unknown answer message recieved")})
+			}
 		}
 	default:
 		// closed

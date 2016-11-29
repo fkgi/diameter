@@ -11,7 +11,7 @@ import (
 // Notify is called when error or trace event are occured
 var Notify = func(e error) {
 	log.Println(e)
-	if d, ok := e.(MessageTransfer); ok {
+	if d, ok := e.(*MessageTransfer); ok {
 		d.Dump(os.Stderr)
 	}
 }

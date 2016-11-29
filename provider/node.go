@@ -84,6 +84,9 @@ func (l *LocalNode) Connect(p *PeerNode, laddr, raddr net.Addr, s time.Duration)
 		dialer.InitTimeout = s
 		var ok bool
 		dialer.LocalAddr, ok = laddr.(*extnet.SCTPAddr)
+		if !ok {
+			e = fmt.Errorf("address type mismatch")
+		}
 
 		var con net.Conn
 		if con, e = dialer.Dial(raddr.Network(), raddr.String()); e == nil {
