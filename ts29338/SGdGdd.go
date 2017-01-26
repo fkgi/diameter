@@ -4,9 +4,9 @@ import (
 	"time"
 
 	"github.com/fkgi/diameter/msg"
-	"github.com/fkgi/diameter/ts29.229"
-	"github.com/fkgi/diameter/ts29.272"
-	"github.com/fkgi/diameter/ts29.336"
+	"github.com/fkgi/diameter/ts29229"
+	"github.com/fkgi/diameter/ts29272"
+	"github.com/fkgi/diameter/ts29336"
 )
 
 const (

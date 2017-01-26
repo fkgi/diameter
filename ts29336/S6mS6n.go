@@ -2,8 +2,8 @@ package ts29336
 
 import (
 	"github.com/fkgi/diameter/msg"
-	"github.com/fkgi/diameter/ts29.173"
-	"github.com/fkgi/diameter/ts29.329"
+	"github.com/fkgi/diameter/ts29173"
+	"github.com/fkgi/diameter/ts29329"
 )
 
 // UserIdentifier AVP

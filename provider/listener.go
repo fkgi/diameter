@@ -27,8 +27,8 @@ func (l *Listener) Bind(lnr net.Listener) {
 	for {
 		c, e := l.local.Accept(lnr)
 		// output logs
-		if Notify != nil {
-			Notify(&TransportBind{
+		if Notificator != nil {
+			Notificator(&TransportBind{
 				Local: l.local, LAddr: lnr.Addr(), Err: e})
 		}
 		if e != nil {
@@ -47,8 +47,8 @@ func (l *Listener) bindProvider(c *Connection) {
 	}
 	if e != nil {
 		// output logs
-		if Notify != nil {
-			Notify(&CapabilityExchangeEvent{
+		if Notificator != nil {
+			Notificator(&CapabilityExchangeEvent{
 				Tx: false, Req: true, Local: l.local, Peer: nil, Err: e})
 		}
 		c.Close()
@@ -69,14 +69,14 @@ func (l *Listener) bindProvider(c *Connection) {
 	for k, v := range l.provs {
 		if k.Host == h && k.Realm == r {
 			c.Peer = k
-			v.notify <- eventRConnCER{m, c}
+			v.Notify <- eventRConnCER{m, c}
 			return
 		}
 	}
 
-	if Notify != nil {
+	if Notificator != nil {
 		e = fmt.Errorf("CER from unknown peer")
-		Notify(&CapabilityExchangeEvent{
+		Notificator(&CapabilityExchangeEvent{
 			Tx: false, Req: true, Local: l.local, Peer: nil, Err: e})
 	}
 	c.Close()
@@ -86,7 +86,7 @@ func (l *Listener) bindProvider(c *Connection) {
 func (l *Listener) AddPeer(n *PeerNode) (p *Provider) {
 	p = &Provider{}
 
-	p.notify = make(chan stateEvent)
+	p.Notify = make(chan stateEvent)
 
 	p.state = shutdown
 
@@ -108,6 +108,6 @@ func (l *Listener) Dial(n *PeerNode, laddr, raddr net.Addr) (e error) {
 	if p.state == shutdown {
 		p.state = closed
 	}
-	p.notify <- eventStart{laddr, raddr, l.local, n}
+	p.Notify <- eventStart{laddr, raddr, l.local, n}
 	return
 }

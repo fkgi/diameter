@@ -34,8 +34,8 @@ func (c *Connection) Close() (e error) {
 	}
 
 	// output logs
-	if Notify != nil {
-		Notify(&TransportStateChange{
+	if Notificator != nil {
+		Notificator(&TransportStateChange{
 			Open: false, Local: c.Local, Peer: c.Peer, LAddr: la, PAddr: pa, Err: e})
 	}
 	return
@@ -54,8 +54,8 @@ func (c *Connection) Write(s time.Duration, m msg.Message) (e error) {
 		_, e = m.WriteTo(c.conn)
 	}
 
-	if Notify != nil {
-		Notify(&MessageTransfer{
+	if Notificator != nil {
+		Notificator(&MessageTransfer{
 			Tx: true, Local: c.Local, Peer: c.Peer, Err: e, dump: m.PrintStack})
 	}
 	return
@@ -78,8 +78,8 @@ func (c *Connection) Read(s time.Duration) (m msg.Message, e error) {
 		*/
 	}
 
-	if Notify != nil {
-		Notify(&MessageTransfer{
+	if Notificator != nil {
+		Notificator(&MessageTransfer{
 			Tx: false, Local: c.Local, Peer: c.Peer, Err: e, dump: m.PrintStack})
 	}
 	return

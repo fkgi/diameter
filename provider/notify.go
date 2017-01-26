@@ -3,18 +3,11 @@ package provider
 import (
 	"fmt"
 	"io"
-	"log"
 	"net"
-	"os"
 )
 
-// Notify is called when error or trace event are occured
-var Notify = func(e error) {
-	log.Println(e)
-	if d, ok := e.(*MessageTransfer); ok {
-		d.Dump(os.Stderr)
-	}
-}
+// Notificator is called when error or trace event are occured
+var Notificator func(e error)
 
 // MessageTransfer indicate Diameter message sent
 type MessageTransfer struct {
