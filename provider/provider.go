@@ -84,12 +84,13 @@ func (p *Provider) run() {
 		if event == nil {
 			break
 		}
+		state := p.state
 		e := event.exec(p)
 
 		if Notificator != nil {
 			c := p.activeConnection()
 			Notificator(&StateUpdate{
-				State: stateStr[p.state], Event: event.name(),
+				State: stateStr[state], Event: event.name(),
 				Local: c.Local, Peer: c.Peer, Err: e})
 		}
 	}

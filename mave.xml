@@ -6,7 +6,7 @@
 	</local>
 	<peer>
 		<addr>192.168.255.33:3868</addr>
-		<fqdn>BFX.tes.ns-sol.co.jp</fqdn>
+		<fqdn>vbfx.tes.ns-sol.co.jp</fqdn>
 	</peer>
     <watchdog>
         <interval>30</interval>
