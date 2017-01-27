@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <config>
 	<local>
-		<addr>192.168.255.1:10000</addr>
-		<fqdn>rafe00.tes.ns-sol.co.jp</fqdn>
+        <type>sctp</type>
+		<addr>10.255.255.11:10000</addr>
+		<fqdn>client.test.com</fqdn>
 	</local>
 	<peer>
-		<addr>192.168.255.33:3868</addr>
-		<fqdn>vbfx.tes.ns-sol.co.jp</fqdn>
+        <type>sctp</type>
+		<addr>10.255.255.11:10001</addr>
+		<fqdn>server.test.com</fqdn>
 	</peer>
     <watchdog>
         <interval>30</interval>

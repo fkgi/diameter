@@ -45,6 +45,9 @@ var stateStr = map[int]string{
 
 // Provider is state machine of Diameter
 type Provider struct {
+	local *LocalNode
+	peer  *PeerNode
+
 	wT *time.Timer // watchdog timer
 	wE int         // watchdog expired counter
 
@@ -80,27 +83,36 @@ func (p *Provider) State() string {
 
 func (p *Provider) run() {
 	for {
+		if Notificator != nil {
+			Notificator(&StateUpdate{
+				State: stateStr[p.state], Event: "",
+				Local: p.local, Peer: p.peer, Err: nil})
+		}
 		event := <-p.Notify
 		if event == nil {
 			break
 		}
+
+		if Notificator != nil {
+			Notificator(&StateUpdate{
+				State: stateStr[p.state], Event: event.name(),
+				Local: p.local, Peer: p.peer, Err: nil})
+		}
 		state := p.state
 		e := event.exec(p)
 
-		if Notificator != nil {
-			c := p.activeConnection()
+		if Notificator != nil && e != nil {
 			Notificator(&StateUpdate{
 				State: stateStr[state], Event: event.name(),
-				Local: c.Local, Peer: c.Peer, Err: e})
+				Local: p.local, Peer: p.peer, Err: e})
 		}
 	}
 }
 
 func (p *Provider) open() {
 	if Notificator != nil {
-		c := p.activeConnection()
 		Notificator(&ConnectionStateChange{
-			Open: true, Local: c.Local, Peer: c.Peer})
+			Open: true, Local: p.local, Peer: p.peer})
 	}
 	p.resetWatchdog()
 
@@ -162,9 +174,8 @@ func (p *Provider) open() {
 		p.wT.Stop()
 	}
 	if Notificator != nil {
-		c := p.activeConnection()
 		Notificator(&ConnectionStateChange{
-			Open: false, Local: c.Local, Peer: c.Peer})
+			Open: false, Local: p.local, Peer: p.peer})
 	}
 }
 
@@ -174,7 +185,7 @@ func (p *Provider) activeConnection() *Connection {
 	} else if p.state == rOpen {
 		return p.rcon
 	}
-	return &Connection{}
+	return nil
 }
 
 func (p *Provider) resetWatchdog() {
@@ -189,24 +200,41 @@ func (p *Provider) resetWatchdog() {
 		if p.wE > c.Peer.Ew {
 			p.Notify <- eventStop{msg.Enumerated(0)}
 		} else {
+			ch := make(chan *msg.Message)
 			r := c.makeDWR()
+			r.HbHID = c.Local.NextHbH()
+			p.sndstack[r.HbHID] = ch
+
+			e := c.Write(c.Peer.Ts, r)
 			if Notificator != nil {
 				Notificator(&WatchdogEvent{
-					Tx: true, Req: true, Local: c.Local, Peer: c.Peer})
+					Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
+			}
+			if e != nil {
+				switch p.state {
+				case rOpen:
+					p.Notify <- eventRPeerDisc{}
+				case iOpen:
+					p.Notify <- eventIPeerDisc{}
+				}
+				return
 			}
 
-			ap := sendReq(r, c, p)
-			var e error
+			t := time.AfterFunc(c.Peer.Tp, func() {
+				ch <- nil
+			})
+			ap := <-ch
+			t.Stop()
+			delete(p.sndstack, r.HbHID)
+
 			if ap == nil {
-				e = fmt.Errorf("no answer")
-				p.Notify <- eventStop{msg.Enumerated(0)}
+				if Notificator != nil {
+					Notificator(&WatchdogEvent{
+						Tx: false, Req: false, Local: p.local, Peer: p.peer,
+						Err: fmt.Errorf("no answer")})
+				}
 			} else {
-				e = nil
 				p.resetWatchdog()
-			}
-			if Notificator != nil {
-				Notificator(&WatchdogEvent{
-					Tx: false, Req: false, Local: c.Local, Peer: c.Peer, Err: e})
 			}
 		}
 	}
@@ -232,7 +260,7 @@ func (p *Provider) Send(r msg.Message) (a msg.Message, e error) {
 	for i := 0; i <= c.Peer.Cp; i++ {
 		if Notificator != nil {
 			Notificator(&MessageEvent{
-				Tx: true, Req: true, Local: c.Local, Peer: c.Peer})
+				Tx: true, Req: true, Local: p.local, Peer: p.peer})
 		}
 		ap := sendReq(r, c, p)
 		if ap == nil {
@@ -243,7 +271,7 @@ func (p *Provider) Send(r msg.Message) (a msg.Message, e error) {
 			}
 			if Notificator != nil {
 				Notificator(&MessageEvent{
-					Tx: false, Req: false, Local: c.Local, Peer: c.Peer, Err: e})
+					Tx: false, Req: false, Local: p.local, Peer: p.peer, Err: e})
 			}
 			r.FlgT = true
 		} else {
@@ -285,9 +313,8 @@ func (p *Provider) Recieve() (r msg.Message, ch chan *msg.Message, e error) {
 		p.rcvstack <- nil
 	} else {
 		if Notificator != nil {
-			c := p.activeConnection()
 			Notificator(&MessageEvent{
-				Tx: false, Req: true, Local: c.Local, Peer: c.Peer})
+				Tx: false, Req: true, Local: p.local, Peer: p.peer})
 		}
 
 		r = *rp
@@ -295,9 +322,8 @@ func (p *Provider) Recieve() (r msg.Message, ch chan *msg.Message, e error) {
 		go func() {
 			if a := <-ch; a != nil {
 				if Notificator != nil {
-					c := p.activeConnection()
 					Notificator(&MessageEvent{
-						Tx: true, Req: false, Local: c.Local, Peer: c.Peer})
+						Tx: true, Req: false, Local: p.local, Peer: p.peer})
 				}
 				a.HbHID = r.HbHID
 				a.EtEID = r.EtEID
@@ -375,9 +401,8 @@ func (v eventRConnCER) name() string {
 
 func (v eventRConnCER) exec(p *Provider) (e error) {
 	if Notificator != nil {
-		c := p.activeConnection()
 		Notificator(&CapabilityExchangeEvent{
-			Tx: false, Req: true, Local: c.Local, Peer: c.Peer})
+			Tx: false, Req: true, Local: p.local, Peer: p.peer})
 	}
 
 	switch p.state {
@@ -399,9 +424,8 @@ func (v eventRConnCER) exec(p *Provider) (e error) {
 		}
 
 		if Notificator != nil {
-			c := p.activeConnection()
 			Notificator(&CapabilityExchangeEvent{
-				Tx: true, Req: false, Local: c.Local, Peer: c.Peer})
+				Tx: true, Req: false, Local: p.local, Peer: p.peer})
 		}
 	case waitConnAck:
 		p.state = waitConnAckElect
@@ -449,9 +473,8 @@ func (v eventIRcvConAck) exec(p *Provider) (e error) {
 		go func() {
 			e := p.icon.Write(p.icon.Peer.Ts, r)
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&CapabilityExchangeEvent{
-					Tx: true, Req: true, Local: c.Local, Peer: c.Peer, Err: e})
+					Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
 			}
 			if e != nil {
 				p.Notify <- eventIPeerDisc{}
@@ -461,9 +484,8 @@ func (v eventIRcvConAck) exec(p *Provider) (e error) {
 			a, e := p.icon.Read(0)
 			if e != nil {
 				if Notificator != nil {
-					c := p.activeConnection()
 					Notificator(&CapabilityExchangeEvent{
-						Tx: false, Req: false, Local: c.Local, Peer: c.Peer, Err: e})
+						Tx: false, Req: false, Local: p.local, Peer: p.peer, Err: e})
 				}
 				p.Notify <- eventIPeerDisc{}
 			} else if r.HbHID == a.HbHID && a.AppID == 0 && a.Code == 257 && !a.FlgR {
@@ -481,9 +503,8 @@ func (v eventIRcvConAck) exec(p *Provider) (e error) {
 		go func() {
 			e := p.icon.Write(p.icon.Peer.Ts, r)
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&CapabilityExchangeEvent{
-					Tx: true, Req: true, Local: c.Local, Peer: c.Peer, Err: e})
+					Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
 			}
 			if e != nil {
 				p.Notify <- eventIPeerDisc{}
@@ -498,9 +519,8 @@ func (v eventIRcvConAck) exec(p *Provider) (e error) {
 			a, e := p.icon.Read(0)
 			if e != nil {
 				if Notificator != nil {
-					c := p.activeConnection()
 					Notificator(&CapabilityExchangeEvent{
-						Tx: false, Req: false, Local: c.Local, Peer: c.Peer, Err: e})
+						Tx: false, Req: false, Local: p.local, Peer: p.peer, Err: e})
 				}
 				p.Notify <- eventIPeerDisc{}
 			} else if r.HbHID == a.HbHID && a.AppID == 0 && a.Code == 257 && a.FlgR {
@@ -548,9 +568,8 @@ func (v eventIRcvConNack) exec(p *Provider) (e error) {
 		go func() {
 			e := p.rcon.Write(p.rcon.Peer.Ts, p.cachemsg)
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&CapabilityExchangeEvent{
-					Tx: true, Req: false, Local: c.Local, Peer: c.Peer, Err: e})
+					Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
 			}
 			if e != nil {
 				p.Notify <- eventRPeerDisc{}
@@ -607,9 +626,8 @@ func (v eventRcvCER) exec(p *Provider) (e error) {
 	e = fmt.Errorf("not acceptable event")
 
 	if Notificator != nil {
-		c := p.activeConnection()
 		Notificator(&CapabilityExchangeEvent{
-			Tx: false, Req: true, Local: c.Local, Peer: c.Peer, Err: e})
+			Tx: false, Req: true, Local: p.local, Peer: p.peer, Err: e})
 	}
 
 	return
@@ -626,9 +644,8 @@ func (v eventRRcvCEA) name() string {
 func (v eventRRcvCEA) exec(p *Provider) (e error) {
 	e = fmt.Errorf("not acceptable event")
 	if Notificator != nil {
-		c := p.activeConnection()
 		Notificator(&CapabilityExchangeEvent{
-			Tx: false, Req: false, Local: c.Local, Peer: c.Peer, Err: e})
+			Tx: false, Req: false, Local: p.local, Peer: p.peer, Err: e})
 	}
 
 	return
@@ -658,18 +675,16 @@ func (v eventIRcvCEA) exec(p *Provider) (e error) {
 		}
 		if c != nil && *c == 2001 {
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&CapabilityExchangeEvent{
-					Tx: false, Req: false, Local: c.Local, Peer: c.Peer})
+					Tx: false, Req: false, Local: p.local, Peer: p.peer})
 			}
 			p.state = iOpen
 			go p.open()
 		} else {
 			// Close
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&CapabilityExchangeEvent{
-					Tx: false, Req: false, Local: c.Local, Peer: c.Peer,
+					Tx: false, Req: false, Local: p.local, Peer: p.peer,
 					Err: fmt.Errorf("CEA Nack received")})
 			}
 			p.icon.Close()
@@ -678,9 +693,8 @@ func (v eventIRcvCEA) exec(p *Provider) (e error) {
 		}
 	case waitReturns:
 		if Notificator != nil {
-			c := p.activeConnection()
 			Notificator(&CapabilityExchangeEvent{
-				Tx: false, Req: false, Local: c.Local, Peer: c.Peer})
+				Tx: false, Req: false, Local: p.local, Peer: p.peer})
 		}
 
 		// R-Disc
@@ -715,9 +729,8 @@ func (v eventIRcvNonCEA) exec(p *Provider) (e error) {
 	switch p.state {
 	case waitICEA:
 		if Notificator != nil {
-			c := p.activeConnection()
 			Notificator(&CapabilityExchangeEvent{
-				Tx: false, Req: false, Local: c.Local, Peer: c.Peer,
+				Tx: false, Req: false, Local: p.local, Peer: p.peer,
 				Err: fmt.Errorf("None CEA received")})
 		}
 		// Error
@@ -802,9 +815,8 @@ func (v eventIPeerDisc) exec(p *Provider) (e error) {
 		go func() {
 			e := p.rcon.Write(p.rcon.Peer.Ts, p.cachemsg)
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&CapabilityExchangeEvent{
-					Tx: true, Req: false, Local: c.Local, Peer: c.Peer, Err: e})
+					Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
 			}
 			if e != nil {
 				p.Notify <- eventRPeerDisc{}
@@ -832,9 +844,8 @@ func (v eventRcvDWR) name() string {
 
 func (v eventRcvDWR) exec(p *Provider) (e error) {
 	if Notificator != nil {
-		c := p.activeConnection()
 		Notificator(&WatchdogEvent{
-			Tx: false, Req: true, Local: c.Local, Peer: c.Peer})
+			Tx: false, Req: true, Local: p.local, Peer: p.peer})
 	}
 
 	switch p.state {
@@ -845,9 +856,8 @@ func (v eventRcvDWR) exec(p *Provider) (e error) {
 		go func() {
 			e := p.rcon.Write(p.rcon.Peer.Ts, a)
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&WatchdogEvent{
-					Tx: true, Req: false, Local: c.Local, Peer: c.Peer, Err: e})
+					Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
 			}
 			if e != nil {
 				p.Notify <- eventRPeerDisc{}
@@ -860,9 +870,8 @@ func (v eventRcvDWR) exec(p *Provider) (e error) {
 		go func() {
 			e := p.icon.Write(p.icon.Peer.Ts, a)
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&WatchdogEvent{
-					Tx: true, Req: false, Local: c.Local, Peer: c.Peer, Err: e})
+					Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
 			}
 			if e != nil {
 				p.Notify <- eventIPeerDisc{}
@@ -896,18 +905,16 @@ func (v eventRcvDWA) exec(p *Provider) (e error) {
 		// Process-DWA
 		if ch, ok := p.sndstack[v.m.HbHID]; ok {
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&WatchdogEvent{
-					Tx: false, Req: false, Local: c.Local, Peer: c.Peer})
+					Tx: false, Req: false, Local: p.local, Peer: p.peer})
 			}
 			// readed message is stacked answer
 			delete(p.sndstack, v.m.HbHID)
 			ch <- &v.m
 		} else {
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&WatchdogEvent{
-					Tx: false, Req: false, Local: c.Local, Peer: c.Peer,
+					Tx: false, Req: false, Local: p.local, Peer: p.peer,
 					Err: fmt.Errorf("unknown DWA recieved")})
 			}
 		}
@@ -945,9 +952,8 @@ func (v eventStop) exec(p *Provider) (e error) {
 		go func() {
 			e := p.rcon.Write(p.rcon.Peer.Ts, r)
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&PurgeEvent{
-					Tx: true, Req: true, Local: c.Local, Peer: c.Peer, Err: e})
+					Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
 			}
 			if e != nil {
 				p.Notify <- eventRPeerDisc{}
@@ -962,9 +968,8 @@ func (v eventStop) exec(p *Provider) (e error) {
 		go func() {
 			e := p.icon.Write(p.icon.Peer.Ts, r)
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&PurgeEvent{
-					Tx: true, Req: true, Local: c.Local, Peer: c.Peer, Err: e})
+					Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
 			}
 			if e != nil {
 				p.Notify <- eventIPeerDisc{}
@@ -996,9 +1001,8 @@ func (v eventRcvDPR) name() string {
 
 func (v eventRcvDPR) exec(p *Provider) (e error) {
 	if Notificator != nil {
-		c := p.activeConnection()
 		Notificator(&PurgeEvent{
-			Tx: false, Req: true, Local: c.Local, Peer: c.Peer})
+			Tx: false, Req: true, Local: p.local, Peer: p.peer})
 	}
 
 	switch p.state {
@@ -1009,9 +1013,8 @@ func (v eventRcvDPR) exec(p *Provider) (e error) {
 		go func() {
 			e := p.rcon.Write(p.rcon.Peer.Ts, a)
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&PurgeEvent{
-					Tx: true, Req: false, Local: c.Local, Peer: c.Peer, Err: e})
+					Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
 			}
 			if e != nil {
 				p.Notify <- eventRPeerDisc{}
@@ -1024,9 +1027,8 @@ func (v eventRcvDPR) exec(p *Provider) (e error) {
 		go func() {
 			e := p.icon.Write(p.icon.Peer.Ts, a)
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&PurgeEvent{
-					Tx: true, Req: false, Local: c.Local, Peer: c.Peer, Err: e})
+					Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
 			}
 			if e != nil {
 				p.Notify <- eventIPeerDisc{}
@@ -1056,9 +1058,8 @@ func (v eventRRcvDPA) name() string {
 
 func (v eventRRcvDPA) exec(p *Provider) (e error) {
 	if Notificator != nil {
-		c := p.activeConnection()
 		Notificator(&PurgeEvent{
-			Tx: false, Req: false, Local: c.Local, Peer: c.Peer})
+			Tx: false, Req: false, Local: p.local, Peer: p.peer})
 	}
 
 	switch p.state {
@@ -1092,9 +1093,8 @@ func (v eventIRcvDPA) name() string {
 
 func (v eventIRcvDPA) exec(p *Provider) (e error) {
 	if Notificator != nil {
-		c := p.activeConnection()
 		Notificator(&PurgeEvent{
-			Tx: false, Req: false, Local: c.Local, Peer: c.Peer})
+			Tx: false, Req: false, Local: p.local, Peer: p.peer})
 	}
 
 	switch p.state {
@@ -1136,9 +1136,8 @@ func (v eventWinElection) exec(p *Provider) (e error) {
 		go func() {
 			e := p.rcon.Write(p.rcon.Peer.Ts, p.cachemsg)
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&CapabilityExchangeEvent{
-					Tx: true, Req: true, Local: c.Local, Peer: c.Peer, Err: e})
+					Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
 			}
 			if e != nil {
 				p.Notify <- eventRPeerDisc{}
@@ -1173,9 +1172,8 @@ func (v eventSndMsg) exec(p *Provider) (e error) {
 		go func() {
 			e := p.rcon.Write(p.rcon.Peer.Ts, v.m)
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&MessageEvent{
-					Tx: true, Req: true, Local: c.Local, Peer: c.Peer, Err: e})
+					Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
 			}
 			if e != nil {
 				p.Notify <- eventRPeerDisc{}
@@ -1185,9 +1183,8 @@ func (v eventSndMsg) exec(p *Provider) (e error) {
 		go func() {
 			e := p.icon.Write(p.icon.Peer.Ts, v.m)
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&MessageEvent{
-					Tx: true, Req: true, Local: c.Local, Peer: c.Peer, Err: e})
+					Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
 			}
 			if e != nil {
 				p.Notify <- eventIPeerDisc{}
@@ -1222,24 +1219,21 @@ func (v eventRcvMsg) exec(p *Provider) (e error) {
 		if v.m.FlgR {
 			// readed message is request
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&MessageEvent{
-					Tx: false, Req: true, Local: c.Local, Peer: c.Peer})
+					Tx: false, Req: true, Local: p.local, Peer: p.peer})
 			}
 			p.rcvstack <- &v.m
 		} else if ch, ok := p.sndstack[v.m.HbHID]; ok {
 			// readed message is stacked answer
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&MessageEvent{
-					Tx: false, Req: false, Local: c.Local, Peer: c.Peer})
+					Tx: false, Req: false, Local: p.local, Peer: p.peer})
 			}
 			ch <- &v.m
 		} else {
 			if Notificator != nil {
-				c := p.activeConnection()
 				Notificator(&MessageEvent{
-					Tx: false, Req: false, Local: c.Local, Peer: c.Peer,
+					Tx: false, Req: false, Local: p.local, Peer: p.peer,
 					Err: fmt.Errorf("unknown answer message recieved")})
 			}
 		}

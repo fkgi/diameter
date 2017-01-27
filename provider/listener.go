@@ -93,6 +93,9 @@ func (l *Listener) AddPeer(n *PeerNode) (p *Provider) {
 	p.rcvstack = make(chan *msg.Message, MsgStackLen)
 	p.sndstack = make(map[uint32]chan *msg.Message)
 
+	p.local = l.local
+	p.peer = n
+
 	go p.run()
 
 	l.provs[n] = p

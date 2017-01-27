@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<config>
+	<local>
+        <type>sctp</type>
+		<addr>10.255.255.11:10001</addr>
+		<fqdn>server.test.com</fqdn>
+	</local>
+	<peer>
+        <type>sctp</type>
+		<addr>10.255.255.11:10000</addr>
+		<fqdn>client.test.com</fqdn>
+	</peer>
+    <watchdog>
+        <interval>30</interval>
+        <retry>3</retry>
+    </watchdog>
+    <message>
+        <interval>30</interval>
+        <retry>2</retry>
+    </message>
+</config>

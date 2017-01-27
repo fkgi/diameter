@@ -123,6 +123,11 @@ func (e *StateUpdate) Error() string {
 	if e == nil {
 		return "<nil>"
 	}
+	if e.Event == "" {
+		return fmt.Sprintf(
+			"waiting event on state %s provider %s -> %s",
+			e.State, e.Local, e.Peer)
+	}
 	if e.Err == nil {
 		return fmt.Sprintf(
 			"event %s on state %s provider %s -> %s",

@@ -1,18 +1,31 @@
 package example
 
 import (
-	"bytes"
 	"flag"
 	"log"
-	"math/rand"
-	"net"
 	"os"
-	"strconv"
-	"time"
-
-	"github.com/fkgi/diameter/msg"
 )
 
+// GeneratePath generate file path
+func GeneratePath(s string) (i, o, c string) {
+	// get option flag
+	isock := flag.String("i", s+".in", "input UNIX socket name")
+	osock := flag.String("o", s+".out", "output UNIX socket name")
+	conf := flag.String("c", s+".xml", "xml config file name")
+	flag.Parse()
+
+	// create path
+	if wdir, e := os.Getwd(); e != nil {
+		log.Fatalln(e)
+	} else {
+		i = wdir + string(os.PathSeparator) + *isock
+		o = wdir + string(os.PathSeparator) + *osock
+		c = wdir + string(os.PathSeparator) + *conf
+	}
+	return
+}
+
+/*
 var (
 	osock *string
 
@@ -144,3 +157,4 @@ func Pull(f func(*msg.Message) *msg.Message) {
 
 	log.Println("end")
 }
+*/
