@@ -2,17 +2,37 @@ package example
 
 import (
 	"encoding/xml"
+	"flag"
 	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/fkgi/diameter/msg"
 	"github.com/fkgi/diameter/provider"
 	"github.com/fkgi/extnet"
 )
+
+// GeneratePath generate file path
+func GeneratePath(s string) (i, o, c string) {
+	// get option flag
+	isock := flag.String("i", s+".in", "input UNIX socket name")
+	osock := flag.String("o", s+".out", "output UNIX socket name")
+	conf := flag.String("c", s+".xml", "xml config file name")
+	flag.Parse()
+
+	// create path
+	if wdir, e := os.Getwd(); e != nil {
+		log.Fatalln(e)
+	} else {
+		i = wdir + string(os.PathSeparator) + *isock
+		o = wdir + string(os.PathSeparator) + *osock
+		c = wdir + string(os.PathSeparator) + *conf
+	}
+	return
+}
 
 type xmlConfig struct {
 	XMLName  xml.Name `xml:"config"`
@@ -52,7 +72,7 @@ func LoadConfig(conf string) (
 	ln = &provider.LocalNode{}
 	la, ln.Addr = loadNetAddr(x.Local.NetType, x.Local.Addr)
 	log.Printf("  address        =%s:%s", la.Network(), la)
-	ln.Host, ln.Realm = loadHostRealm(x.Local.FQDN)
+	ln.Host, ln.Realm = genHostRealm(x.Local.FQDN)
 	log.Printf("  diameter host  =%s", ln.Host)
 	log.Printf("  diameter realm =%s", ln.Realm)
 
@@ -62,7 +82,7 @@ func LoadConfig(conf string) (
 	pn = &provider.PeerNode{}
 	pa, pn.Addr = loadNetAddr(x.Peer.NetType, x.Peer.Addr)
 	log.Printf("  address        =%s:%s", pa.Network(), pa)
-	pn.Host, pn.Realm = loadHostRealm(x.Peer.FQDN)
+	pn.Host, pn.Realm = genHostRealm(x.Peer.FQDN)
 	log.Printf("  diameter host  =%s", pn.Host)
 	log.Printf("  diameter realm =%s", pn.Realm)
 
@@ -127,21 +147,6 @@ func loadNetAddr(nettype, netaddr string) (addr net.Addr, ip []net.IP) {
 		ip = []net.IP{a.IP}
 	default:
 		log.Fatalln("invalid network type", nettype)
-	}
-	return
-}
-
-func loadHostRealm(fqdn string) (host, realm msg.DiameterIdentity) {
-	fqdn = strings.TrimSpace(fqdn)
-	var e error
-	host, e = msg.ParseDiameterIdentity(fqdn)
-	if e != nil {
-		log.Fatalln("invalid host name:", e)
-	}
-
-	realm, e = msg.ParseDiameterIdentity(fqdn[strings.Index(fqdn, ".")+1:])
-	if e != nil {
-		log.Fatalln("invalid host realm:", e)
 	}
 	return
 }

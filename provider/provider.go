@@ -258,16 +258,12 @@ func (p *Provider) Send(r msg.Message) (a msg.Message, e error) {
 	r.EtEID = c.Local.NextEtE()
 
 	for i := 0; i <= c.Peer.Cp; i++ {
-		if Notificator != nil {
-			Notificator(&MessageEvent{
-				Tx: true, Req: true, Local: p.local, Peer: p.peer})
-		}
 		ap := sendReq(r, c, p)
 		if ap == nil {
 			if i == c.Peer.Cp {
-				e = fmt.Errorf("No answer")
+				e = fmt.Errorf("No answer, retry expired")
 			} else {
-				e = fmt.Errorf("No answer, retry")
+				e = fmt.Errorf("No answer, retry x%d", i+1)
 			}
 			if Notificator != nil {
 				Notificator(&MessageEvent{
@@ -275,10 +271,6 @@ func (p *Provider) Send(r msg.Message) (a msg.Message, e error) {
 			}
 			r.FlgT = true
 		} else {
-			if Notificator != nil {
-				Notificator(&MessageEvent{
-					Tx: false, Req: false, Local: c.Local, Peer: c.Peer})
-			}
 			a = *ap
 			e = nil
 			break
@@ -312,22 +304,17 @@ func (p *Provider) Recieve() (r msg.Message, ch chan *msg.Message, e error) {
 		e = fmt.Errorf("Peer Node closed")
 		p.rcvstack <- nil
 	} else {
-		if Notificator != nil {
-			Notificator(&MessageEvent{
-				Tx: false, Req: true, Local: p.local, Peer: p.peer})
-		}
-
 		r = *rp
 		ch = make(chan *msg.Message)
 		go func() {
 			if a := <-ch; a != nil {
-				if Notificator != nil {
-					Notificator(&MessageEvent{
-						Tx: true, Req: false, Local: p.local, Peer: p.peer})
-				}
 				a.HbHID = r.HbHID
 				a.EtEID = r.EtEID
 				p.Notify <- eventSndMsg{*a}
+			} else if Notificator != nil {
+				Notificator(&MessageEvent{
+					Tx: true, Req: false, Local: p.local, Peer: p.peer,
+					Err: fmt.Errorf("No answer")})
 			}
 		}()
 	}

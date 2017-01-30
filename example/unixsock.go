@@ -90,10 +90,12 @@ func RunUnixsockRelay(prov *provider.Provider, isock, osock string) {
 				}
 			}
 			if m, e = prov.Send(m); e != nil {
+				c.Close()
 				log.Println(e)
 				continue
 			}
 			if _, e = m.WriteTo(c); e != nil {
+				c.Close()
 				log.Println(e)
 				continue
 			}
