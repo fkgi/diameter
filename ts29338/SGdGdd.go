@@ -113,21 +113,23 @@ const (
          * [ Route-Record ]
 */
 
-// ServiceCenterAddress AVP
-func ServiceCenterAddress(msisdn []byte) msg.Avp {
+// SCAddress AVP contain the E164 number of the SMS-SC or MTC-IWF.
+func SCAddress(msisdn string) msg.Avp {
 	a := msg.Avp{Code: uint32(3300), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
 	a.Encode(msisdn)
 	return a
 }
 
-// SMRPUI AVP
+// SMRPUI AVP contain a short message transfer protocol data unit (TPDU).
+// Maximum length is 200 octets.
 func SMRPUI(s []byte) msg.Avp {
 	a := msg.Avp{Code: uint32(3301), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
 	a.Encode(s)
 	return a
 }
 
-// TFRFlags AVP
+// TFRFlags AVP is bit mask.
+// When moreMsgToSend set, the service centre has more short messages to send.
 func TFRFlags(moreMsgToSend bool) msg.Avp {
 	a := msg.Avp{Code: uint32(3302), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
 	i := uint32(0)
@@ -139,7 +141,8 @@ func TFRFlags(moreMsgToSend bool) msg.Avp {
 	return a
 }
 
-// SMDeliveryFailureCause AVP
+// SMDeliveryFailureCause AVP contain cause of the failure of a SM delivery with an complementary information.
+// When len(diag)==0, complementary information is empty.
 func SMDeliveryFailureCause(cause msg.Enumerated, diag []byte) msg.Avp {
 	a := msg.Avp{Code: uint32(3303), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
 	var t []msg.Avp
@@ -162,14 +165,32 @@ func SMDeliveryFailureCause(cause msg.Enumerated, diag []byte) msg.Avp {
 	return a
 }
 
-// SMDeliveryTimer AVP
+const (
+	// MemoryCapacityExceeded is Enumerated value 0
+	MemoryCapacityExceeded msg.Enumerated = 0
+	// EquipmentProtocolError is Enumerated value 1
+	EquipmentProtocolError msg.Enumerated = 1
+	// EquipmentNotSMEquipped is Enumerated value 2
+	EquipmentNotSMEquipped msg.Enumerated = 2
+	// UnknownServiceCenter is Enumerated value 3
+	UnknownServiceCenter msg.Enumerated = 3
+	// SCCongestion is Enumerated value 4
+	SCCongestion msg.Enumerated = 4
+	// InvalidSMEAddress is Enumerated value 5
+	InvalidSMEAddress msg.Enumerated = 5
+	// UserNotSCUser is Enumerated value 6
+	UserNotSCUser msg.Enumerated = 6
+)
+
+// SMDeliveryTimer AVP contain the value in seconds of the timer for SM Delivery.
 func SMDeliveryTimer(i uint32) msg.Avp {
 	a := msg.Avp{Code: uint32(3306), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
 	a.Encode(i)
 	return a
 }
 
-// SMDeliveryStartTime AVP
+// SMDeliveryStartTime AVP contain the timestamp (in UTC) at which
+// the SM Delivery Supervision Timer was started.
 func SMDeliveryStartTime(t time.Time) msg.Avp {
 	a := msg.Avp{Code: uint32(3307), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
 	a.Encode(t)
@@ -204,7 +225,9 @@ func SMSMICorrelationID(hssID []byte, oURI, dURI string) msg.Avp {
 	return a
 }
 
-// OFRFlags AVP
+// OFRFlags AVP is bit mask.
+// When s6as6d set, the OFR message is sent on the Gdd interface (source node is an SGSN).
+// When cleared, sent on the SGd interface (source node is an MME).
 func OFRFlags(s6as6d bool) msg.Avp {
 	a := msg.Avp{Code: uint32(3328), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
 	i := uint32(0)
@@ -217,14 +240,16 @@ func OFRFlags(s6as6d bool) msg.Avp {
 	return a
 }
 
-// MaximumRetransmissionTime AVP
+// MaximumRetransmissionTime AVP contain the maximum retransmission time (in UTC) until which
+// the SMS-GMSC is capable to retransmit the MT Short Message.
 func MaximumRetransmissionTime(t time.Time) msg.Avp {
 	a := msg.Avp{Code: uint32(3330), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
 	a.Encode(t)
 	return a
 }
 
-// RequestedRetransmissionTime AVP
+// RequestedRetransmissionTime AVP contain the timestamp (in UTC) at which
+// the SMS-GMSC is requested to retransmit the MT Short Message.
 func RequestedRetransmissionTime(t time.Time) msg.Avp {
 	a := msg.Avp{Code: uint32(3331), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
 	a.Encode(t)
