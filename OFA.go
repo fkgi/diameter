@@ -9,22 +9,19 @@ import (
 )
 
 /*
- <OFR> ::= < Diameter Header: 8388645, REQ, PXY, 16777313>
-		   < Session-Id >
-		   [ Vendor-Specific-Application-Id ]
+ <OFA> ::= < Diameter Header: 8388645, PXY, 16777313 >
+           < Session-Id >
+           [ Vendor-Specific-Application-Id ]
+           [ Result-Code ]
+           [ Experimental-Result ]
            { Auth-Session-State }
            { Origin-Host }
            { Origin-Realm }
-           [ Destination-Host ]
-           { Destination-Realm }
-           { SC-Address }
-           [ OFR-Flags ]
-		 * [ Supported-Features ]
-           { User-Identifier }
-           { SM-RP-UI }
-           [ SMSMI-Correlation-ID ]
-           [ SM-Delivery-Outcome ]
+         * [ Supported-Features ]
+           [ SM-Delivery- Failure-Cause ]
+           [ SM-RP-UI ]
          * [ AVP ]
+         * [ Failed-AVP ]
          * [ Proxy-Info ]
          * [ Route-Record ]
 */
@@ -33,12 +30,12 @@ func main() {
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
 	h := &example.Handler{}
 
-	h.Init("initiator.out", "MME01.test.com", "SMSC01.test.com")
+	h.Init("responder.in", "SMSC01.test.com", "MME01.test.com")
 
-	h.Push(func() *msg.Message {
+	h.Pull(func(r *msg.Message) *msg.Message {
 		m := msg.Message{}
 		m.Ver = msg.DiaVer
-		m.FlgR = true
+		m.FlgR = false
 		m.FlgP = true
 		m.FlgE = false
 		m.FlgT = false
@@ -51,25 +48,14 @@ func main() {
 		// Vendor-Specific-Application-Id
 		avps = append(avps, msg.VendorSpecificApplicationID(
 			10415, 16777313, true))
+		// Result-Code AVP
+		avps = append(avps, msg.ResultCode(2000))
 		// Auth-Session-State
 		avps = append(avps, msg.AuthSessionState(false))
 		// Origin-Host
 		avps = append(avps, msg.OriginHost(h.OrigHost))
 		// Origin-Realm
 		avps = append(avps, msg.OriginRealm(h.OrigRealm))
-		// Destination-Realm
-		avps = append(avps, msg.DestinationRealm(h.DestRealm))
-
-		// address of SMS-SC (SC-Address AVP)
-		avps = append(avps, ts29338.SCAddress("819099990000"))
-
-		// << functional information >>
-		// capability or status of SMSC (OFR-Flags AVP)
-		avps = append(avps, ts29338.OFRFlags(false))
-
-		// address of user (User-Identifier AVP)
-		avps = append(avps, ts29338.UserIdentifier(
-			"440019011112222", "819011112222", "", 0))
 
 		// SMS data (SM-RP-UI AVP)
 		avps = append(avps, ts29338.SMRPUI([]byte{
