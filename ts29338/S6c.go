@@ -9,6 +9,7 @@ import (
 /*
  <SRR> ::= < Diameter Header: 8388647, REQ, PXY, 16777312 >
            < Session-Id >
+		   [ DRMP ]
            [ Vendor-Specific-Application-Id ]
            { Auth-Session-State }
            { Origin-Host }
@@ -30,6 +31,7 @@ import (
 
  <SRA> ::= < Diameter Header: 8388647, PXY, 16777312 >
            < Session-Id >
+		   [ DRMP ]
            [ Vendor-Specific-Application-Id ]
            [ Result-Code ]
            [ Experimental-Result ]
@@ -52,7 +54,79 @@ import (
          * [ Route-Record ]
 */
 
-// SMRPMTI AVP
+/*
+ <ALR> ::= < Diameter Header: 8388648, REQ, PXY, 16777312 >
+           < Session-Id >
+           [ DRMP ]
+           [ Vendor-Specific-Application-Id ]
+           { Auth-Session-State }
+           { Origin-Host }
+           { Origin-Realm }
+           [ Destination-Host ]
+           { Destination-Realm }
+           { SC-Address }
+           { User-Identifier }
+           [ SMSMI-Correlation-ID ]
+           [ Maximum-UE-Availability-Time ]
+           [ SMS-GMSC-Alert-Event ]
+           [ Serving-Node ]
+         * [ Supported-Features ]
+         * [ AVP ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+ <ALA> ::= < Diameter Header: 8388648, PXY, 16777312 >
+           < Session-Id >
+           [ DRMP ]
+           [ Vendor-Specific-Application-Id ]
+           [ Result-Code ]
+           [ Experimental-Result ]
+           { Auth-Session-State }
+           { Origin-Host }
+           { Origin-Realm }
+         * [ Supported-Features ]
+         * [ AVP ]
+         * [ Failed-AVP ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+*/
+
+/*
+ <RDR> ::= < Diameter Header: 8388649, REQ, PXY, 16777312 >
+           < Session-Id >
+           [ DRMP ]
+           [ Vendor-Specific-Application-Id ]
+           { Auth-Session-State }
+           { Origin-Host }
+           { Origin-Realm }
+           [ Destination-Host ]
+           { Destination-Realm }
+         * [ Supported-Features ]
+           { User-Identifier }
+           [ SMSMI-Correlation-ID ]
+           { SC-Address }
+           { SM-Delivery-Outcome }
+           [ RDR-Flags ]
+         * [ AVP ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+ <RDA> ::= < Diameter Header: 8388649, PXY, 16777312 >
+           < Session-Id >
+           [ DRMP ]
+           [ Vendor-Specific-Application-Id ]
+           [ Result-Code ]
+           [ Experimental-Result ]
+           { Auth-Session-State }
+           { Origin-Host }
+           { Origin-Realm }
+         * [ Supported-Features ]
+           [ User-Identifier ]
+         * [ AVP ]
+         * [ Failed-AVP ]
+         * [ Proxy-Info ]
+         * [ Route-Record ]
+*/
+
+// SMRPMTI AVP contain the RP-Message Type Indicator of the Short Message.
 func SMRPMTI(e msg.Enumerated) msg.Avp {
 	a := msg.Avp{Code: uint32(3308), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
 	a.Encode(e)
@@ -66,15 +140,20 @@ const (
 	SmStatusReport msg.Enumerated = 1
 )
 
-// SMRPSMEA AVP
+// SMRPSMEA AVP contain the RP-Originating SME-address of the Short Message Entity that has originated the SM.
+// It shall be formatted according to the formatting rules of the address fields described in 3GPP TS 23.040.
 func SMRPSMEA(smeAddr []byte) msg.Avp {
 	a := msg.Avp{Code: uint32(3309), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
 	a.Encode(smeAddr)
 	return a
 }
 
-// SRRFlags AVP
-func SRRFlags(gprsIndicator, smRpPri, singleAttemptDelivery bool) msg.Avp {
+// SRRFlags AVP contain a bit mask.
+// gprsIndicator shall be ture if the SMS-GMSC supports receiving of two serving nodes addresses from the HSS.
+// smRpPri shall be true if the delivery of the short message shall be attempted when
+// a service centre address is already contained in the Message Waiting Data file.
+// singleAttempt if true indicates that only one delivery attempt shall be performed for this particular SM.
+func SRRFlags(gprsIndicator, smRpPri, singleAttempt bool) msg.Avp {
 	a := msg.Avp{Code: uint32(3310), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
 	i := uint32(0)
 
@@ -84,14 +163,14 @@ func SRRFlags(gprsIndicator, smRpPri, singleAttemptDelivery bool) msg.Avp {
 	if smRpPri {
 		i = i | 0x00000002
 	}
-	if singleAttemptDelivery {
+	if singleAttempt {
 		i = i | 0x00000004
 	}
 	a.Encode(i)
 	return a
 }
 
-// SMDeliveryNotIntended AVP
+// SMDeliveryNotIntended AVP indicate by its presence that delivery of a short message is not intended.
 func SMDeliveryNotIntended(e msg.Enumerated) msg.Avp {
 	a := msg.Avp{Code: uint32(3311), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
 	a.Encode(e)

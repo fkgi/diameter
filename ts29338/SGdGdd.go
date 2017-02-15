@@ -33,6 +33,7 @@ const (
 /*
  <OFR> ::= < Diameter Header: 8388645, REQ, PXY, 16777313 >
            < Session-Id >
+           [ DRMP ]
            [ Vendor-Specific-Application-Id ]
            { Auth-Session-State }
            { Origin-Host }
@@ -49,11 +50,9 @@ const (
          * [ AVP ]
          * [ Proxy-Info ]
          * [ Route-Record ]
-*/
-
-/*
  <OFA> ::= < Diameter Header: 8388645, PXY, 16777313 >
            < Session-Id >
+           [ DRMP ]
            [ Vendor-Specific-Application-Id ]
            [ Result-Code ]
            [ Experimental-Result ]
@@ -61,7 +60,7 @@ const (
            { Origin-Host }
            { Origin-Realm }
          * [ Supported-Features ]
-           [ SM-Delivery- Failure-Cause ]
+           [ SM-Delivery-Failure-Cause ]
            [ SM-RP-UI ]
          * [ AVP ]
          * [ Failed-AVP ]
@@ -72,6 +71,7 @@ const (
 /*
  <TFR> ::= < Diameter Header: 8388646, REQ, PXY, 16777313 >
            < Session-Id >
+           [ DRMP ]
            [ Vendor-Specific-Application-Id ]
            { Auth-Session-State }
            { Origin-Host }
@@ -89,14 +89,13 @@ const (
            [ SM-Delivery-Timer ]
            [ SM-Delivery-Start-Time ]
            [ Maximum-Retransmission-Time ]
+		   [ SMS-GMSC-Address ]
          * [ AVP ]
          * [ Proxy-Info ]
          * [ Route-Record ]
-*/
-
-/*
  <TFA> ::= < Diameter Header: 8388646, PXY, 16777313 >
            < Session-Id >
+           [ DRMP ]
            [ Vendor-Specific-Application-Id ]
            [ Result-Code ]
            [ Experimental-Result ]
@@ -107,6 +106,8 @@ const (
            [ Absent-User-Diagnostic-SM ]
            [ SM-Delivery- Failure-Cause ]
            [ SM-RP-UI ]
+           [ Requested-Retransmission-Time ]
+           [ User-Identifier ]
          * [ AVP ]
          * [ Failed-AVP ]
          * [ Proxy-Info ]
@@ -142,7 +143,7 @@ func TFRFlags(moreMsgToSend bool) msg.Avp {
 }
 
 // SMDeliveryFailureCause AVP contain cause of the failure of a SM delivery with an complementary information.
-// When len(diag)==0, complementary information is empty.
+// If diag is nil, complementary information is empty.
 func SMDeliveryFailureCause(cause msg.Enumerated, diag []byte) msg.Avp {
 	a := msg.Avp{Code: uint32(3303), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
 	var t []msg.Avp
@@ -155,7 +156,7 @@ func SMDeliveryFailureCause(cause msg.Enumerated, diag []byte) msg.Avp {
 	}
 
 	// SM-Diagnostic-Info
-	if len(diag) != 0 {
+	if diag != nil {
 		v := msg.Avp{Code: uint32(3305), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
 		v.Encode(diag)
 		t = append(t, v)
@@ -197,8 +198,24 @@ func SMDeliveryStartTime(t time.Time) msg.Avp {
 	return a
 }
 
-// SMSMICorrelationID AVP
-func SMSMICorrelationID(hssID []byte, oURI, dURI string) msg.Avp {
+// OFRFlags AVP is bit mask.
+// When s6as6d set, the OFR message is sent on the Gdd interface (source node is an SGSN).
+// When cleared, sent on the SGd interface (source node is an MME).
+func OFRFlags(s6as6d bool) msg.Avp {
+	a := msg.Avp{Code: uint32(3328), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
+	i := uint32(0)
+
+	if s6as6d {
+		i = i | 0x00000001
+	}
+
+	a.Encode(i)
+	return a
+}
+
+// SMSMICorrelationID AVP ontain information identities used in the context
+// of MSISDN-less SMS delivery in IMS
+func SMSMICorrelationID(hssID, oURI, dURI string) msg.Avp {
 	a := msg.Avp{Code: uint32(3324), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
 	var t []msg.Avp
 
@@ -225,21 +242,6 @@ func SMSMICorrelationID(hssID []byte, oURI, dURI string) msg.Avp {
 	return a
 }
 
-// OFRFlags AVP is bit mask.
-// When s6as6d set, the OFR message is sent on the Gdd interface (source node is an SGSN).
-// When cleared, sent on the SGd interface (source node is an MME).
-func OFRFlags(s6as6d bool) msg.Avp {
-	a := msg.Avp{Code: uint32(3328), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
-	i := uint32(0)
-
-	if s6as6d {
-		i = i | 0x00000001
-	}
-
-	a.Encode(i)
-	return a
-}
-
 // MaximumRetransmissionTime AVP contain the maximum retransmission time (in UTC) until which
 // the SMS-GMSC is capable to retransmit the MT Short Message.
 func MaximumRetransmissionTime(t time.Time) msg.Avp {
@@ -253,6 +255,13 @@ func MaximumRetransmissionTime(t time.Time) msg.Avp {
 func RequestedRetransmissionTime(t time.Time) msg.Avp {
 	a := msg.Avp{Code: uint32(3331), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
 	a.Encode(t)
+	return a
+}
+
+// SMSGMSCAddress AVP contain the E.164 number of the SMS-GMSC or SMS Router.
+func SMSGMSCAddress(msisdn string) msg.Avp {
+	a := msg.Avp{Code: uint32(3332), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
+	a.Encode(msisdn)
 	return a
 }
 
@@ -291,4 +300,11 @@ func FeatureListID(i uint32) msg.Avp {
 // FeatureList AVP from ts29.229
 func FeatureList(i uint32) msg.Avp {
 	return ts29229.FeatureList(i)
+}
+
+// ExternalIdentifier AVP from ts29.336
+func ExternalIdentifier(extid string) msg.Avp {
+	a := ts29336.ExternalIdentifier(extid)
+	a.FlgM = false
+	return a
 }

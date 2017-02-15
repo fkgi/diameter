@@ -18,7 +18,7 @@ import (
            { Origin-Host }
            { Origin-Realm }
          * [ Supported-Features ]
-           [ SM-Delivery- Failure-Cause ]
+           [ SM-Delivery-Failure-Cause ]
            [ SM-RP-UI ]
          * [ AVP ]
          * [ Failed-AVP ]
@@ -62,11 +62,6 @@ func main() {
 			0x21, 0x8f, 0x0b, 0x81, 0x90, 0x90, 0x99, 0x19,
 			0x17, 0xf1, 0x00, 0x08, 0x06, 0x00, 0x31, 0x00,
 			0x2d, 0x00, 0x31}))
-
-		//  (SMSMI-Correlation-ID AVP)
-		// avps = append(avps, msg.NewAVP_SMSMICorrelationID())
-		//  (SM-Delivery-Outcome AVP)
-		// avps = append(avps, msg.NewAVP_SMDeliveryOutcome())
 
 		m.Encode(avps)
 		return &m
