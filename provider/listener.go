@@ -5,6 +5,7 @@ import (
 	"net"
 
 	"github.com/fkgi/diameter/msg"
+	"github.com/fkgi/extnet"
 )
 
 // Listener is Diameter server listener
@@ -22,21 +23,49 @@ func Listen(n *LocalNode) (l *Listener) {
 	return
 }
 
-// Bind bind network listener to Listener
-func (l *Listener) Bind(lnr net.Listener) {
-	for {
-		c, e := l.local.Accept(lnr)
-		// output logs
-		if Notificator != nil {
-			Notificator(&TransportBind{
-				Local: l.local, LAddr: lnr.Addr(), Err: e})
+// Bind bind local address to Listener
+func (l *Listener) Bind(laddr net.Addr) (e error) {
+	var lnr net.Listener
+	if laddr == nil {
+		return fmt.Errorf("Local address is nil")
+	} else if laddr.Network() == "sctp" {
+		a, ok := laddr.(*extnet.SCTPAddr)
+		if !ok {
+			return fmt.Errorf("invalid sctp address")
 		}
-		if e != nil {
-			break
-		} else {
-			go l.bindProvider(c)
+		dialer := extnet.SCTPDialer{
+			PPID:      46,
+			Unordered: true,
+			LocalAddr: a}
+		if lnr, e = dialer.Listen(); e != nil {
+			return e
 		}
+	} else if laddr.Network() == "tcp" {
+		if a, ok := laddr.(*net.TCPAddr); !ok {
+			return fmt.Errorf("invalid tcp address")
+		} else if lnr, e = net.ListenTCP(laddr.Network(), a); e != nil {
+			return e
+		}
+	} else {
+		return fmt.Errorf("invalid address")
 	}
+
+	go func() {
+		for {
+			c, e := l.local.Accept(lnr)
+			// output logs
+			if Notificator != nil {
+				Notificator(&TransportBind{
+					Local: l.local, LAddr: lnr.Addr(), Err: e})
+			}
+			if e != nil {
+				break
+			} else {
+				go l.bindProvider(c)
+			}
+		}
+	}()
+	return
 }
 
 func (l *Listener) bindProvider(c *Connection) {

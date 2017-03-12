@@ -4,8 +4,6 @@ import (
 	"log"
 	"time"
 
-	"net"
-
 	"github.com/fkgi/diameter/example"
 	"github.com/fkgi/diameter/provider"
 	"github.com/fkgi/extnet"
@@ -28,24 +26,8 @@ func main() {
 	pl := provider.Listen(ln)
 	prov := pl.AddPeer(pn)
 	prov.Open()
-
-	switch la.Network() {
-	case "sctp", "sctp4", "sctp6":
-		if a, ok := la.(*extnet.SCTPAddr); !ok {
-			log.Fatalln("invalid sctp address")
-		} else if lnr, e := extnet.ListenSCTP(la.Network(), a); e != nil {
-			log.Fatalln(e)
-		} else {
-			go pl.Bind(lnr)
-		}
-	case "tcp", "tcp4", "tcp6":
-		if a, ok := la.(*net.TCPAddr); !ok {
-			log.Fatalln("invalid tcp address")
-		} else if lnr, e := net.ListenTCP(la.Network(), a); e != nil {
-			log.Fatalln(e)
-		} else {
-			go pl.Bind(lnr)
-		}
+	if e := pl.Bind(la); e != nil {
+		log.Fatalln(e)
 	}
 	time.Sleep(time.Second)
 

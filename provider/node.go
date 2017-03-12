@@ -68,30 +68,36 @@ func (l *LocalNode) NextEtE() uint32 {
 func (l *LocalNode) Connect(p *PeerNode, laddr, raddr net.Addr, s time.Duration) (c *Connection, e error) {
 	if raddr == nil {
 		e = fmt.Errorf("Remote address is nil")
+	} else if laddr == nil {
+		e = fmt.Errorf("Local address is nil")
 	} else if p == nil {
 		e = fmt.Errorf("Peer node is nil")
-	} else if laddr.Network() != "sctp" {
-		dialer := net.Dialer{}
-		dialer.Timeout = s
-		dialer.LocalAddr = laddr
+	} else if laddr.Network() == "sctp" {
+		if a, ok := laddr.(*extnet.SCTPAddr); !ok {
+			e = fmt.Errorf("address type mismatch")
+		} else {
+			dialer := extnet.SCTPDialer{
+				InitTimeout: s,
+				PPID:        46,
+				Unordered:   true,
+				LocalAddr:   a}
+			var con net.Conn
+			if con, e = dialer.Dial(raddr.Network(), raddr.String()); e == nil {
+				c = &Connection{p, l, con}
+			}
+		}
+
+	} else if laddr.Network() == "tcp" {
+		dialer := net.Dialer{
+			Timeout:   s,
+			LocalAddr: laddr}
 
 		var con net.Conn
 		if con, e = dialer.Dial(raddr.Network(), raddr.String()); e == nil {
 			c = &Connection{p, l, con}
 		}
 	} else {
-		dialer := extnet.SCTPDialer{}
-		dialer.InitTimeout = s
-		var ok bool
-		dialer.LocalAddr, ok = laddr.(*extnet.SCTPAddr)
-		if !ok {
-			e = fmt.Errorf("address type mismatch")
-		}
-
-		var con net.Conn
-		if con, e = dialer.Dial(raddr.Network(), raddr.String()); e == nil {
-			c = &Connection{p, l, con}
-		}
+		e = fmt.Errorf("invalid address type")
 	}
 
 	// output logs
