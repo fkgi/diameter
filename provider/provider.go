@@ -77,8 +77,57 @@ func (p *Provider) Close(cause msg.Enumerated) {
 }
 
 // State returns status of state machine
-func (p *Provider) State() string {
-	return stateStr[p.state]
+func (p *Provider) State() (int, string) {
+	return p.state, stateStr[p.state]
+}
+
+// LocalNode returns local node of state machine
+func (p *Provider) LocalNode() LocalNode {
+	addr := make([]net.IP, len(p.local.Addr))
+	copy(addr, p.local.Addr)
+	return LocalNode{
+		Realm: p.local.Realm,
+		Host:  p.local.Host,
+		Addr:  addr}
+}
+
+// LocalAddr returns local address of state machine
+func (p *Provider) LocalAddr() net.Addr {
+	con := p.activeConnection()
+	if con == nil {
+		return nil
+	}
+	return con.conn.LocalAddr()
+}
+
+// PeerNode returns peer node of state machine
+func (p *Provider) PeerNode() PeerNode {
+	addr := make([]net.IP, len(p.peer.Addr))
+	copy(addr, p.peer.Addr)
+	apps := make([][2]uint32, len(p.peer.SupportedApps))
+	for i := 0; i < len(apps); i++ {
+		apps[i][0] = p.peer.SupportedApps[i][0]
+		apps[i][1] = p.peer.SupportedApps[i][1]
+	}
+	return PeerNode{
+		Realm:         p.peer.Realm,
+		Host:          p.peer.Host,
+		Addr:          addr,
+		Tw:            p.peer.Tw,
+		Ew:            p.peer.Ew,
+		Ts:            p.peer.Ts,
+		Tp:            p.peer.Tp,
+		Cp:            p.peer.Cp,
+		SupportedApps: apps}
+}
+
+// PeerAddr returns peer address of state machine
+func (p *Provider) PeerAddr() net.Addr {
+	con := p.activeConnection()
+	if con == nil {
+		return nil
+	}
+	return con.conn.RemoteAddr()
 }
 
 func (p *Provider) run() {
