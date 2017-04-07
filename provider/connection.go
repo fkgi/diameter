@@ -1,14 +1,7 @@
 package provider
 
-import (
-	"fmt"
-	"net"
-	"time"
-
-	"github.com/fkgi/diameter/msg"
-)
-
 // Connection is Diameter connection
+/*
 type Connection struct {
 	Peer  *PeerNode
 	Local *LocalNode
@@ -72,30 +65,13 @@ func (c *Connection) Read(s time.Duration) (m msg.Message, e error) {
 		}
 		c.conn.SetReadDeadline(t)
 		_, e = m.ReadFrom(c.conn)
-		/*
-			if ne, ok := e.(net.Error); ok && ne.Timeout() {
-			}
-		*/
+		//if ne, ok := e.(net.Error); ok && ne.Timeout() {
+		//	}
 	}
 
 	if Notificator != nil {
 		Notificator(&MessageTransfer{
 			Tx: false, Local: c.Local, Peer: c.Peer, Err: e, dump: m.PrintStack})
-	}
-	return
-}
-
-/*
-func (c *Connection) hostnames() (lh, ph string) {
-	if c.Local == nil {
-		lh = "unknown"
-	} else {
-		lh = string(c.Local.Host)
-	}
-	if c.Peer == nil {
-		ph = "unknown"
-	} else {
-		ph = string(c.Peer.Host)
 	}
 	return
 }

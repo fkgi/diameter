@@ -1,13 +1,6 @@
 package provider
 
-import (
-	"fmt"
-	"net"
-
-	"github.com/fkgi/diameter/msg"
-	"github.com/fkgi/extnet"
-)
-
+/*
 // Listener is Diameter server listener
 type Listener struct {
 	local *LocalNode
@@ -24,53 +17,68 @@ func Listen(n *LocalNode) (l *Listener) {
 }
 
 // Bind bind local address to Listener
-func (l *Listener) Bind(laddr net.Addr) (e error) {
-	var lnr net.Listener
-	if laddr == nil {
-		return fmt.Errorf("Local address is nil")
-	} else if laddr.Network() == "sctp" {
-		a, ok := laddr.(*extnet.SCTPAddr)
-		if !ok {
-			return fmt.Errorf("invalid sctp address")
+func (l *Listener) Bind(lnr net.Listener) (e error) {
+		var lnr net.Listener
+		if laddr == nil {
+			return fmt.Errorf("Local address is nil")
+		} else if laddr.Network() == "sctp" {
+			a, ok := laddr.(*extnet.SCTPAddr)
+			if !ok {
+				return fmt.Errorf("invalid sctp address")
+			}
+			dialer := extnet.SCTPDialer{
+				PPID:      46,
+				Unordered: true,
+				LocalAddr: a}
+			if lnr, e = dialer.Listen(); e != nil {
+				return e
+			}
+		} else if laddr.Network() == "tcp" {
+			if a, ok := laddr.(*net.TCPAddr); !ok {
+				return fmt.Errorf("invalid tcp address")
+			} else if lnr, e = net.ListenTCP(laddr.Network(), a); e != nil {
+				return e
+			}
+		} else {
+			return fmt.Errorf("invalid address")
 		}
-		dialer := extnet.SCTPDialer{
-			PPID:      46,
-			Unordered: true,
-			LocalAddr: a}
-		if lnr, e = dialer.Listen(); e != nil {
-			return e
-		}
-	} else if laddr.Network() == "tcp" {
-		if a, ok := laddr.(*net.TCPAddr); !ok {
-			return fmt.Errorf("invalid tcp address")
-		} else if lnr, e = net.ListenTCP(laddr.Network(), a); e != nil {
-			return e
-		}
-	} else {
-		return fmt.Errorf("invalid address")
-	}
 
 	go func() {
 		for {
-			c, e := l.local.Accept(lnr)
-			// output logs
-			if Notificator != nil {
-				Notificator(&TransportBind{
-					Local: l.local, LAddr: lnr.Addr(), Err: e})
+			if lnr == nil {
+				break
 			}
+			c, e := lnr.Accept()
 			if e != nil {
 				break
-			} else {
-				go l.bindProvider(c)
 			}
+
+			// output logs
+			if Notificator != nil {
+				Notificator(&TransportStateChange{
+					Open: true, Local: l.local, Peer: nil,
+					LAddr: lnr.Addr(), PAddr: c.RemoteAddr(),
+					Err: e})
+			}
+			go l.bindProvider(c)
 		}
 	}()
 	return
 }
-
-func (l *Listener) bindProvider(c *Connection) {
+func (l *Listener) bindProvider(c net.Conn) {
 	// R-Accept
-	m, e := c.Read(0)
+	if c == nil {
+		return
+	}
+	m := msg.Message{}
+	c.SetReadDeadline(time.Time{})
+	_, e := m.ReadFrom(c)
+
+	if Notificator != nil {
+		Notificator(&MessageTransfer{
+			Tx: false, Local: l.local, Peer: nil, Err: e, dump: m.PrintStack})
+	}
+
 	if e == nil && !(m.AppID == 0 && m.Code == 257 && m.FlgR) {
 		e = fmt.Errorf("not CER")
 	}
@@ -97,8 +105,8 @@ func (l *Listener) bindProvider(c *Connection) {
 
 	for k, v := range l.provs {
 		if k.Host == h && k.Realm == r {
-			c.Peer = k
-			v.Notify <- eventRConnCER{m, c}
+			// c.Peer = k
+			v.notify <- eventRConnCER{m, c}
 			return
 		}
 	}
@@ -132,7 +140,7 @@ func (l *Listener) AddPeer(n *PeerNode) (p *Provider) {
 }
 
 // Dial add new PeerNode to Listener
-func (l *Listener) Dial(n *PeerNode, laddr, raddr net.Addr) (e error) {
+func (l *Listener) Dial(n *PeerNode, con net.Conn) (e error) {
 	p := l.provs[n]
 	if p == nil {
 		return
@@ -140,6 +148,7 @@ func (l *Listener) Dial(n *PeerNode, laddr, raddr net.Addr) (e error) {
 	if p.state == shutdown {
 		p.state = closed
 	}
-	p.Notify <- eventStart{laddr, raddr, l.local, n}
+	p.Notify <- eventStart{con, l.local, n}
 	return
 }
+*/

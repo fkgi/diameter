@@ -3,7 +3,6 @@ package provider
 import (
 	"fmt"
 	"io"
-	"net"
 )
 
 // Notificator is called when error or trace event are occured
@@ -52,90 +51,28 @@ func (e *MessageTransfer) Dump(w io.Writer) {
 	}
 }
 
-// TransportStateChange indicate transport link open
-type TransportStateChange struct {
-	Open  bool
-	Local *LocalNode
-	Peer  *PeerNode
-	LAddr net.Addr
-	PAddr net.Addr
-	Err   error
-}
-
-func (e *TransportStateChange) Error() string {
-	if e == nil {
-		return "<nil>"
-	}
-	if e.Open && e.Err == nil {
-		return fmt.Sprintf(
-			"transport link %s(%s) -> %s(%s) open",
-			e.Local, e.LAddr, e.Peer, e.PAddr)
-	}
-	if e.Open && e.Err != nil {
-		return fmt.Sprintf(
-			"transport link %s -> %s open failed: %s",
-			e.Local, e.Peer, e.Err)
-	}
-	if !e.Open && e.Err == nil {
-		return fmt.Sprintf(
-			"transport link %s(%s) -> %s(%s) closed",
-			e.Local, e.LAddr, e.Peer, e.PAddr)
-	}
-	if !e.Open && e.Err != nil {
-		return fmt.Sprintf(
-			"transport link %s(%s) -> %s(%s) close failed: %s",
-			e.Local, e.LAddr, e.Peer, e.PAddr, e.Err)
-	}
-	return "invlid state of transport state"
-}
-
-// TransportBind indicate transport listener binded to local node
-type TransportBind struct {
-	Local *LocalNode
-	LAddr net.Addr
-	Err   error
-}
-
-func (e *TransportBind) Error() string {
-	if e == nil {
-		return "<nil>"
-	}
-	if e.Err == nil {
-		return fmt.Sprintf(
-			"transport listener binded on %s(%s)",
-			e.Local, e.LAddr)
-	}
-	return fmt.Sprintf(
-		"transport listener bind on %s(%s) failed: %s",
-		e.Local, e.LAddr, e.Err)
-}
-
 // StateUpdate notify event
 type StateUpdate struct {
-	State string
-	Event string
-	Local *LocalNode
-	Peer  *PeerNode
-	Err   error
+	OldState string
+	NewState string
+	Event    string
+	Local    *LocalNode
+	Peer     *PeerNode
+	Err      error
 }
 
 func (e *StateUpdate) Error() string {
 	if e == nil {
 		return "<nil>"
 	}
-	if e.Event == "" {
-		return fmt.Sprintf(
-			"waiting event on state %s provider %s -> %s",
-			e.State, e.Local, e.Peer)
-	}
 	if e.Err == nil {
 		return fmt.Sprintf(
-			"event %s on state %s provider %s -> %s",
-			e.Event, e.State, e.Local, e.Peer)
+			"state change %s to %s with event %s on provider %s -> %s",
+			e.OldState, e.NewState, e.Event, e.Local, e.Peer)
 	}
 	return fmt.Sprintf(
-		"event %s on state %s provider %s -> %s failed: %s",
-		e.Event, e.State, e.Local, e.Peer, e.Err)
+		"state change %s to %s with event %s on provider %s -> %s failed: %s",
+		e.OldState, e.NewState, e.Event, e.Local, e.Peer, e.Err)
 }
 
 // ConnectionStateChange notify event
