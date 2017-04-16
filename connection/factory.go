@@ -1,4 +1,4 @@
-package provider
+package connection
 
 import (
 	"net"
@@ -23,7 +23,7 @@ import (
 		   [ Firmware-Revision ]
 		 * [ AVP ]
 */
-func (p *Provider) makeCER(c net.Conn) (m msg.Message) {
+func (p *Connection) makeCER(c net.Conn) (m msg.Message) {
 	m = msg.Message{}
 	m.Ver = msg.DiaVer
 	m.FlgR = true
@@ -34,7 +34,6 @@ func (p *Provider) makeCER(c net.Conn) (m msg.Message) {
 	m.AppID = uint32(0)
 
 	m.EtEID = p.local.NextEtE()
-
 	var avps []msg.Avp
 	avps = append(avps, msg.OriginHost(p.local.Host))
 	avps = append(avps, msg.OriginRealm(p.local.Realm))
@@ -44,7 +43,7 @@ func (p *Provider) makeCER(c net.Conn) (m msg.Message) {
 	avps = append(avps, msg.VendorID(VendorID))
 	avps = append(avps, msg.ProductName(ProductName))
 
-	for _, app := range p.peer.Properties.Apps {
+	for _, app := range p.peer.Apps {
 		if app[0] != 0 {
 			avps = append(avps, msg.SupportedVendorID(app[0]))
 			avps = append(avps, msg.VendorSpecificApplicationID(app[0], app[1], true))
@@ -94,7 +93,7 @@ func getIP(c net.Conn) (ip []net.IP) {
 		   [ Firmware-Revision ]
 		 * [ AVP ]
 */
-func (p *Provider) makeCEA(r msg.Message, c net.Conn) (m msg.Message, i int) {
+func (p *Connection) makeCEA(r msg.Message, c net.Conn) (m msg.Message, i int) {
 	m = msg.Message{}
 	m.Ver = msg.DiaVer
 	m.FlgR = false
@@ -117,7 +116,7 @@ func (p *Provider) makeCEA(r msg.Message, c net.Conn) (m msg.Message, i int) {
 	avps = append(avps, msg.VendorID(VendorID))
 	avps = append(avps, msg.ProductName(ProductName))
 
-	for _, app := range p.peer.Properties.Apps {
+	for _, app := range p.peer.Apps {
 		if app[0] != 0 {
 			avps = append(avps, msg.SupportedVendorID(app[0]))
 			avps = append(avps, msg.VendorSpecificApplicationID(app[0], app[1], true))
@@ -139,7 +138,7 @@ func (p *Provider) makeCEA(r msg.Message, c net.Conn) (m msg.Message, i int) {
 			{ Disconnect-Cause }
 		  * [ AVP ]
 */
-func (p *Provider) makeDPR(i msg.Enumerated) (m msg.Message) {
+func (p *Connection) makeDPR(i msg.Enumerated) (m msg.Message) {
 	m = msg.Message{}
 	m.Ver = msg.DiaVer
 	m.FlgR = true
@@ -170,7 +169,7 @@ func (p *Provider) makeDPR(i msg.Enumerated) (m msg.Message) {
 			[ Failed-AVP ]
 		  * [ AVP ]
 */
-func (p *Provider) makeDPA(r msg.Message) (m msg.Message, i int) {
+func (p *Connection) makeDPA(r msg.Message) (m msg.Message, i int) {
 	m = msg.Message{}
 	m.Ver = msg.DiaVer
 	m.FlgR = false
@@ -200,7 +199,7 @@ func (p *Provider) makeDPA(r msg.Message) (m msg.Message, i int) {
 			[ Origin-State-Id ]
 		  * [ AVP ]
 */
-func (p *Provider) makeDWR() (m msg.Message) {
+func (p *Connection) makeDWR() (m msg.Message) {
 	m = msg.Message{}
 	m.Ver = msg.DiaVer
 	m.FlgR = true
@@ -231,7 +230,7 @@ func (p *Provider) makeDWR() (m msg.Message) {
 			[ Origin-State-Id ]
 		  * [ AVP ]
 */
-func (p *Provider) makeDWA(r msg.Message) (m msg.Message, i int) {
+func (p *Connection) makeDWA(r msg.Message) (m msg.Message, i int) {
 	m = msg.Message{}
 	m.Ver = msg.DiaVer
 	m.FlgR = false
@@ -244,8 +243,30 @@ func (p *Provider) makeDWA(r msg.Message) (m msg.Message, i int) {
 	m.AppID = r.AppID
 
 	var avps []msg.Avp
-	avps = append(avps, msg.ResultCode(uint32(2001)))
+	avps = append(avps, msg.ResultCode(msg.DiameterSuccess))
 	i = 2001
+	avps = append(avps, msg.OriginHost(p.local.Host))
+	avps = append(avps, msg.OriginRealm(p.local.Realm))
+
+	m.Encode(avps)
+
+	return
+}
+
+func (p *Connection) makeUnableToDeliver(r msg.Message) (m msg.Message) {
+	m = msg.Message{}
+	m.Ver = msg.DiaVer
+	m.FlgR = false
+	m.FlgP = r.FlgP
+	m.FlgE = true
+	m.FlgT = false
+	m.HbHID = r.HbHID
+	m.EtEID = r.EtEID
+	m.Code = r.Code
+	m.AppID = r.AppID
+
+	var avps []msg.Avp
+	avps = append(avps, msg.ResultCode(msg.DiameterUnableToDeliver))
 	avps = append(avps, msg.OriginHost(p.local.Host))
 	avps = append(avps, msg.OriginRealm(p.local.Realm))
 

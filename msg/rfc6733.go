@@ -1,6 +1,7 @@
 package msg
 
 import (
+	"fmt"
 	"net"
 )
 
@@ -32,10 +33,32 @@ const (
 )
 */
 
+func Set(o []Avp, d interface{}) ([]Avp, error) {
+	var a Avp
+	if d == nil {
+		return o, fmt.Errorf("nil AVP data")
+	}
+	switch d := d.(type) {
+	case SessionID:
+		a = d.avp()
+	}
+	return append(o, a), nil
+}
+
+func Get(o []Avp, d interface{}) error {
+	switch d := d.(type) {
+	case *SessionID:
+		d = d.avp()
+	}
+	return nil
+}
+
 // SessionID AVP
-func SessionID(s string) Avp {
+type SessionID string
+
+func (v SessionID) avp() Avp {
 	a := Avp{Code: uint32(263), FlgV: false, FlgM: true, FlgP: false, VenID: uint32(0)}
-	a.Encode(s)
+	a.Encode(string(v))
 	return a
 }
 
