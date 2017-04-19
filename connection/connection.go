@@ -10,10 +10,10 @@ import (
 
 // constant values
 var (
-	MsgStackLen      = 10000
-	VendorID         = uint32(41102)
-	ProductName      = "yagtagarasu"
-	FirmwareRevision = uint32(170407001)
+	MsgStackLen                           = 10000
+	VendorID         msg.VendorID         = 41102
+	ProductName      msg.ProductName      = "yagtagarasu"
+	FirmwareRevision msg.FirmwareRevision = 170407001
 )
 
 // Connection is state machine of Diameter
@@ -48,11 +48,9 @@ func (p *Connection) Close(cause msg.Enumerated) {
 
 	t := time.AfterFunc(p.peer.Tp, func() {
 		ch <- nil
-		if Notificator != nil {
-			Notificator(&PurgeEvent{
-				Tx: false, Req: false, Local: p.local, Peer: p.peer,
-				Err: fmt.Errorf("no answer")})
-		}
+		notify(&PurgeEvent{
+			Tx: false, Req: false, Local: p.local, Peer: p.peer,
+			Err: fmt.Errorf("no answer")})
 	})
 	ap := <-ch
 	t.Stop()
@@ -102,10 +100,8 @@ func (p *Connection) Send(r msg.Message) (a msg.Message, e error) {
 
 		res := msg.DiameterUnableToComply
 		if avp, e := a.Decode(); e == nil {
-			for _, a := range avp {
-				if a.Code == uint32(268) && a.VenID == uint32(0) {
-					a.Decode(&res)
-				}
+			if t := avp.ResultCode(); len(t) != 0 {
+				res = t[0]
 			}
 		}
 
@@ -151,10 +147,8 @@ func (p *Connection) Recieve() (r msg.Message, ch chan *msg.Message, e error) {
 	go func() {
 		if a := <-ch; a == nil {
 			e = fmt.Errorf("request is discarded")
-			if Notificator != nil {
-				Notificator(&MessageEvent{
-					Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
-			}
+			notify(&MessageEvent{
+				Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
 		} else {
 			a.HbHID = r.HbHID
 			a.EtEID = r.EtEID
@@ -223,22 +217,18 @@ func (p *Connection) run() {
 	}()
 
 	old := "Shutdown"
-	if Notificator != nil {
-		Notificator(&StateUpdate{
-			OldState: old, NewState: p.State(), Event: "Start",
-			Local: p.local, Peer: p.peer, Err: nil})
-	}
+	notify(&StateUpdate{
+		OldState: old, NewState: p.State(), Event: "Start",
+		Local: p.local, Peer: p.peer, Err: nil})
 
 	for p.state != shutdown {
 		event := <-p.notify
 		old = p.State()
 		e := event.exec(p)
 
-		if Notificator != nil {
-			Notificator(&StateUpdate{
-				OldState: old, NewState: p.State(), Event: event.name(),
-				Local: p.local, Peer: p.peer, Err: e})
-		}
+		notify(&StateUpdate{
+			OldState: old, NewState: p.State(), Event: event.name(),
+			Local: p.local, Peer: p.peer, Err: e})
 	}
 }
 
@@ -258,11 +248,9 @@ func (p *Connection) resetWatchdog() {
 
 			t := time.AfterFunc(p.peer.Tp, func() {
 				ch <- nil
-				if Notificator != nil {
-					Notificator(&WatchdogEvent{
-						Tx: false, Req: false, Local: p.local, Peer: p.peer,
-						Err: fmt.Errorf("no answer")})
-				}
+				notify(&WatchdogEvent{
+					Tx: false, Req: false, Local: p.local, Peer: p.peer,
+					Err: fmt.Errorf("no answer")})
 			})
 			ap := <-ch
 			t.Stop()

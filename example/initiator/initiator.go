@@ -27,12 +27,14 @@ func main() {
 		Realm: msg.DiameterIdentity("test.com"),
 		Host:  msg.DiameterIdentity("init.test.com"),
 		Properties: connection.Properties{
-			Tw:   time.Duration(30) * time.Second,
-			Ew:   3,
-			Ts:   time.Duration(100) * time.Millisecond,
-			Tp:   time.Duration(30) * time.Second,
-			Cp:   3,
-			Apps: [][2]uint32{{0, 0}, {0, 0xffffffff}}}}
+			Tw: time.Duration(30) * time.Second,
+			Ew: 3,
+			Ts: time.Duration(100) * time.Millisecond,
+			Tp: time.Duration(30) * time.Second,
+			Cp: 3,
+			Apps: []connection.AuthApplication{
+				{VendorID: 0, AppID: 0},
+				{VendorID: 0, AppID: 0xffffffff}}}}
 	ln.InitIDs()
 	pn := connection.PeerNode{
 		Realm:      msg.DiameterIdentity("test.com"),

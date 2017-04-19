@@ -114,11 +114,28 @@ const (
          * [ Route-Record ]
 */
 
+const 3gpp uint32 = 10415
+
 // SCAddress AVP contain the E164 number of the SMS-SC or MTC-IWF.
-func SCAddress(msisdn string) msg.Avp {
-	a := msg.Avp{Code: uint32(3300), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-	a.Encode(msisdn)
+type SCAddress string
+
+func (v SCAddress) Avp() msg.Avp {
+	a := msg.Avp{Code: uint32(3300), VenID: 3gpp,
+		 FlgV: true, FlgM: true, FlgP: false}
+	a.Encode(string(v))
 	return a
+}
+
+// SCAddress get AVP value
+func (o msg.GroupedAVP) SCAddress() (r []SCAddress) {
+	for _, a := range o {
+		if a.Code == 3300 && a.VenID == 3gpp {
+			s := new(string)
+			a.Decode(s)
+			r = append(r, SCAddress(*s))
+		}
+	}
+	return
 }
 
 // SMRPUI AVP contain a short message transfer protocol data unit (TPDU).

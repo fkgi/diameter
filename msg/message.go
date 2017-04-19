@@ -134,7 +134,7 @@ func subread(r io.Reader, l int) (buf []byte, o int, e error) {
 }
 
 // Encode convert AVP data to binary and set
-func (m *Message) Encode(avp []Avp) (e error) {
+func (m *Message) Encode(avp GroupedAVP) (e error) {
 	buf := new(bytes.Buffer)
 	for _, a := range avp {
 		if _, e = a.WriteTo(buf); e != nil {
@@ -147,7 +147,7 @@ func (m *Message) Encode(avp []Avp) (e error) {
 }
 
 // Decode get and convert binary to AVP data
-func (m Message) Decode() (avp []Avp, e error) {
+func (m Message) Decode() (avp GroupedAVP, e error) {
 	avp = make([]Avp, 0)
 	// l := m.leng - 20 + (4 - m.leng % 4) % 4
 

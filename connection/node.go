@@ -34,9 +34,15 @@ type Properties struct {
 	Tp time.Duration // pending Diameter answer time
 	Cp int           // retry Diameter request count
 
-	Apps [][2]uint32
+	Apps []AuthApplication
 	// for Vendor-Specific-Application-Id,
 	//     Auth-Application-Id, Supported-Vendor-Id AVP
+}
+
+// AuthApplication is set of authenticated application
+type AuthApplication struct {
+	VendorID msg.VendorID
+	AppID    msg.AuthApplicationID
 }
 
 // InitIDs initiate each IDs
@@ -87,7 +93,10 @@ func (l *LocalNode) Dial(n *PeerNode, c net.Conn) *Connection {
 		peer:     n}
 
 	go p.run()
-	p.notify <- eventConnect{}
+	r := p.makeCER(p.con)
+	r.HbHID = p.local.NextHbH()
+
+	p.notify <- eventConnect{r}
 
 	return p
 }

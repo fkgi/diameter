@@ -128,7 +128,7 @@ func (a *Avp) Encode(d interface{}) (e error) {
 			e = a.setEnumeratedData(d)
 		case IPFilterRule:
 			e = a.setIPFilterRuleData(d)
-		case []Avp:
+		case GroupedAVP:
 			e = a.setGroupedData(d)
 		case string:
 			e = a.setUTF8StringData(d)
@@ -179,7 +179,7 @@ func (a Avp) Decode(d interface{}) (e error) {
 		e = a.getEnumeratedData(d)
 	case *IPFilterRule:
 		e = a.getIPFilterRuleData(d)
-	case *[]Avp:
+	case *GroupedAVP:
 		e = a.getGroupedData(d)
 	case *string:
 		e = a.getUTF8StringData(d)
@@ -282,8 +282,11 @@ func (a Avp) getFloat64Data(d *float64) (e error) {
 	return
 }
 
+// GroupedAVP is Grouped format AVP value
+type GroupedAVP []Avp
+
 // Grouped
-func (a *Avp) setGroupedData(d []Avp) (e error) {
+func (a *Avp) setGroupedData(d GroupedAVP) (e error) {
 	buf := new(bytes.Buffer)
 	for _, avp := range d {
 		_, e = avp.WriteTo(buf)
@@ -294,7 +297,7 @@ func (a *Avp) setGroupedData(d []Avp) (e error) {
 	return
 }
 
-func (a Avp) getGroupedData(d *[]Avp) (e error) {
+func (a Avp) getGroupedData(d *GroupedAVP) (e error) {
 	*d = make([]Avp, 0)
 	for buf := bytes.NewReader(a.data); buf.Len() != 0; {
 		avp := Avp{}

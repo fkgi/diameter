@@ -3,12 +3,18 @@ package connection
 import "log"
 
 // Notificator is called when error or trace event are occured
-var Notificator func(n Notify)
+var Notificator func(n Notice)
 
-// Notify is notification information from connection
-type Notify interface {
+// Notice is notification information from connection
+type Notice interface {
 	// Log generage log text of this notify
 	Log(l *log.Logger)
+}
+
+func notify(n Notice) {
+	if Notificator != nil {
+		Notificator(n)
+	}
 }
 
 // StateUpdate notify event

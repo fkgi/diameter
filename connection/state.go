@@ -12,27 +12,25 @@ type stateEvent interface {
 	name() string
 }
 
-type eventConnect struct{}
+type eventConnect struct {
+	m msg.Message
+}
 
 func (eventConnect) name() string {
 	return "Connect"
 }
 
-func (eventConnect) exec(p *Connection) error {
+func (v eventConnect) exec(p *Connection) error {
 	if p.state != closed {
 		return fmt.Errorf("not acceptable event")
 	}
-	r := p.makeCER(p.con)
-	r.HbHID = p.local.NextHbH()
 	p.state = waitCEA
 
 	p.con.SetWriteDeadline(time.Now().Add(p.peer.Ts))
-	_, e := r.WriteTo(p.con)
+	_, e := v.m.WriteTo(p.con)
 
-	if Notificator != nil {
-		Notificator(&CapabilityExchangeEvent{
-			Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
-	}
+	notify(&CapabilityExchangeEvent{
+		Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
 	if e != nil {
 		p.con.Close()
 	}
@@ -69,10 +67,8 @@ func (v eventWatchdog) exec(p *Connection) (e error) {
 	p.con.SetWriteDeadline(time.Now().Add(p.peer.Ts))
 	_, e = v.m.WriteTo(p.con)
 
-	if Notificator != nil {
-		Notificator(&WatchdogEvent{
-			Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
-	}
+	notify(&WatchdogEvent{
+		Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
 	if e != nil {
 		p.con.Close()
 	}
@@ -92,10 +88,8 @@ func (v eventStop) exec(p *Connection) (e error) {
 
 	p.con.SetWriteDeadline(time.Now().Add(p.peer.Ts))
 	_, e = v.m.WriteTo(p.con)
-	if Notificator != nil {
-		Notificator(&PurgeEvent{
-			Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
-	}
+	notify(&PurgeEvent{
+		Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
 	if e != nil {
 		p.con.Close()
 	}
@@ -128,22 +122,18 @@ func (v eventRcvCER) exec(p *Connection) (e error) {
 	if p.state != waitCER {
 		e = fmt.Errorf("not acceptable message")
 	}
-	if Notificator != nil {
-		Notificator(&CapabilityExchangeEvent{
-			Tx: false, Req: true, Local: p.local, Peer: p.peer, Err: e})
-	}
+	notify(&CapabilityExchangeEvent{
+		Tx: false, Req: true, Local: p.local, Peer: p.peer, Err: e})
 	if e != nil {
 		return
 	}
 
 	if avp, e := v.m.Decode(); e == nil {
-		for _, a := range avp {
-			if a.Code == uint32(264) && a.VenID == uint32(0) {
-				a.Decode(&(p.peer.Host))
-			}
-			if a.Code == uint32(296) && a.VenID == uint32(0) {
-				a.Decode(&(p.peer.Realm))
-			}
+		if t := avp.OriginHost(); len(t) != 0 {
+			p.peer.Host = msg.DiameterIdentity(t[0])
+		}
+		if t := avp.OriginRealm(); len(t) != 0 {
+			p.peer.Realm = msg.DiameterIdentity(t[0])
 		}
 	}
 	a, code := p.makeCEA(v.m, p.con)
@@ -159,10 +149,8 @@ func (v eventRcvCER) exec(p *Connection) (e error) {
 			p.resetWatchdog()
 		}
 	}
-	if Notificator != nil {
-		Notificator(&CapabilityExchangeEvent{
-			Tx: true, Req: false, Local: p.local, Peer: p.peer})
-	}
+	notify(&CapabilityExchangeEvent{
+		Tx: true, Req: false, Local: p.local, Peer: p.peer})
 	return
 }
 
@@ -178,16 +166,13 @@ func (v eventRcvCEA) exec(p *Connection) (e error) {
 	if p.state != waitCEA {
 		e = fmt.Errorf("not acceptable message")
 	} else {
-		c := new(uint32)
+		var c msg.ResultCode
 		if avp, e := v.m.Decode(); e == nil {
-			for _, a := range avp {
-				if a.Code == uint32(268) && a.VenID == uint32(0) {
-					a.Decode(c)
-					break
-				}
+			if t := avp.ResultCode(); len(t) != 0 {
+				c = t[0]
 			}
 		}
-		if c != nil && *c == 2001 {
+		if c == msg.DiameterSuccess {
 			p.state = open
 			p.resetWatchdog()
 		} else {
@@ -195,10 +180,8 @@ func (v eventRcvCEA) exec(p *Connection) (e error) {
 			p.con.Close()
 		}
 	}
-	if Notificator != nil {
-		Notificator(&CapabilityExchangeEvent{
-			Tx: false, Req: false, Local: p.local, Peer: p.peer, Err: e})
-	}
+	notify(&CapabilityExchangeEvent{
+		Tx: false, Req: false, Local: p.local, Peer: p.peer, Err: e})
 	return
 }
 
@@ -214,10 +197,8 @@ func (v eventRcvDWR) exec(p *Connection) (e error) {
 	if p.state != open {
 		e = fmt.Errorf("not acceptable message")
 	}
-	if Notificator != nil {
-		Notificator(&WatchdogEvent{
-			Tx: false, Req: true, Local: p.local, Peer: p.peer, Err: e})
-	}
+	notify(&WatchdogEvent{
+		Tx: false, Req: true, Local: p.local, Peer: p.peer, Err: e})
 	if e != nil {
 		return
 	}
@@ -225,10 +206,8 @@ func (v eventRcvDWR) exec(p *Connection) (e error) {
 	a, _ := p.makeDWA(v.m)
 	p.con.SetWriteDeadline(time.Now().Add(p.peer.Ts))
 	_, e = a.WriteTo(p.con)
-	if Notificator != nil {
-		Notificator(&WatchdogEvent{
-			Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
-	}
+	notify(&WatchdogEvent{
+		Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
 	if e != nil {
 		p.con.Close()
 		p.state = shutdown
@@ -256,10 +235,8 @@ func (v eventRcvDWA) exec(p *Connection) (e error) {
 	} else {
 		e = fmt.Errorf("unknown DWA recieved")
 	}
-	if Notificator != nil {
-		Notificator(&WatchdogEvent{
-			Tx: false, Req: false, Local: p.local, Peer: p.peer, Err: e})
-	}
+	notify(&WatchdogEvent{
+		Tx: false, Req: false, Local: p.local, Peer: p.peer, Err: e})
 	return
 }
 
@@ -275,10 +252,8 @@ func (v eventRcvDPR) exec(p *Connection) (e error) {
 	if p.state != open {
 		e = fmt.Errorf("not acceptable message")
 	}
-	if Notificator != nil {
-		Notificator(&PurgeEvent{
-			Tx: false, Req: true, Local: p.local, Peer: p.peer, Err: e})
-	}
+	notify(&PurgeEvent{
+		Tx: false, Req: true, Local: p.local, Peer: p.peer, Err: e})
 	if e != nil {
 		return
 	}
@@ -287,10 +262,8 @@ func (v eventRcvDPR) exec(p *Connection) (e error) {
 	a, _ := p.makeDPA(v.m)
 	p.con.SetWriteDeadline(time.Now().Add(p.peer.Ts))
 	_, e = a.WriteTo(p.con)
-	if Notificator != nil {
-		Notificator(&PurgeEvent{
-			Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
-	}
+	notify(&PurgeEvent{
+		Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
 	if e != nil {
 		p.con.Close()
 	}
@@ -317,10 +290,8 @@ func (v eventRcvDPA) exec(p *Connection) (e error) {
 	} else {
 		e = fmt.Errorf("unknown DPA recieved")
 	}
-	if Notificator != nil {
-		Notificator(&PurgeEvent{
-			Tx: false, Req: false, Local: p.local, Peer: p.peer, Err: e})
-	}
+	notify(&PurgeEvent{
+		Tx: false, Req: false, Local: p.local, Peer: p.peer, Err: e})
 	return
 }
 
@@ -339,10 +310,8 @@ func (v eventSndMsg) exec(p *Connection) error {
 
 	p.con.SetWriteDeadline(time.Now().Add(p.peer.Ts))
 	_, e := v.m.WriteTo(p.con)
-	if Notificator != nil {
-		Notificator(&MessageEvent{
-			Tx: true, Req: v.m.FlgR, Local: p.local, Peer: p.peer, Err: e})
-	}
+	notify(&MessageEvent{
+		Tx: true, Req: v.m.FlgR, Local: p.local, Peer: p.peer, Err: e})
 	if e != nil {
 		p.con.Close()
 	}
@@ -372,9 +341,7 @@ func (v eventRcvMsg) exec(p *Connection) (e error) {
 		e = fmt.Errorf("unknown answer message received")
 	}
 
-	if Notificator != nil {
-		Notificator(&MessageEvent{
-			Tx: false, Req: v.m.FlgR, Local: p.local, Peer: p.peer, Err: e})
-	}
+	notify(&MessageEvent{
+		Tx: false, Req: v.m.FlgR, Local: p.local, Peer: p.peer, Err: e})
 	return
 }

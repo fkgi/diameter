@@ -35,23 +35,25 @@ func (p *Connection) makeCER(c net.Conn) (m msg.Message) {
 
 	m.EtEID = p.local.NextEtE()
 	var avps []msg.Avp
-	avps = append(avps, msg.OriginHost(p.local.Host))
-	avps = append(avps, msg.OriginRealm(p.local.Realm))
+	avps = append(avps, msg.OriginHost(p.local.Host).Avp())
+	avps = append(avps, msg.OriginRealm(p.local.Realm).Avp())
 	for _, ip := range getIP(c) {
-		avps = append(avps, msg.HostIPAddress(ip))
+		avps = append(avps, msg.HostIPAddress(ip).Avp())
 	}
-	avps = append(avps, msg.VendorID(VendorID))
-	avps = append(avps, msg.ProductName(ProductName))
+	avps = append(avps, VendorID.Avp())
+	avps = append(avps, ProductName.Avp())
 
 	for _, app := range p.peer.Apps {
-		if app[0] != 0 {
-			avps = append(avps, msg.SupportedVendorID(app[0]))
-			avps = append(avps, msg.VendorSpecificApplicationID(app[0], app[1], true))
+		if app.VendorID != 0 {
+			avps = append(avps, msg.SupportedVendorID(app.VendorID).Avp())
+			avps = append(avps, msg.VendorSpecificApplicationID{
+				VendorID: app.VendorID,
+				App:      app.AppID}.Avp())
 		}
-		avps = append(avps, msg.AuthApplicationID(app[1]))
+		avps = append(avps, msg.AuthApplicationID(app.AppID).Avp())
 	}
 
-	avps = append(avps, msg.FirmwareRevision(FirmwareRevision))
+	avps = append(avps, FirmwareRevision.Avp())
 
 	m.Encode(avps)
 
@@ -93,7 +95,7 @@ func getIP(c net.Conn) (ip []net.IP) {
 		   [ Firmware-Revision ]
 		 * [ AVP ]
 */
-func (p *Connection) makeCEA(r msg.Message, c net.Conn) (m msg.Message, i int) {
+func (p *Connection) makeCEA(r msg.Message, c net.Conn) (m msg.Message, i msg.ResultCode) {
 	m = msg.Message{}
 	m.Ver = msg.DiaVer
 	m.FlgR = false
@@ -106,25 +108,27 @@ func (p *Connection) makeCEA(r msg.Message, c net.Conn) (m msg.Message, i int) {
 	m.AppID = r.AppID
 
 	var avps []msg.Avp
-	avps = append(avps, msg.ResultCode(uint32(2001)))
-	i = 2001
-	avps = append(avps, msg.OriginHost(p.local.Host))
-	avps = append(avps, msg.OriginRealm(p.local.Realm))
+	avps = append(avps, msg.DiameterSuccess.Avp())
+	i = msg.DiameterSuccess
+	avps = append(avps, msg.OriginHost(p.local.Host).Avp())
+	avps = append(avps, msg.OriginRealm(p.local.Realm).Avp())
 	for _, ip := range getIP(c) {
-		avps = append(avps, msg.HostIPAddress(ip))
+		avps = append(avps, msg.HostIPAddress(ip).Avp())
 	}
-	avps = append(avps, msg.VendorID(VendorID))
-	avps = append(avps, msg.ProductName(ProductName))
+	avps = append(avps, VendorID.Avp())
+	avps = append(avps, ProductName.Avp())
 
 	for _, app := range p.peer.Apps {
-		if app[0] != 0 {
-			avps = append(avps, msg.SupportedVendorID(app[0]))
-			avps = append(avps, msg.VendorSpecificApplicationID(app[0], app[1], true))
+		if app.VendorID != 0 {
+			avps = append(avps, msg.SupportedVendorID(app.VendorID).Avp())
+			avps = append(avps, msg.VendorSpecificApplicationID{
+				VendorID: app.VendorID,
+				App:      app.AppID}.Avp())
 		}
-		avps = append(avps, msg.AuthApplicationID(app[1]))
+		avps = append(avps, msg.AuthApplicationID(app.AppID).Avp())
 	}
 
-	avps = append(avps, msg.FirmwareRevision(FirmwareRevision))
+	avps = append(avps, FirmwareRevision.Avp())
 
 	m.Encode(avps)
 
@@ -151,9 +155,9 @@ func (p *Connection) makeDPR(i msg.Enumerated) (m msg.Message) {
 	m.EtEID = p.local.NextEtE()
 
 	var avps []msg.Avp
-	avps = append(avps, msg.OriginHost(p.local.Host))
-	avps = append(avps, msg.OriginRealm(p.local.Realm))
-	avps = append(avps, msg.DisconnectCause(i))
+	avps = append(avps, msg.OriginHost(p.local.Host).Avp())
+	avps = append(avps, msg.OriginRealm(p.local.Realm).Avp())
+	avps = append(avps, msg.DisconnectCause(i).Avp())
 
 	m.Encode(avps)
 
@@ -169,7 +173,7 @@ func (p *Connection) makeDPR(i msg.Enumerated) (m msg.Message) {
 			[ Failed-AVP ]
 		  * [ AVP ]
 */
-func (p *Connection) makeDPA(r msg.Message) (m msg.Message, i int) {
+func (p *Connection) makeDPA(r msg.Message) (m msg.Message, i msg.ResultCode) {
 	m = msg.Message{}
 	m.Ver = msg.DiaVer
 	m.FlgR = false
@@ -182,10 +186,10 @@ func (p *Connection) makeDPA(r msg.Message) (m msg.Message, i int) {
 	m.AppID = r.AppID
 
 	var avps []msg.Avp
-	avps = append(avps, msg.ResultCode(uint32(2001)))
-	i = 2001
-	avps = append(avps, msg.OriginHost(p.local.Host))
-	avps = append(avps, msg.OriginRealm(p.local.Realm))
+	avps = append(avps, msg.DiameterSuccess.Avp())
+	i = msg.DiameterSuccess
+	avps = append(avps, msg.OriginHost(p.local.Host).Avp())
+	avps = append(avps, msg.OriginRealm(p.local.Realm).Avp())
 
 	m.Encode(avps)
 
@@ -212,8 +216,8 @@ func (p *Connection) makeDWR() (m msg.Message) {
 	m.EtEID = p.local.NextEtE()
 
 	var avps []msg.Avp
-	avps = append(avps, msg.OriginHost(p.local.Host))
-	avps = append(avps, msg.OriginRealm(p.local.Realm))
+	avps = append(avps, msg.OriginHost(p.local.Host).Avp())
+	avps = append(avps, msg.OriginRealm(p.local.Realm).Avp())
 
 	m.Encode(avps)
 
@@ -230,7 +234,7 @@ func (p *Connection) makeDWR() (m msg.Message) {
 			[ Origin-State-Id ]
 		  * [ AVP ]
 */
-func (p *Connection) makeDWA(r msg.Message) (m msg.Message, i int) {
+func (p *Connection) makeDWA(r msg.Message) (m msg.Message, i msg.ResultCode) {
 	m = msg.Message{}
 	m.Ver = msg.DiaVer
 	m.FlgR = false
@@ -243,10 +247,10 @@ func (p *Connection) makeDWA(r msg.Message) (m msg.Message, i int) {
 	m.AppID = r.AppID
 
 	var avps []msg.Avp
-	avps = append(avps, msg.ResultCode(msg.DiameterSuccess))
-	i = 2001
-	avps = append(avps, msg.OriginHost(p.local.Host))
-	avps = append(avps, msg.OriginRealm(p.local.Realm))
+	avps = append(avps, msg.DiameterSuccess.Avp())
+	i = msg.DiameterSuccess
+	avps = append(avps, msg.OriginHost(p.local.Host).Avp())
+	avps = append(avps, msg.OriginRealm(p.local.Realm).Avp())
 
 	m.Encode(avps)
 
@@ -266,9 +270,9 @@ func (p *Connection) makeUnableToDeliver(r msg.Message) (m msg.Message) {
 	m.AppID = r.AppID
 
 	var avps []msg.Avp
-	avps = append(avps, msg.ResultCode(msg.DiameterUnableToDeliver))
-	avps = append(avps, msg.OriginHost(p.local.Host))
-	avps = append(avps, msg.OriginRealm(p.local.Realm))
+	avps = append(avps, msg.DiameterUnableToDeliver.Avp())
+	avps = append(avps, msg.OriginHost(p.local.Host).Avp())
+	avps = append(avps, msg.OriginRealm(p.local.Realm).Avp())
 
 	m.Encode(avps)
 
