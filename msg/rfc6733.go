@@ -34,16 +34,16 @@ const iana uint32 = 0
 // SessionID AVP
 type SessionID string
 
-// Avp return AVP struct of this value
-func (v SessionID) Avp() Avp {
+// Encode return AVP struct of this value
+func (v SessionID) Encode() Avp {
 	a := Avp{Code: uint32(263), VenID: iana,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(string(v))
 	return a
 }
 
-// SessionID get AVP value
-func (o GroupedAVP) SessionID() (r []SessionID) {
+// DecodeSessionID get AVP value
+func DecodeSessionID(o GroupedAVP) (r []SessionID) {
 	for _, a := range o {
 		if a.Code == 263 && a.VenID == 0 {
 			s := new(string)
@@ -57,8 +57,8 @@ func (o GroupedAVP) SessionID() (r []SessionID) {
 // AuthSessionState AVP (true=STATE_MAINTAINED / false=STATE_NOT_MAINTAINED)
 type AuthSessionState bool
 
-// Avp return AVP struct of this value
-func (v AuthSessionState) Avp() Avp {
+// Encode return AVP struct of this value
+func (v AuthSessionState) Encode() Avp {
 	a := Avp{Code: uint32(277), VenID: iana,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v {
@@ -69,8 +69,8 @@ func (v AuthSessionState) Avp() Avp {
 	return a
 }
 
-// AuthSessionState get AVP value
-func (o GroupedAVP) AuthSessionState() (r []AuthSessionState) {
+// Decode get AVP value
+func (v *AuthSessionState) Decode(o GroupedAVP) (r []AuthSessionState) {
 	for _, a := range o {
 		if a.Code == 277 && a.VenID == 0 {
 			s := new(Enumerated)
@@ -83,28 +83,34 @@ func (o GroupedAVP) AuthSessionState() (r []AuthSessionState) {
 			}
 		}
 	}
+	if len(r) != 0 {
+		*v = r[0]
+	}
 	return
 }
 
 // OriginHost AVP
 type OriginHost DiameterIdentity
 
-// Avp return AVP struct of this value
-func (v OriginHost) Avp() Avp {
+// Encode return AVP struct of this value
+func (v OriginHost) Encode() Avp {
 	a := Avp{Code: uint32(264), VenID: iana,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(DiameterIdentity(v))
 	return a
 }
 
-// OriginHost get AVP value
-func (o GroupedAVP) OriginHost() (r []OriginHost) {
+// Decode get AVP value
+func (v *OriginHost) Decode(o GroupedAVP) (r []OriginHost) {
 	for _, a := range o {
 		if a.Code == 264 && a.VenID == 0 {
 			s := new(DiameterIdentity)
 			a.Decode(s)
 			r = append(r, OriginHost(*s))
 		}
+	}
+	if len(r) != 0 {
+		*v = r[0]
 	}
 	return
 }

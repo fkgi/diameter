@@ -11,7 +11,7 @@ func UserIdentifier(uname, msisdn, extid string, lmsi uint32) msg.Avp {
 	a := msg.Avp{Code: uint32(3102), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
 	var t []msg.Avp
 	if len(uname) != 0 {
-		t = append(t, msg.UserName(uname))
+		t = append(t, msg.UserName(uname).Avp())
 	}
 	if len(msisdn) != 0 {
 		t = append(t, ts29329.MSISDN(msisdn))

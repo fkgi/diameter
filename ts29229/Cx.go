@@ -8,7 +8,7 @@ func SupportedFeatures(vendorID, featureID, featureList uint32) msg.Avp {
 	t := make([]msg.Avp, 3)
 
 	// Vendor-Id
-	t[0] = msg.VendorID(vendorID)
+	t[0] = msg.VendorID(vendorID).Avp()
 	// Feature-List-ID
 	t[1] = FeatureListID(featureID)
 	// Feature-List

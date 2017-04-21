@@ -114,14 +114,14 @@ const (
          * [ Route-Record ]
 */
 
-const 3gpp uint32 = 10415
+const v3gpp uint32 = 10415
 
 // SCAddress AVP contain the E164 number of the SMS-SC or MTC-IWF.
 type SCAddress string
 
 func (v SCAddress) Avp() msg.Avp {
-	a := msg.Avp{Code: uint32(3300), VenID: 3gpp,
-		 FlgV: true, FlgM: true, FlgP: false}
+	a := msg.Avp{Code: uint32(3300), VenID: v3gpp,
+		FlgV: true, FlgM: true, FlgP: false}
 	a.Encode(string(v))
 	return a
 }
@@ -129,7 +129,7 @@ func (v SCAddress) Avp() msg.Avp {
 // SCAddress get AVP value
 func (o msg.GroupedAVP) SCAddress() (r []SCAddress) {
 	for _, a := range o {
-		if a.Code == 3300 && a.VenID == 3gpp {
+		if a.Code == 3300 && a.VenID == v3gpp {
 			s := new(string)
 			a.Decode(s)
 			r = append(r, SCAddress(*s))
@@ -140,42 +140,81 @@ func (o msg.GroupedAVP) SCAddress() (r []SCAddress) {
 
 // SMRPUI AVP contain a short message transfer protocol data unit (TPDU).
 // Maximum length is 200 octets.
-func SMRPUI(s []byte) msg.Avp {
-	a := msg.Avp{Code: uint32(3301), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-	a.Encode(s)
+type SMRPUI []byte
+
+func (v SMRPUI) Avp() msg.Avp {
+	a := msg.Avp{Code: uint32(3301), VenID: v3gpp,
+		FlgV: true, FlgM: true, FlgP: false}
+	a.Encode([]byte(v))
 	return a
+}
+
+// SMRPUI get AVP value
+func (o msg.GroupedAVP) SMRPUI() (r []SMRPUI) {
+	for _, a := range o {
+		if a.Code == 3301 && a.VenID == v3gpp {
+			s := new([]byte)
+			a.Decode(s)
+			r = append(r, SMRPUI(*s))
+		}
+	}
+	return
 }
 
 // TFRFlags AVP is bit mask.
 // When moreMsgToSend set, the service centre has more short messages to send.
-func TFRFlags(moreMsgToSend bool) msg.Avp {
-	a := msg.Avp{Code: uint32(3302), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
+type TFRFlags struct {
+	MMS bool // More message to send
+}
+
+func (v TFRFlags) Avp() msg.Avp {
+	a := msg.Avp{Code: uint32(3302), VenID: v3gpp,
+		FlgV: true, FlgM: true, FlgP: false}
 	i := uint32(0)
 
-	if moreMsgToSend {
+	if v.MMS {
 		i = i | 0x00000001
 	}
 	a.Encode(i)
 	return a
 }
 
+// TFRFlags get AVP value
+func (o msg.GroupedAVP) TFRFlags() (r []TFRFlags) {
+	for _, a := range o {
+		if a.Code == 3302 && a.VenID == v3gpp {
+			s := new(uint32)
+			a.Decode(s)
+			r = append(r, TFRFlags{
+				MMS: (*s)&0x00000001 == 0x00000001})
+		}
+	}
+	return
+}
+
 // SMDeliveryFailureCause AVP contain cause of the failure of a SM delivery with an complementary information.
 // If diag is nil, complementary information is empty.
-func SMDeliveryFailureCause(cause msg.Enumerated, diag []byte) msg.Avp {
-	a := msg.Avp{Code: uint32(3303), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
+type SMDeliveryFailureCause struct {
+	Cause msg.Enumerated
+	Diag  []byte
+}
+
+func (v SMDeliveryFailureCause) Avp() msg.Avp {
+	a := msg.Avp{Code: uint32(3303), VenID: v3gpp,
+		FlgV: true, FlgM: true, FlgP: false}
 	var t []msg.Avp
 
 	// SM-Enumerated-Delivery-Failure-Cause
 	{
 		v := msg.Avp{Code: uint32(3304), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-		v.Encode(cause)
+		v.Encode(v.Cause)
 		t = append(t, v)
 	}
 
 	// SM-Diagnostic-Info
 	if diag != nil {
 		v := msg.Avp{Code: uint32(3305), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-		v.Encode(diag)
+		v.Encode(v.Diag)
 		t = append(t, v)
 	}
 
