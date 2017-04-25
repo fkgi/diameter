@@ -6,29 +6,44 @@ import (
 	"github.com/fkgi/diameter/ts29329"
 )
 
+const v3gpp uint32 = 10415
+
 // UserIdentifier AVP
-func UserIdentifier(uname, msisdn, extid string, lmsi uint32) msg.Avp {
-	a := msg.Avp{Code: uint32(3102), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
+type UserIdentifier struct {
+	UserName msg.UserName
+	MSISDN   ts29329.MSISDN
+	ExtID    ExternalIdentifier
+	LMSI     ts29173.LMSI
+}
+
+// Encode return AVP struct of this value
+func (v UserIdentifier) Encode() msg.Avp {
+	a := msg.Avp{Code: uint32(3102), VenID: v3gpp,
+		FlgV: true, FlgM: true, FlgP: false}
 	var t []msg.Avp
-	if len(uname) != 0 {
-		t = append(t, msg.UserName(uname).Avp())
+	if len(v.UserName) != 0 {
+		t = append(t, v.UserName.Encode())
 	}
-	if len(msisdn) != 0 {
-		t = append(t, ts29329.MSISDN(msisdn))
+	if len(v.MSISDN) != 0 {
+		t = append(t, v.MSISDN.Encode())
 	}
-	if len(extid) != 0 {
-		t = append(t, ExternalIdentifier(extid))
+	if len(v.ExtID) != 0 {
+		t = append(t, v.ExtID.Encode())
 	}
-	if lmsi != 0 {
-		t = append(t, ts29173.LMSI(lmsi))
+	if v.LMSI != 0 {
+		t = append(t, v.LMSI.Encode())
 	}
-	a.Encode(t)
+	a.Encode(msg.GroupedAVP(t))
 	return a
 }
 
 // ExternalIdentifier AVP
-func ExternalIdentifier(extid string) msg.Avp {
-	a := msg.Avp{Code: uint32(3111), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-	a.Encode(extid)
+type ExternalIdentifier string
+
+// Encode return AVP struct of this value
+func (v ExternalIdentifier) Encode() msg.Avp {
+	a := msg.Avp{Code: uint32(3111), VenID: v3gpp,
+		FlgV: true, FlgM: true, FlgP: false}
+	a.Encode(string(v))
 	return a
 }

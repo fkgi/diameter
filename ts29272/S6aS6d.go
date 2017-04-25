@@ -6,6 +6,8 @@ import (
 	"github.com/fkgi/diameter/msg"
 )
 
+const v3gpp uint32 = 10415
+
 const (
 	// DiameterErrorUserUnknown is Result-Code 5001
 	DiameterErrorUserUnknown uint32 = 5001
@@ -115,7 +117,7 @@ func TerminalInformation(imei string, meid []byte, version string) msg.Avp {
 		t = append(t, v)
 	}
 
-	a.Encode(t)
+	a.Encode(msg.GroupedAVP(t))
 	return a
 }
 
@@ -140,9 +142,13 @@ var UESRVCCCapabilityValue = struct {
 }{0, 1}
 
 // SGSNNumber AVP
-func SGSNNumber(b string) msg.Avp {
-	a := msg.Avp{Code: uint32(1489), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-	a.Encode(msg.StoTbcd(b))
+type SGSNNumber string
+
+// Encode return AVP struct of this value
+func (v SGSNNumber) Encode() msg.Avp {
+	a := msg.Avp{Code: uint32(1489), VenID: v3gpp,
+		FlgV: true, FlgM: true, FlgP: false}
+	a.Encode(string(v))
 	return a
 }
 
@@ -178,7 +184,7 @@ func ActiveAPN(id uint32) msg.Avp {
 		<!--<avp name="Visited-Network-Identifier"	value=""></avp>-->
 		<!--<avp name="Specific-APN-Info"	value=""></avp>-->
 	*/
-	a.Encode(t)
+	a.Encode(msg.GroupedAVP(t))
 	return a
 }
 
@@ -189,14 +195,18 @@ func EquivalentPLMNList(plmns [][2]string) msg.Avp {
 	for _, p := range plmns {
 		t = append(t, VisitedPLMNID(p[0], p[1]))
 	}
-	a.Encode(t)
+	a.Encode(msg.GroupedAVP(t))
 	return a
 }
 
 // MMENumberForMTSMS AVP
-func MMENumberForMTSMS(b []byte) msg.Avp {
-	a := msg.Avp{Code: uint32(1645), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
-	a.Encode(b)
+type MMENumberForMTSMS []byte
+
+// Encode return AVP struct of this value
+func (v MMENumberForMTSMS) Encode() msg.Avp {
+	a := msg.Avp{Code: uint32(1645), VenID: v3gpp,
+		FlgV: true, FlgM: false, FlgP: false}
+	a.Encode([]byte(v))
 	return a
 }
 
@@ -252,7 +262,7 @@ func RequestedEUTRANAuthenticationInfo(num uint32, resyncInfo []byte, immRespPre
 		v.Encode(uint32(1))
 		t = append(t, v)
 	}
-	a.Encode(t)
+	a.Encode(msg.GroupedAVP(t))
 	return a
 }
 

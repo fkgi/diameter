@@ -119,15 +119,16 @@ const v3gpp uint32 = 10415
 // SCAddress AVP contain the E164 number of the SMS-SC or MTC-IWF.
 type SCAddress string
 
-func (v SCAddress) Avp() msg.Avp {
+// Encode return AVP struct of this value
+func (v SCAddress) Encode() msg.Avp {
 	a := msg.Avp{Code: uint32(3300), VenID: v3gpp,
 		FlgV: true, FlgM: true, FlgP: false}
 	a.Encode(string(v))
 	return a
 }
 
-// SCAddress get AVP value
-func (o msg.GroupedAVP) SCAddress() (r []SCAddress) {
+// DecodeSCAddress get AVP value
+func DecodeSCAddress(o msg.GroupedAVP) (r []SCAddress) {
 	for _, a := range o {
 		if a.Code == 3300 && a.VenID == v3gpp {
 			s := new(string)
@@ -142,15 +143,16 @@ func (o msg.GroupedAVP) SCAddress() (r []SCAddress) {
 // Maximum length is 200 octets.
 type SMRPUI []byte
 
-func (v SMRPUI) Avp() msg.Avp {
+// Encode return AVP struct of this value
+func (v SMRPUI) Encode() msg.Avp {
 	a := msg.Avp{Code: uint32(3301), VenID: v3gpp,
 		FlgV: true, FlgM: true, FlgP: false}
 	a.Encode([]byte(v))
 	return a
 }
 
-// SMRPUI get AVP value
-func (o msg.GroupedAVP) SMRPUI() (r []SMRPUI) {
+// DecodeSMRPUI get AVP value
+func DecodeSMRPUI(o msg.GroupedAVP) (r []SMRPUI) {
 	for _, a := range o {
 		if a.Code == 3301 && a.VenID == v3gpp {
 			s := new([]byte)
@@ -167,7 +169,8 @@ type TFRFlags struct {
 	MMS bool // More message to send
 }
 
-func (v TFRFlags) Avp() msg.Avp {
+// Encode return AVP struct of this value
+func (v TFRFlags) Encode() msg.Avp {
 	a := msg.Avp{Code: uint32(3302), VenID: v3gpp,
 		FlgV: true, FlgM: true, FlgP: false}
 	i := uint32(0)
@@ -179,8 +182,8 @@ func (v TFRFlags) Avp() msg.Avp {
 	return a
 }
 
-// TFRFlags get AVP value
-func (o msg.GroupedAVP) TFRFlags() (r []TFRFlags) {
+// DecodeTFRFlags get AVP value
+func DecodeTFRFlags(o msg.GroupedAVP) (r []TFRFlags) {
 	for _, a := range o {
 		if a.Code == 3302 && a.VenID == v3gpp {
 			s := new(uint32)
@@ -192,34 +195,63 @@ func (o msg.GroupedAVP) TFRFlags() (r []TFRFlags) {
 	return
 }
 
-// SMDeliveryFailureCause AVP contain cause of the failure of a SM delivery with an complementary information.
+// SMDeliveryFailureCause AVP contain cause of the failure of
+// a SM delivery with an complementary information.
 // If diag is nil, complementary information is empty.
 type SMDeliveryFailureCause struct {
 	Cause msg.Enumerated
 	Diag  []byte
 }
 
-func (v SMDeliveryFailureCause) Avp() msg.Avp {
+// Encode return AVP struct of this value
+func (v SMDeliveryFailureCause) Encode() msg.Avp {
 	a := msg.Avp{Code: uint32(3303), VenID: v3gpp,
 		FlgV: true, FlgM: true, FlgP: false}
 	var t []msg.Avp
 
 	// SM-Enumerated-Delivery-Failure-Cause
 	{
-		v := msg.Avp{Code: uint32(3304), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-		v.Encode(v.Cause)
-		t = append(t, v)
+		a := msg.Avp{Code: uint32(3304), VenID: v3gpp,
+			FlgV: true, FlgM: true, FlgP: false}
+		a.Encode(v.Cause)
+		t = append(t, a)
 	}
 
 	// SM-Diagnostic-Info
-	if diag != nil {
-		v := msg.Avp{Code: uint32(3305), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-		v.Encode(v.Diag)
-		t = append(t, v)
+	if v.Diag != nil {
+		a := msg.Avp{Code: uint32(3305), VenID: v3gpp,
+			FlgV: true, FlgM: true, FlgP: false}
+		a.Encode(v.Diag)
+		t = append(t, a)
 	}
 
-	a.Encode(t)
+	a.Encode(msg.GroupedAVP(t))
 	return a
+}
+
+// DecodeSMDeliveryFailureCause get AVP value
+func DecodeSMDeliveryFailureCause(o msg.GroupedAVP) (r []SMDeliveryFailureCause) {
+	for _, a := range o {
+		if a.Code == 3303 && a.VenID == v3gpp {
+			s := SMDeliveryFailureCause{}
+			o2 := new(msg.GroupedAVP)
+			a.Decode(o2)
+			for _, a := range *o2 {
+				if a.Code == 3304 && a.VenID == v3gpp {
+					a.Decode(&s.Cause)
+					break
+				}
+			}
+			for _, a := range *o2 {
+				if a.Code == 3305 && a.VenID == v3gpp {
+					a.Decode(&s.Diag)
+					break
+				}
+			}
+			r = append(r, s)
+		}
+	}
+	return
 }
 
 const (
@@ -240,28 +272,66 @@ const (
 )
 
 // SMDeliveryTimer AVP contain the value in seconds of the timer for SM Delivery.
-func SMDeliveryTimer(i uint32) msg.Avp {
-	a := msg.Avp{Code: uint32(3306), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-	a.Encode(i)
+type SMDeliveryTimer uint32
+
+// Encode return AVP struct of this value
+func (v SMDeliveryTimer) Encode() msg.Avp {
+	a := msg.Avp{Code: uint32(3306), VenID: v3gpp,
+		FlgV: true, FlgM: true, FlgP: false}
+	a.Encode(uint32(v))
 	return a
+}
+
+// DecodeSMDeliveryTimer get AVP value
+func DecodeSMDeliveryTimer(o msg.GroupedAVP) (r []SMDeliveryTimer) {
+	for _, a := range o {
+		if a.Code == 3306 && a.VenID == v3gpp {
+			s := new(uint32)
+			a.Decode(s)
+			r = append(r, SMDeliveryTimer(*s))
+		}
+	}
+	return
 }
 
 // SMDeliveryStartTime AVP contain the timestamp (in UTC) at which
 // the SM Delivery Supervision Timer was started.
-func SMDeliveryStartTime(t time.Time) msg.Avp {
-	a := msg.Avp{Code: uint32(3307), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-	a.Encode(t)
+type SMDeliveryStartTime time.Time
+
+// Encode return AVP struct of this value
+func (v SMDeliveryStartTime) Encode() msg.Avp {
+	a := msg.Avp{Code: uint32(3307), VenID: v3gpp,
+		FlgV: true, FlgM: true, FlgP: false}
+	a.Encode(time.Time(v))
 	return a
+}
+
+// DecodeSMDeliveryStartTime get AVP value
+func DecodeSMDeliveryStartTime(o msg.GroupedAVP) (r []SMDeliveryStartTime) {
+	for _, a := range o {
+		if a.Code == 3307 && a.VenID == v3gpp {
+			s := new(time.Time)
+			a.Decode(s)
+			r = append(r, SMDeliveryStartTime(*s))
+		}
+	}
+	return
 }
 
 // OFRFlags AVP is bit mask.
 // When s6as6d set, the OFR message is sent on the Gdd interface (source node is an SGSN).
 // When cleared, sent on the SGd interface (source node is an MME).
-func OFRFlags(s6as6d bool) msg.Avp {
-	a := msg.Avp{Code: uint32(3328), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
+type OFRFlags struct {
+	S6as6d bool
+}
+
+// Encode return AVP struct of this value
+func (v OFRFlags) Encode() msg.Avp {
+	a := msg.Avp{Code: uint32(3328), VenID: v3gpp,
+		FlgV: true, FlgM: false, FlgP: false}
 	i := uint32(0)
 
-	if s6as6d {
+	if v.S6as6d {
 		i = i | 0x00000001
 	}
 
@@ -269,98 +339,230 @@ func OFRFlags(s6as6d bool) msg.Avp {
 	return a
 }
 
+// DecodeOFRFlags get AVP value
+func DecodeOFRFlags(o msg.GroupedAVP) (r []OFRFlags) {
+	for _, a := range o {
+		if a.Code == 3328 && a.VenID == v3gpp {
+			s := new(uint32)
+			a.Decode(s)
+			r = append(r, OFRFlags{
+				S6as6d: (*s)&0x00000001 == 0x00000001})
+		}
+	}
+	return
+}
+
 // SMSMICorrelationID AVP ontain information identities used in the context
 // of MSISDN-less SMS delivery in IMS
-func SMSMICorrelationID(hssID, oURI, dURI string) msg.Avp {
-	a := msg.Avp{Code: uint32(3324), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
+type SMSMICorrelationID struct {
+	HSSID      string
+	OrigSIPURI string
+	DestSIPURI string
+}
+
+// Encode return AVP struct of this value
+func (v SMSMICorrelationID) Encode() msg.Avp {
+	a := msg.Avp{Code: uint32(3324), VenID: v3gpp,
+		FlgV: true, FlgM: false, FlgP: false}
 	var t []msg.Avp
 
 	// HSS-ID
-	if len(hssID) != 0 {
-		v := msg.Avp{Code: uint32(3325), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
-		v.Encode(hssID)
-		t = append(t, v)
+	if len(v.HSSID) != 0 {
+		a := msg.Avp{Code: uint32(3325), VenID: v3gpp,
+			FlgV: true, FlgM: false, FlgP: false}
+		a.Encode(v.HSSID)
+		t = append(t, a)
 	}
 	// Originating-SIP-URI
-	if len(oURI) != 0 {
-		v := msg.Avp{Code: uint32(3326), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
-		v.Encode(oURI)
-		t = append(t, v)
+	if len(v.OrigSIPURI) != 0 {
+		a := msg.Avp{Code: uint32(3326), VenID: v3gpp,
+			FlgV: true, FlgM: false, FlgP: false}
+		a.Encode(v.OrigSIPURI)
+		t = append(t, a)
 	}
 	// Destination-SIP-URI
-	if len(dURI) != 0 {
-		v := msg.Avp{Code: uint32(3327), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
-		v.Encode(dURI)
-		t = append(t, v)
+	if len(v.DestSIPURI) != 0 {
+		a := msg.Avp{Code: uint32(3327), VenID: v3gpp,
+			FlgV: true, FlgM: false, FlgP: false}
+		a.Encode(v.DestSIPURI)
+		t = append(t, a)
 	}
 
-	a.Encode(t)
+	a.Encode(msg.GroupedAVP(t))
 	return a
+}
+
+// DecodeSMSMICorrelationID get AVP value
+func DecodeSMSMICorrelationID(o msg.GroupedAVP) (r []SMSMICorrelationID) {
+	for _, a := range o {
+		if a.Code == 3324 && a.VenID == v3gpp {
+			s := SMSMICorrelationID{}
+			o2 := new(msg.GroupedAVP)
+			a.Decode(o2)
+			for _, a := range *o2 {
+				if a.Code == 3325 && a.VenID == v3gpp {
+					a.Decode(&s.HSSID)
+					break
+				}
+			}
+			for _, a := range *o2 {
+				if a.Code == 3326 && a.VenID == v3gpp {
+					a.Decode(&s.OrigSIPURI)
+					break
+				}
+			}
+			for _, a := range *o2 {
+				if a.Code == 3327 && a.VenID == v3gpp {
+					a.Decode(&s.DestSIPURI)
+					break
+				}
+			}
+			r = append(r, s)
+		}
+	}
+	return
 }
 
 // MaximumRetransmissionTime AVP contain the maximum retransmission time (in UTC) until which
 // the SMS-GMSC is capable to retransmit the MT Short Message.
-func MaximumRetransmissionTime(t time.Time) msg.Avp {
-	a := msg.Avp{Code: uint32(3330), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
-	a.Encode(t)
+type MaximumRetransmissionTime time.Time
+
+// Encode return AVP struct of this value
+func (v MaximumRetransmissionTime) Encode() msg.Avp {
+	a := msg.Avp{Code: uint32(3330), VenID: v3gpp,
+		FlgV: true, FlgM: false, FlgP: false}
+	a.Encode(time.Time(v))
 	return a
+}
+
+// DecodeMaximumRetransmissionTime get AVP value
+func DecodeMaximumRetransmissionTime(o msg.GroupedAVP) (r []MaximumRetransmissionTime) {
+	for _, a := range o {
+		if a.Code == 3330 && a.VenID == v3gpp {
+			s := new(time.Time)
+			a.Decode(s)
+			r = append(r, MaximumRetransmissionTime(*s))
+		}
+	}
+	return
 }
 
 // RequestedRetransmissionTime AVP contain the timestamp (in UTC) at which
 // the SMS-GMSC is requested to retransmit the MT Short Message.
-func RequestedRetransmissionTime(t time.Time) msg.Avp {
-	a := msg.Avp{Code: uint32(3331), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
-	a.Encode(t)
+type RequestedRetransmissionTime time.Time
+
+// Encode return AVP struct of this value
+func (v RequestedRetransmissionTime) Encode() msg.Avp {
+	a := msg.Avp{Code: uint32(3331), VenID: v3gpp,
+		FlgV: true, FlgM: false, FlgP: false}
+	a.Encode(time.Time(v))
 	return a
+}
+
+// DecodeRequestedRetransmissionTime get AVP value
+func DecodeRequestedRetransmissionTime(o msg.GroupedAVP) (r []RequestedRetransmissionTime) {
+	for _, a := range o {
+		if a.Code == 3331 && a.VenID == v3gpp {
+			s := new(time.Time)
+			a.Decode(s)
+			r = append(r, RequestedRetransmissionTime(*s))
+		}
+	}
+	return
 }
 
 // SMSGMSCAddress AVP contain the E.164 number of the SMS-GMSC or SMS Router.
-func SMSGMSCAddress(msisdn string) msg.Avp {
-	a := msg.Avp{Code: uint32(3332), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
-	a.Encode(msisdn)
+type SMSGMSCAddress string
+
+// Encode return AVP struct of this value
+func (v SMSGMSCAddress) Encode() msg.Avp {
+	a := msg.Avp{Code: uint32(3332), VenID: v3gpp,
+		FlgV: true, FlgM: false, FlgP: false}
+	a.Encode(string(v))
 	return a
 }
 
+// DecodeSMSGMSCAddress get AVP value
+func DecodeSMSGMSCAddress(o msg.GroupedAVP) (r []SMSGMSCAddress) {
+	for _, a := range o {
+		if a.Code == 3332 && a.VenID == v3gpp {
+			s := new(string)
+			a.Decode(s)
+			r = append(r, SMSGMSCAddress(*s))
+		}
+	}
+	return
+}
+
 // UserName AVP from RFC6733
-func UserName(s string) msg.Avp {
-	return msg.UserName(s)
+type UserName msg.UserName
+
+// Encode return AVP struct of this value
+func (v UserName) Encode() msg.Avp {
+	return msg.UserName(v).Encode()
+}
+
+// DecodeUserName get AVP value
+func DecodeUserName(o msg.GroupedAVP) (r []UserName) {
+	return msg.DecodeUserName(o)
 }
 
 // UserIdentifier AVP from ts29.336
-func UserIdentifier(uname, msisdn, extid string, lmsi uint32) msg.Avp {
-	return ts29336.UserIdentifier(uname, msisdn, extid, lmsi)
+type UserIdentifier ts29336.UserIdentifier
+
+// Encode return AVP struct of this value
+func (v UserIdentifier) Encode() msg.Avp {
+	return ts29336.UserIdentifier(v).Encode()
 }
 
 // MMENumberForMTSMS AVP from ts29.272
-func MMENumberForMTSMS(b []byte) msg.Avp {
-	return ts29272.MMENumberForMTSMS(b)
+type MMENumberForMTSMS ts29272.MMENumberForMTSMS
+
+// Encode return AVP struct of this value
+func (v MMENumberForMTSMS) Encode() msg.Avp {
+	return ts29272.MMENumberForMTSMS(v).Encode()
 }
 
 // SGSNNumber AVP from ts29.272
-func SGSNNumber(b string) msg.Avp {
-	a := ts29272.SGSNNumber(b)
+type SGSNNumber ts29272.SGSNNumber
+
+// Encode return AVP struct of this value
+func (v SGSNNumber) Encode() msg.Avp {
+	a := ts29272.SGSNNumber(v).Encode()
 	a.FlgM = false
 	return a
 }
 
 // SupportedFeatures AVP from ts29.229
-func SupportedFeatures(vendorID, featureID, featureList uint32) msg.Avp {
-	return ts29229.SupportedFeatures(vendorID, featureID, featureList)
+type SupportedFeatures ts29229.SupportedFeatures
+
+// Encode return AVP struct of this value
+func (v SupportedFeatures) Encode() msg.Avp {
+	return ts29229.SupportedFeatures(v).Encode()
 }
 
 // FeatureListID AVP from ts29.229
-func FeatureListID(i uint32) msg.Avp {
-	return ts29229.FeatureListID(i)
+type FeatureListID ts29229.FeatureListID
+
+// Encode return AVP struct of this value
+func (v FeatureListID) Encode() msg.Avp {
+	return ts29229.FeatureListID(v).Encode()
 }
 
 // FeatureList AVP from ts29.229
-func FeatureList(i uint32) msg.Avp {
-	return ts29229.FeatureList(i)
+type FeatureList ts29229.FeatureList
+
+// Encode return AVP struct of this value
+func (v FeatureList) Encode() msg.Avp {
+	return ts29229.FeatureList(v).Encode()
 }
 
 // ExternalIdentifier AVP from ts29.336
-func ExternalIdentifier(extid string) msg.Avp {
-	a := ts29336.ExternalIdentifier(extid)
+type ExternalIdentifier ts29336.ExternalIdentifier
+
+// Encode return AVP struct of this value
+func (v ExternalIdentifier) Encode() msg.Avp {
+	a := ts29336.ExternalIdentifier(v).Encode()
 	a.FlgM = false
 	return a
 }

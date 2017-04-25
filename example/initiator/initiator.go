@@ -14,7 +14,7 @@ import (
 
 func main() {
 	logger := log.New(os.Stderr, "", log.Ltime|log.Lmicroseconds)
-	connection.Notificator = func(e connection.Notify) { e.Log(logger) }
+	connection.Notificator = func(e connection.Notice) { e.Log(logger) }
 
 	// boot log
 	log.Println("initiator sample booting ...")

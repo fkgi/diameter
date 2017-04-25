@@ -129,10 +129,10 @@ func (v eventRcvCER) exec(p *Connection) (e error) {
 	}
 
 	if avp, e := v.m.Decode(); e == nil {
-		if t := avp.OriginHost(); len(t) != 0 {
+		if t := msg.DecodeOriginHost(avp); len(t) != 0 {
 			p.peer.Host = msg.DiameterIdentity(t[0])
 		}
-		if t := avp.OriginRealm(); len(t) != 0 {
+		if t := msg.DecodeOriginRealm(avp); len(t) != 0 {
 			p.peer.Realm = msg.DiameterIdentity(t[0])
 		}
 	}
@@ -168,7 +168,7 @@ func (v eventRcvCEA) exec(p *Connection) (e error) {
 	} else {
 		var c msg.ResultCode
 		if avp, e := v.m.Decode(); e == nil {
-			if t := avp.ResultCode(); len(t) != 0 {
+			if t := msg.DecodeResultCode(avp); len(t) != 0 {
 				c = t[0]
 			}
 		}
