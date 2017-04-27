@@ -1,4 +1,4 @@
-package example
+package common
 
 import (
 	"log"
@@ -6,13 +6,14 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/fkgi/diameter/connection"
 	"github.com/fkgi/diameter/msg"
-	"github.com/fkgi/diameter/provider"
 )
 
 // RunUnixsockRelay relay data between unix-socket and diameter-link
-func RunUnixsockRelay(prov *provider.Provider, isock, osock string) {
+func RunUnixsockRelay(prov *connection.Connection, isock, osock string) {
 	il, e := net.Listen("unix", isock)
 	if e != nil {
 		log.Fatalln(e)
@@ -83,7 +84,7 @@ func RunUnixsockRelay(prov *provider.Provider, isock, osock string) {
 						break
 					}
 				}
-				avp = append(avp, msg.RouteRecord(src))
+				avp = append(avp, msg.RouteRecord(src).Encode())
 				if e = m.Encode(avp); e != nil {
 					log.Println(e)
 					continue
@@ -103,9 +104,12 @@ func RunUnixsockRelay(prov *provider.Provider, isock, osock string) {
 	}()
 
 	<-sigc
-	log.Println("shutdown ...")
+	Log.Println("shutdown ...")
 
-	prov.Close(msg.Enumerated(0))
+	prov.Close(msg.Rebooting)
+	for prov.State() != "Shutdown" {
+		time.Sleep(time.Duration(100) * time.Millisecond)
+	}
 	os.Remove(isock)
 	os.Remove(osock)
 }

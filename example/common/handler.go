@@ -1,4 +1,4 @@
-package example
+package common
 
 import (
 	"bytes"
@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/fkgi/diameter/msg"
@@ -22,21 +21,6 @@ type Handler struct {
 	DestHost  msg.DiameterIdentity
 	DestRealm msg.DiameterIdentity
 	SessionID string
-}
-
-func genHostRealm(fqdn string) (host, realm msg.DiameterIdentity) {
-	fqdn = strings.TrimSpace(fqdn)
-	var e error
-	host, e = msg.ParseDiameterIdentity(fqdn)
-	if e != nil {
-		log.Fatalln("invalid host name:", e)
-	}
-
-	realm, e = msg.ParseDiameterIdentity(fqdn[strings.Index(fqdn, ".")+1:])
-	if e != nil {
-		log.Fatalln("invalid host realm:", e)
-	}
-	return
 }
 
 // Init initialize each parameter

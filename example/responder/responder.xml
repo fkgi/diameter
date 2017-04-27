@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<config>
+	<local>
+        <type>tcp</type>
+		<addr>localhost:3868</addr>
+		<fqdn>server.test.com</fqdn>
+	</local>
+    <watchdog>
+        <interval>40</interval>
+        <retry>3</retry>
+    </watchdog>
+    <message>
+        <interval>40</interval>
+        <retry>2</retry>
+    </message>
+</config>

@@ -146,10 +146,21 @@ type SGSNNumber string
 
 // Encode return AVP struct of this value
 func (v SGSNNumber) Encode() msg.Avp {
-	a := msg.Avp{Code: uint32(1489), VenID: v3gpp,
+	a := msg.Avp{Code: 1489, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	a.Encode(string(v))
 	return a
+}
+
+// GetSGSNNumber get AVP value
+func GetSGSNNumber(o msg.GroupedAVP) (SGSNNumber, bool) {
+	s := new(string)
+	if a, ok := o.Get(1489, 10415); ok {
+		a.Decode(s)
+	} else {
+		return "", false
+	}
+	return SGSNNumber(*s), true
 }
 
 // HomogeneousSupportOfIMSVoiceOverPSSessions AVP

@@ -3,10 +3,25 @@ package ts29212
 import "github.com/fkgi/diameter/msg"
 
 // RATType AVP
-func RATType(e msg.Enumerated) msg.Avp {
-	a := msg.Avp{Code: uint32(1032), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-	a.Encode(e)
+type RATType msg.Enumerated
+
+// Encode return AVP struct of this value
+func (v RATType) Encode() msg.Avp {
+	a := msg.Avp{Code: 1032, VenID: 10415,
+		FlgV: true, FlgM: true, FlgP: false}
+	a.Encode(msg.Enumerated(v))
 	return a
+}
+
+// GetRATType get AVP value
+func GetRATType(o msg.GroupedAVP) (RATType, bool) {
+	s := new(msg.Enumerated)
+	if a, ok := o.Get(1032, 10415); ok {
+		a.Decode(s)
+	} else {
+		return 0, false
+	}
+	return RATType(*s), true
 }
 
 const (

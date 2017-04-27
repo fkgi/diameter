@@ -33,11 +33,11 @@ func (e *StateUpdate) Log(l *log.Logger) {
 		l.Println("<nil>")
 	} else if e.Err == nil {
 		l.Printf(
-			"state change %s to %s with event %s on Connection %s -> %s",
+			"state change %s -> %s with event %s on connection %s - %s",
 			e.OldState, e.NewState, e.Event, e.Local, e.Peer)
 	} else {
 		l.Printf(
-			"state change %s to %s with event %s on Connection %s -> %s failed: %s",
+			"state change %s -> %s with event %s on connection %s - %s failed: %s",
 			e.OldState, e.NewState, e.Event, e.Local, e.Peer, e.Err)
 	}
 }

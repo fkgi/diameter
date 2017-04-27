@@ -2,6 +2,7 @@ package msg
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"net"
@@ -40,23 +41,26 @@ func (a Avp) WriteTo(w io.Writer) (n int64, e error) {
 	}
 
 	i := 0
-	if i, e = w.Write(ItoB(a.Code)); e != nil {
+	if e = binary.Write(w, binary.BigEndian, a.Code); e != nil {
 		return
 	}
-	n += int64(i)
+	n += 4
 	if i, e = w.Write(botob(a.FlgV, a.FlgM, a.FlgP)); e != nil {
 		return
 	}
 	n += int64(i)
-	if i, e = w.Write(ItoB(a.leng)[1:4]); e != nil {
+
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.BigEndian, a.leng)
+	if i, e = w.Write(buf.Bytes()[1:4]); e != nil {
 		return
 	}
 	n += int64(i)
 	if a.FlgV {
-		if i, e = w.Write(ItoB(a.VenID)); e != nil {
+		if e = binary.Write(w, binary.BigEndian, a.VenID); e != nil {
 			return
 		}
-		n += int64(i)
+		n += 4
 	}
 	if i, e = w.Write(a.data); e != nil {
 		return
@@ -77,7 +81,7 @@ func (a *Avp) ReadFrom(r io.Reader) (n int64, e error) {
 		return
 	}
 
-	a.Code = btoi(buf[0:4])
+	binary.Read(bytes.NewBuffer(buf[0:4]), binary.BigEndian, &a.Code)
 
 	flgs := btobo(buf[4:5])
 	a.FlgV = flgs[0]
@@ -85,7 +89,7 @@ func (a *Avp) ReadFrom(r io.Reader) (n int64, e error) {
 	a.FlgP = flgs[2]
 
 	buf[4] = 0x00
-	a.leng = btoi(buf[4:8])
+	binary.Read(bytes.NewBuffer(buf[4:8]), binary.BigEndian, &a.leng)
 	l := a.leng - 8
 
 	if a.FlgV {
@@ -94,7 +98,7 @@ func (a *Avp) ReadFrom(r io.Reader) (n int64, e error) {
 		if e != nil {
 			return
 		}
-		a.VenID = btoi(buf)
+		binary.Read(bytes.NewBuffer(buf), binary.BigEndian, &a.VenID)
 		l -= 4
 	}
 

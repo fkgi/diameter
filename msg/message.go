@@ -2,6 +2,7 @@ package msg
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"io"
 )
@@ -54,7 +55,9 @@ func (m Message) WriteTo(w io.Writer) (n int64, e error) {
 		return
 	}
 	n += int64(i)
-	if i, e = b.Write(ItoB(m.leng)[1:4]); e != nil {
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.BigEndian, m.leng)
+	if i, e = b.Write(buf.Bytes()[1:4]); e != nil {
 		return
 	}
 	n += int64(i)
@@ -62,22 +65,24 @@ func (m Message) WriteTo(w io.Writer) (n int64, e error) {
 		return
 	}
 	n += int64(i)
-	if i, e = b.Write(ItoB(m.Code)[1:4]); e != nil {
+	buf = new(bytes.Buffer)
+	binary.Write(buf, binary.BigEndian, m.Code)
+	if i, e = b.Write(buf.Bytes()[1:4]); e != nil {
 		return
 	}
 	n += int64(i)
-	if i, e = b.Write(ItoB(m.AppID)); e != nil {
+	if e = binary.Write(&b, binary.BigEndian, m.AppID); e != nil {
 		return
 	}
-	n += int64(i)
-	if i, e = b.Write(ItoB(m.HbHID)); e != nil {
+	n += 4
+	if e = binary.Write(&b, binary.BigEndian, m.HbHID); e != nil {
 		return
 	}
-	n += int64(i)
-	if i, e = b.Write(ItoB(m.EtEID)); e != nil {
+	n += 4
+	if e = binary.Write(&b, binary.BigEndian, m.EtEID); e != nil {
 		return
 	}
-	n += int64(i)
+	n += 4
 	if i, e = b.Write(m.data); e != nil {
 		return
 	}
@@ -99,7 +104,7 @@ func (m *Message) ReadFrom(r io.Reader) (n int64, e error) {
 	m.Ver = buf[0]
 
 	buf[0] = 0x00
-	m.leng = btoi(buf[0:4])
+	binary.Read(bytes.NewBuffer(buf[0:4]), binary.BigEndian, &m.leng)
 
 	flgs := btobo(buf[4:5])
 	m.FlgR = flgs[0]
@@ -108,11 +113,11 @@ func (m *Message) ReadFrom(r io.Reader) (n int64, e error) {
 	m.FlgT = flgs[3]
 
 	buf[4] = 0x00
-	m.Code = btoi(buf[4:8])
+	binary.Read(bytes.NewBuffer(buf[4:8]), binary.BigEndian, &m.Code)
 
-	m.AppID = btoi(buf[8:12])
-	m.HbHID = btoi(buf[12:16])
-	m.EtEID = btoi(buf[16:20])
+	binary.Read(bytes.NewBuffer(buf[8:12]), binary.BigEndian, &m.AppID)
+	binary.Read(bytes.NewBuffer(buf[12:16]), binary.BigEndian, &m.HbHID)
+	binary.Read(bytes.NewBuffer(buf[16:20]), binary.BigEndian, &m.EtEID)
 
 	m.data, i, e = subread(r, int(m.leng)-20)
 	n += int64(i)

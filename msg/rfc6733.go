@@ -1,10 +1,6 @@
 package msg
 
-import (
-	"net"
-
-	"github.com/fkgi/diameter/msg"
-)
+import "net"
 
 /*
 const (
@@ -33,29 +29,37 @@ const (
 	GRANT_AND_LOSE          Enumerated = 3
 )
 */
-const iana uint32 = 0
+
+// Get search AVP that have code and vendor-id.
+func (g GroupedAVP) Get(c, v uint32) (*Avp, bool) {
+	for _, a := range g {
+		if a.Code == c && a.VenID == v {
+			return &a, true
+		}
+	}
+	return nil, false
+}
 
 // SessionID AVP
 type SessionID string
 
 // Encode return AVP struct of this value
 func (v SessionID) Encode() Avp {
-	a := Avp{Code: uint32(263), VenID: iana,
+	a := Avp{Code: 263, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(string(v))
 	return a
 }
 
-// DecodeSessionID get AVP value
-func DecodeSessionID(o GroupedAVP) (r []SessionID) {
-	for _, a := range o {
-		if a.Code == 263 && a.VenID == 0 {
-			s := new(string)
-			a.Decode(s)
-			r = append(r, SessionID(*s))
-		}
+// GetSessionID get AVP value
+func GetSessionID(o GroupedAVP) (SessionID, bool) {
+	a, ok := o.Get(263, 0)
+	if !ok {
+		return "", false
 	}
-	return
+	s := new(string)
+	a.Decode(s)
+	return SessionID(*s), true
 }
 
 // AuthSessionState AVP (true=STATE_MAINTAINED / false=STATE_NOT_MAINTAINED)
@@ -63,7 +67,7 @@ type AuthSessionState bool
 
 // Encode return AVP struct of this value
 func (v AuthSessionState) Encode() Avp {
-	a := Avp{Code: uint32(277), VenID: iana,
+	a := Avp{Code: 277, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v {
 		a.Encode(Enumerated(0))
@@ -73,21 +77,21 @@ func (v AuthSessionState) Encode() Avp {
 	return a
 }
 
-// DecodeAuthSessionState get AVP value
-func DecodeAuthSessionState(o GroupedAVP) (r []AuthSessionState) {
-	for _, a := range o {
-		if a.Code == 277 && a.VenID == 0 {
-			s := new(Enumerated)
-			a.Decode(s)
-			switch *s {
-			case 0:
-				r = append(r, AuthSessionState(true))
-			case 1:
-				r = append(r, AuthSessionState(false))
-			}
-		}
+// GetAuthSessionState get AVP value
+func GetAuthSessionState(o GroupedAVP) (AuthSessionState, bool) {
+	a, ok := o.Get(277, 0)
+	if !ok {
+		return false, false
 	}
-	return
+	s := new(Enumerated)
+	a.Decode(s)
+	switch *s {
+	case 0:
+		return AuthSessionState(true), true
+	case 1:
+		return AuthSessionState(false), true
+	}
+	return false, false
 }
 
 // OriginHost AVP
@@ -95,22 +99,21 @@ type OriginHost DiameterIdentity
 
 // Encode return AVP struct of this value
 func (v OriginHost) Encode() Avp {
-	a := Avp{Code: uint32(264), VenID: iana,
+	a := Avp{Code: 264, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(DiameterIdentity(v))
 	return a
 }
 
-// DecodeOriginHost get AVP value
-func DecodeOriginHost(o GroupedAVP) (r []OriginHost) {
-	for _, a := range o {
-		if a.Code == 264 && a.VenID == 0 {
-			s := new(DiameterIdentity)
-			a.Decode(s)
-			r = append(r, OriginHost(*s))
-		}
+// GetOriginHost get AVP value
+func GetOriginHost(o GroupedAVP) (OriginHost, bool) {
+	a, ok := o.Get(264, 0)
+	if !ok {
+		return "", false
 	}
-	return
+	s := new(DiameterIdentity)
+	a.Decode(s)
+	return OriginHost(*s), true
 }
 
 // OriginRealm AVP
@@ -118,22 +121,21 @@ type OriginRealm DiameterIdentity
 
 // Encode return AVP struct of this value
 func (v OriginRealm) Encode() Avp {
-	a := Avp{Code: uint32(296), VenID: iana,
+	a := Avp{Code: 296, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(DiameterIdentity(v))
 	return a
 }
 
-// DecodeOriginRealm get AVP value
-func DecodeOriginRealm(o GroupedAVP) (r []OriginRealm) {
-	for _, a := range o {
-		if a.Code == 296 && a.VenID == 0 {
-			s := new(DiameterIdentity)
-			a.Decode(s)
-			r = append(r, OriginRealm(*s))
-		}
+// GetOriginRealm get AVP value
+func GetOriginRealm(o GroupedAVP) (OriginRealm, bool) {
+	a, ok := o.Get(296, 0)
+	if !ok {
+		return "", false
 	}
-	return
+	s := new(DiameterIdentity)
+	a.Decode(s)
+	return OriginRealm(*s), true
 }
 
 // DestinationHost AVP
@@ -141,22 +143,21 @@ type DestinationHost DiameterIdentity
 
 // Encode return AVP struct of this value
 func (v DestinationHost) Encode() Avp {
-	a := Avp{Code: uint32(293), VenID: iana,
+	a := Avp{Code: 293, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(DiameterIdentity(v))
 	return a
 }
 
-// DecodeDestinationHost get AVP value
-func DecodeDestinationHost(o GroupedAVP) (r []DestinationHost) {
-	for _, a := range o {
-		if a.Code == 293 && a.VenID == 0 {
-			s := new(DiameterIdentity)
-			a.Decode(s)
-			r = append(r, DestinationHost(*s))
-		}
+// GetDestinationHost get AVP value
+func GetDestinationHost(o GroupedAVP) (DestinationHost, bool) {
+	a, ok := o.Get(293, 0)
+	if !ok {
+		return "", false
 	}
-	return
+	s := new(DiameterIdentity)
+	a.Decode(s)
+	return DestinationHost(*s), true
 }
 
 // DestinationRealm AVP
@@ -164,22 +165,21 @@ type DestinationRealm DiameterIdentity
 
 // Encode return AVP struct of this value
 func (v DestinationRealm) Encode() Avp {
-	a := Avp{Code: uint32(283), VenID: iana,
+	a := Avp{Code: 283, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(DiameterIdentity(v))
 	return a
 }
 
-// DecodeDestinationRealm get AVP value
-func DecodeDestinationRealm(o GroupedAVP) (r []DestinationRealm) {
-	for _, a := range o {
-		if a.Code == 283 && a.VenID == 0 {
-			s := new(DiameterIdentity)
-			a.Decode(s)
-			r = append(r, DestinationRealm(*s))
-		}
+// GetDestinationRealm get AVP value
+func GetDestinationRealm(o GroupedAVP) (DestinationRealm, bool) {
+	a, ok := o.Get(283, 0)
+	if !ok {
+		return "", false
 	}
-	return
+	s := new(DiameterIdentity)
+	a.Decode(s)
+	return DestinationRealm(*s), true
 }
 
 // HostIPAddress AVP
@@ -187,22 +187,21 @@ type HostIPAddress net.IP
 
 // Encode return AVP struct of this value
 func (v HostIPAddress) Encode() Avp {
-	a := Avp{Code: uint32(257), VenID: iana,
+	a := Avp{Code: 257, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(net.IP(v))
 	return a
 }
 
-// DecodeHostIPAddress get AVP value
-func DecodeHostIPAddress(o GroupedAVP) (r []HostIPAddress) {
-	for _, a := range o {
-		if a.Code == 257 && a.VenID == 0 {
-			s := new(net.IP)
-			a.Decode(s)
-			r = append(r, HostIPAddress(*s))
-		}
+// GetHostIPAddress get AVP value
+func GetHostIPAddress(o GroupedAVP) (HostIPAddress, bool) {
+	a, ok := o.Get(257, 0)
+	if !ok {
+		return nil, false
 	}
-	return
+	s := new(net.IP)
+	a.Decode(s)
+	return HostIPAddress(*s), true
 }
 
 // VendorID AVP
@@ -210,22 +209,21 @@ type VendorID uint32
 
 // Encode return AVP struct of this value
 func (v VendorID) Encode() Avp {
-	a := Avp{Code: uint32(266), VenID: iana,
+	a := Avp{Code: 266, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(uint32(v))
 	return a
 }
 
-// DecodeVendorID get AVP value
-func DecodeVendorID(o GroupedAVP) (r []VendorID) {
-	for _, a := range o {
-		if a.Code == 266 && a.VenID == 0 {
-			s := new(uint32)
-			a.Decode(s)
-			r = append(r, VendorID(*s))
-		}
+// GetVendorID get AVP value
+func GetVendorID(o GroupedAVP) (VendorID, bool) {
+	a, ok := o.Get(266, 0)
+	if !ok {
+		return 0, false
 	}
-	return
+	s := new(uint32)
+	a.Decode(s)
+	return VendorID(*s), true
 }
 
 // ProductName AVP
@@ -233,22 +231,21 @@ type ProductName string
 
 // Encode return AVP struct of this value
 func (v ProductName) Encode() Avp {
-	a := Avp{Code: uint32(269), VenID: iana,
+	a := Avp{Code: 269, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(string(v))
 	return a
 }
 
-// DecodeProductName get AVP value
-func DecodeProductName(o GroupedAVP) (r []ProductName) {
-	for _, a := range o {
-		if a.Code == 269 && a.VenID == 0 {
-			s := new(string)
-			a.Decode(s)
-			r = append(r, ProductName(*s))
-		}
+// GetProductName get AVP value
+func GetProductName(o GroupedAVP) (ProductName, bool) {
+	a, ok := o.Get(269, 0)
+	if !ok {
+		return "", false
 	}
-	return
+	s := new(string)
+	a.Decode(s)
+	return ProductName(*s), true
 }
 
 // ResultCode AVP
@@ -256,22 +253,21 @@ type ResultCode uint32
 
 // Encode return AVP struct of this value
 func (v ResultCode) Encode() Avp {
-	a := Avp{Code: uint32(268), VenID: iana,
+	a := Avp{Code: 268, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(uint32(v))
 	return a
 }
 
-// DecodeResultCode get AVP value
-func DecodeResultCode(o GroupedAVP) (r []ResultCode) {
-	for _, a := range o {
-		if a.Code == 268 && a.VenID == 0 {
-			s := new(uint32)
-			a.Decode(s)
-			r = append(r, ResultCode(*s))
-		}
+// GetResultCode get AVP value
+func GetResultCode(o GroupedAVP) (ResultCode, bool) {
+	a, ok := o.Get(268, 0)
+	if !ok {
+		return 0, false
 	}
-	return
+	s := new(uint32)
+	a.Decode(s)
+	return ResultCode(*s), true
 }
 
 const (
@@ -352,22 +348,21 @@ type DisconnectCause Enumerated
 
 // Encode return AVP struct of this value
 func (v DisconnectCause) Encode() Avp {
-	a := Avp{Code: uint32(273), VenID: iana,
+	a := Avp{Code: 273, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(Enumerated(v))
 	return a
 }
 
-// DecodeDisconnectCause get AVP value
-func DecodeDisconnectCause(o GroupedAVP) (r []DisconnectCause) {
-	for _, a := range o {
-		if a.Code == 273 && a.VenID == 0 {
-			s := new(Enumerated)
-			a.Decode(s)
-			r = append(r, DisconnectCause(*s))
-		}
+// GetDisconnectCause get AVP value
+func GetDisconnectCause(o GroupedAVP) (DisconnectCause, bool) {
+	a, ok := o.Get(273, 0)
+	if !ok {
+		return 0, false
 	}
-	return
+	s := new(Enumerated)
+	a.Decode(s)
+	return DisconnectCause(*s), true
 }
 
 const (
@@ -384,22 +379,21 @@ type UserName string
 
 // Encode return AVP struct of this value
 func (v UserName) Encode() Avp {
-	a := Avp{Code: uint32(1), VenID: iana,
+	a := Avp{Code: 1, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(string(v))
 	return a
 }
 
-// DecodeUserName get AVP value
-func DecodeUserName(o GroupedAVP) (r []UserName) {
-	for _, a := range o {
-		if a.Code == 1 && a.VenID == 0 {
-			s := new(string)
-			a.Decode(s)
-			r = append(r, UserName(*s))
-		}
+// GetUserName get AVP value
+func GetUserName(o GroupedAVP) (UserName, bool) {
+	a, ok := o.Get(1, 0)
+	if !ok {
+		return "", false
 	}
-	return
+	s := new(string)
+	a.Decode(s)
+	return UserName(*s), true
 }
 
 // FirmwareRevision AVP
@@ -407,22 +401,21 @@ type FirmwareRevision uint32
 
 // Encode return AVP struct of this value
 func (v FirmwareRevision) Encode() Avp {
-	a := Avp{Code: uint32(267), VenID: iana,
+	a := Avp{Code: 267, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(uint32(v))
 	return a
 }
 
-// DecodeFirmwareRevision get AVP value
-func DecodeFirmwareRevision(o GroupedAVP) (r []FirmwareRevision) {
-	for _, a := range o {
-		if a.Code == 267 && a.VenID == 0 {
-			s := new(uint32)
-			a.Decode(s)
-			r = append(r, FirmwareRevision(*s))
-		}
+// GetFirmwareRevision get AVP value
+func GetFirmwareRevision(o GroupedAVP) (FirmwareRevision, bool) {
+	a, ok := o.Get(267, 0)
+	if !ok {
+		return 0, false
 	}
-	return
+	s := new(uint32)
+	a.Decode(s)
+	return FirmwareRevision(*s), true
 }
 
 // SupportedVendorID AVP
@@ -430,22 +423,21 @@ type SupportedVendorID uint32
 
 // Encode return AVP struct of this value
 func (v SupportedVendorID) Encode() Avp {
-	a := Avp{Code: uint32(265), VenID: iana,
+	a := Avp{Code: 265, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(uint32(v))
 	return a
 }
 
-// DecodeSupportedVendorID get AVP value
-func DecodeSupportedVendorID(o GroupedAVP) (r []SupportedVendorID) {
-	for _, a := range o {
-		if a.Code == 265 && a.VenID == 0 {
-			s := new(uint32)
-			a.Decode(s)
-			r = append(r, SupportedVendorID(*s))
-		}
+// GetSupportedVendorID get AVP value
+func GetSupportedVendorID(o GroupedAVP) (SupportedVendorID, bool) {
+	a, ok := o.Get(265, 0)
+	if !ok {
+		return 0, false
 	}
-	return
+	s := new(uint32)
+	a.Decode(s)
+	return SupportedVendorID(*s), true
 }
 
 // AuthApplicationID AVP
@@ -453,22 +445,21 @@ type AuthApplicationID uint32
 
 // Encode return AVP struct of this value
 func (v AuthApplicationID) Encode() Avp {
-	a := Avp{Code: uint32(258), VenID: iana,
+	a := Avp{Code: 258, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(uint32(v))
 	return a
 }
 
-// DecodeAuthApplicationID get AVP value
-func DecodeAuthApplicationID(o GroupedAVP) (r []AuthApplicationID) {
-	for _, a := range o {
-		if a.Code == 258 && a.VenID == 0 {
-			s := new(uint32)
-			a.Decode(s)
-			r = append(r, AuthApplicationID(*s))
-		}
+// GetAuthApplicationID get AVP value
+func GetAuthApplicationID(o GroupedAVP) (AuthApplicationID, bool) {
+	a, ok := o.Get(258, 0)
+	if !ok {
+		return 0, false
 	}
-	return
+	s := new(uint32)
+	a.Decode(s)
+	return AuthApplicationID(*s), true
 }
 
 // AcctApplicationID AVP
@@ -476,22 +467,21 @@ type AcctApplicationID uint32
 
 // Encode return AVP struct of this value
 func (v AcctApplicationID) Encode() Avp {
-	a := Avp{Code: uint32(259), VenID: iana,
+	a := Avp{Code: 259, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(uint32(v))
 	return a
 }
 
-// DecodeAcctApplicationID get AVP value
-func DecodeAcctApplicationID(o GroupedAVP) (r []AcctApplicationID) {
-	for _, a := range o {
-		if a.Code == 259 && a.VenID == 0 {
-			s := new(uint32)
-			a.Decode(s)
-			r = append(r, AcctApplicationID(*s))
-		}
+// GetAcctApplicationID get AVP value
+func GetAcctApplicationID(o GroupedAVP) (AcctApplicationID, bool) {
+	a, ok := o.Get(259, 0)
+	if !ok {
+		return 0, false
 	}
-	return
+	s := new(uint32)
+	a.Decode(s)
+	return AcctApplicationID(*s), true
 }
 
 // VendorSpecificApplicationID AVP
@@ -510,32 +500,31 @@ func (v VendorSpecificApplicationID) Encode() Avp {
 	case AcctApplicationID:
 		t[1] = d.Encode()
 	}
-	a := Avp{Code: uint32(260), VenID: iana,
+	a := Avp{Code: 260, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(GroupedAVP(t))
 	return a
 }
 
-// DecodeVendorSpecificApplicationID get AVP value
-func DecodeVendorSpecificApplicationID(o GroupedAVP) (r []VendorSpecificApplicationID) {
-	for _, a := range o {
-		if a.Code == 260 && a.VenID == 0 {
-			s := VendorSpecificApplicationID{}
-			o2 := new(GroupedAVP)
-			a.Decode(o2)
-			if t := DecodeVendorID(*o2); len(t) != 0 {
-				s.VendorID = t[0]
-			}
-			if t := DecodeAuthApplicationID(*o2); len(t) != 0 {
-				s.App = t[0]
-			}
-			if t := DecodeAcctApplicationID(*o2); len(t) != 0 {
-				s.App = t[0]
-			}
-			r = append(r, s)
-		}
+// GetVendorSpecificApplicationID get AVP value
+func GetVendorSpecificApplicationID(o GroupedAVP) (VendorSpecificApplicationID, bool) {
+	a, ok := o.Get(260, 0)
+	if !ok {
+		return VendorSpecificApplicationID{}, false
 	}
-	return
+	s := VendorSpecificApplicationID{}
+	o = GroupedAVP{}
+	a.Decode(&o)
+	if t, ok := GetVendorID(o); ok {
+		s.VendorID = t
+	}
+	if t, ok := GetAuthApplicationID(o); ok {
+		s.App = t
+	}
+	if t, ok := GetAcctApplicationID(o); ok {
+		s.App = t
+	}
+	return s, true
 }
 
 // ErrorMessage AVP
@@ -543,22 +532,21 @@ type ErrorMessage string
 
 // Encode return AVP struct of this value
 func (v ErrorMessage) Encode() Avp {
-	a := Avp{Code: uint32(281), VenID: iana,
+	a := Avp{Code: 281, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(string(v))
 	return a
 }
 
-// DecodeErrorMessage get AVP value
-func DecodeErrorMessage(o GroupedAVP) (r []ErrorMessage) {
-	for _, a := range o {
-		if a.Code == 281 && a.VenID == 0 {
-			s := new(string)
-			a.Decode(s)
-			r = append(r, ErrorMessage(*s))
-		}
+// GetErrorMessage get AVP value
+func GetErrorMessage(o GroupedAVP) (ErrorMessage, bool) {
+	a, ok := o.Get(281, 0)
+	if !ok {
+		return "", false
 	}
-	return
+	s := new(string)
+	a.Decode(s)
+	return ErrorMessage(*s), true
 }
 
 // FailedAVP AVP
@@ -566,22 +554,21 @@ type FailedAVP GroupedAVP
 
 // Encode return AVP struct of this value
 func (v FailedAVP) Encode() Avp {
-	a := Avp{Code: uint32(279), VenID: iana,
+	a := Avp{Code: 279, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(GroupedAVP(v))
 	return a
 }
 
-// DecodeFailedAVP get AVP value
-func DecodeFailedAVP(o GroupedAVP) (r []FailedAVP) {
-	for _, a := range o {
-		if a.Code == 279 && a.VenID == 0 {
-			s := new(GroupedAVP)
-			a.Decode(s)
-			r = append(r, FailedAVP(*s))
-		}
+// GetFailedAVP get AVP value
+func GetFailedAVP(o GroupedAVP) (FailedAVP, bool) {
+	a, ok := o.Get(279, 0)
+	if !ok {
+		return nil, false
 	}
-	return
+	s := new(GroupedAVP)
+	a.Decode(s)
+	return FailedAVP(*s), true
 }
 
 // ExperimentalResult AVP
@@ -594,36 +581,32 @@ type ExperimentalResult struct {
 func (v ExperimentalResult) Encode() Avp {
 	t := make([]Avp, 2)
 	t[0] = v.VendorID.Encode()
-	t[1] = Avp{Code: uint32(298), VenID: iana,
+	t[1] = Avp{Code: 298, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	t[1].Encode(v.Code)
 
-	a := Avp{Code: uint32(297), VenID: iana,
+	a := Avp{Code: 297, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(GroupedAVP(t))
 	return a
 }
 
-// DecodeExperimentalResult get AVP value
-func DecodeExperimentalResult(o GroupedAVP) (r []ExperimentalResult) {
-	for _, a := range o {
-		if a.Code == 297 && a.VenID == 0 {
-			s := ExperimentalResult{}
-			o2 := new(GroupedAVP)
-			a.Decode(o2)
-			if t := DecodeVendorID(*o2); len(t) != 0 {
-				s.VendorID = t[0]
-			}
-			for _, a := range *o2 {
-				if a.Code == 298 && a.VenID == 0 {
-					a.Decode(&s.Code)
-					break
-				}
-			}
-			r = append(r, s)
-		}
+// GetExperimentalResult get AVP value
+func GetExperimentalResult(o GroupedAVP) (ExperimentalResult, bool) {
+	s := ExperimentalResult{}
+	a, ok := o.Get(297, 0)
+	if !ok {
+		return s, false
 	}
-	return
+	o = GroupedAVP{}
+	a.Decode(&o)
+	if t, ok := GetVendorID(o); ok {
+		s.VendorID = t
+	}
+	if t, ok := o.Get(298, 0); ok {
+		t.Decode(&s.Code)
+	}
+	return s, true
 }
 
 // RouteRecord AVP
@@ -631,14 +614,25 @@ type RouteRecord DiameterIdentity
 
 // Encode return AVP struct of this value
 func (v RouteRecord) Encode() Avp {
-	a := Avp{Code: uint32(282), VenID: iana,
+	a := Avp{Code: 282, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(DiameterIdentity(v))
 	return a
 }
 
-// DecodeRouteRecord get AVP value
-func DecodeRouteRecord(o GroupedAVP) (r []RouteRecord) {
+// GetRouteRecord get AVP value
+func GetRouteRecord(o GroupedAVP) (RouteRecord, bool) {
+	a, ok := o.Get(282, 0)
+	if !ok {
+		return "", false
+	}
+	s := new(DiameterIdentity)
+	a.Decode(s)
+	return RouteRecord(*s), true
+}
+
+// GetRouteRecords get AVP value
+func GetRouteRecords(o GroupedAVP) (r []RouteRecord) {
 	for _, a := range o {
 		if a.Code == 282 && a.VenID == 0 {
 			s := new(DiameterIdentity)
@@ -658,37 +652,55 @@ type ProxyInfo struct {
 // Encode return AVP struct of this value
 func (v ProxyInfo) Encode() Avp {
 	t := make([]Avp, 2)
-	t[0] = Avp{Code: uint32(280), VenID: iana,
+	t[0] = Avp{Code: 280, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	t[0].Encode(v.DiameterIdentity)
-	t[1] = Avp{Code: uint32(33), VenID: iana,
+	t[1] = Avp{Code: 33, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	t[1].Encode([]byte(v.State))
 
-	a := Avp{Code: uint32(284), VenID: iana,
+	a := Avp{Code: 284, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
-	a.Encode(msg.GroupedAVP(t))
+	a.Encode(GroupedAVP(t))
 	return a
 }
 
-// DecodeProxyInfo get AVP value
-func DecodeProxyInfo(o GroupedAVP) (r []ProxyInfo) {
+// GetProxyInfo get AVP value
+func GetProxyInfo(o GroupedAVP) (ProxyInfo, bool) {
+	s := ProxyInfo{}
+	a, ok := o.Get(284, 0)
+	if !ok {
+		return s, false
+	}
+	o = GroupedAVP{}
+	a.Decode(&o)
+	if t, ok := o.Get(280, 0); ok {
+		t.Decode(&s.DiameterIdentity)
+	}
+	if t, ok := o.Get(33, 0); ok {
+		stat := new([]byte)
+		t.Decode(stat)
+		s.State = string(*stat)
+	}
+	return s, true
+}
+
+// GetProxyInfos get AVP value
+func GetProxyInfos(o GroupedAVP) (r []ProxyInfo) {
 	for _, a := range o {
 		if a.Code == 284 && a.VenID == 0 {
 			s := ProxyInfo{}
-			o2 := new(GroupedAVP)
-			stat := new([]byte)
-			a.Decode(o2)
-			for _, a := range *o2 {
-				if a.Code == 280 && a.VenID == 0 {
-					a.Decode(&s.DiameterIdentity)
-				}
-				if a.Code == 33 && a.VenID == 0 {
-					a.Decode(stat)
-					s.State = string(*stat)
-				}
+			o2 := GroupedAVP{}
+			a.Decode(&o2)
+			if t, ok := o2.Get(280, 0); ok {
+				t.Decode(&s.DiameterIdentity)
 			}
-			r = append(r, s)
+			if t, ok := o2.Get(33, 0); ok {
+				stat := new([]byte)
+				t.Decode(stat)
+				s.State = string(*stat)
+			}
+			r = append(r, ProxyInfo(s))
 		}
 	}
 	return

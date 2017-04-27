@@ -100,8 +100,8 @@ func (p *Connection) Send(r msg.Message) (a msg.Message, e error) {
 
 		res := msg.DiameterUnableToComply
 		if avp, e := a.Decode(); e == nil {
-			if t := msg.DecodeResultCode(avp); len(t) != 0 {
-				res = t[0]
+			if t, ok := msg.GetResultCode(avp); ok {
+				res = t
 			}
 		}
 
