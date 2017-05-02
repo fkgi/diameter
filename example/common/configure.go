@@ -30,8 +30,9 @@ func GeneratePath(s string) (i, o, c string) {
 	if wdir, e := os.Getwd(); e != nil {
 		Log.Fatalln(e)
 	} else {
-		i = wdir + string(os.PathSeparator) + *isock
-		o = wdir + string(os.PathSeparator) + *osock
+		tdir := os.TempDir()
+		i = tdir + string(os.PathSeparator) + *isock
+		o = tdir + string(os.PathSeparator) + *osock
 		c = wdir + string(os.PathSeparator) + *conf
 	}
 	return

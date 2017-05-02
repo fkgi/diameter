@@ -30,6 +30,7 @@ const (
 )
 
 /*
+MOForwardShortMessageRequest is OFR message.
  <OFR> ::= < Diameter Header: 8388645, REQ, PXY, 16777313 >
            < Session-Id >
            [ DRMP ]
@@ -49,6 +50,25 @@ const (
          * [ AVP ]
          * [ Proxy-Info ]
          * [ Route-Record ]
+*/
+type MOForwardShortMessageRequest struct {
+	msg.SessionID
+	msg.VendorSpecificApplicationID
+	msg.AuthSessionState
+	msg.OriginHost
+	msg.OriginRealm
+	msg.DestinationHost
+	msg.DestinationRealm
+	SCAddress
+	OFRFlags
+	// SupportedFeatures
+	ts29336.UserIdentifier
+	SMRPUI
+	// SMSMICorrelationID
+	// SMDeliveryOutcome
+}
+
+/*
  <OFA> ::= < Diameter Header: 8388645, PXY, 16777313 >
            < Session-Id >
            [ DRMP ]

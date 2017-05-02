@@ -279,14 +279,11 @@ func (eventRcvDPA) name() string {
 }
 
 func (v eventRcvDPA) exec(p *Connection) (e error) {
-	println("dpa")
 	if p.state != closing {
 		e = fmt.Errorf("not acceptable message")
 	} else if ch, ok := p.sndstack[v.m.HbHID]; ok {
-
-		delete(p.sndstack, v.m.HbHID)
 		ch <- &v.m
-		p.con.Close()
+		// p.con.Close()
 	} else {
 		e = fmt.Errorf("unknown DPA recieved")
 	}

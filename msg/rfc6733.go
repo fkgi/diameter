@@ -65,6 +65,12 @@ func GetSessionID(o GroupedAVP) (SessionID, bool) {
 // AuthSessionState AVP (true=STATE_MAINTAINED / false=STATE_NOT_MAINTAINED)
 type AuthSessionState bool
 
+// StateMaintained is value of AuthSessionState
+const StateMaintained bool = true
+
+// StateNotMaintained is value of AuthSessionState
+const StateNotMaintained bool = false
+
 // Encode return AVP struct of this value
 func (v AuthSessionState) Encode() Avp {
 	a := Avp{Code: 277, VenID: 0,

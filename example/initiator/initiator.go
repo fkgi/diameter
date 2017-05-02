@@ -21,12 +21,15 @@ func main() {
 	pn := connection.PeerNode{}
 	_, pa := common.LoadConfig(conf, &ln, &pn)
 
+	il, ol := common.ListenUnixSock(isock, osock)
+
 	logger.Println("connecting ...")
 	c, e := net.Dial(pa.Network(), pa.String())
 	if e != nil {
 		logger.Fatalln(e)
 	}
-
 	con := ln.Dial(&pn, c)
-	common.RunUnixsockRelay(con, isock, osock)
+	common.RunUnixsockRelay(con, il, ol)
+
+	common.CloseUnixSock(isock, osock)
 }

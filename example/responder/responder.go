@@ -20,6 +20,8 @@ func main() {
 	ln := connection.LocalNode{}
 	la, _ := common.LoadConfig(conf, &ln, nil)
 
+	il, ol := common.ListenUnixSock(isock, osock)
+
 	logger.Println("listening ...")
 	l, e := net.Listen(la.Network(), la.String())
 	if e != nil {
@@ -31,5 +33,7 @@ func main() {
 		logger.Fatalln(e)
 	}
 	con := ln.Accept(c)
-	common.RunUnixsockRelay(con, isock, osock)
+	common.RunUnixsockRelay(con, il, ol)
+
+	common.CloseUnixSock(isock, osock)
 }

@@ -3,11 +3,10 @@ package common
 import (
 	"bytes"
 	"flag"
-	"log"
+	"fmt"
 	"math/rand"
 	"net"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/fkgi/diameter/msg"
@@ -15,39 +14,35 @@ import (
 
 // Handler is message handler
 type Handler struct {
-	sock      *string
-	OrigHost  msg.DiameterIdentity
-	OrigRealm msg.DiameterIdentity
-	DestHost  msg.DiameterIdentity
-	DestRealm msg.DiameterIdentity
-	SessionID string
+	sock *string
+	msg.OriginHost
+	msg.OriginRealm
+	msg.DestinationHost
+	msg.DestinationRealm
+	msg.SessionID
 }
 
 // Init initialize each parameter
 func (h *Handler) Init(sockname, ohost, dhost string) {
-	log.Println("initializing...")
+	Log.Println("initializing...")
 
 	// get option flag
 	h.sock = flag.String("s", sockname, "UNIX socket name")
 	flag.Parse()
 
 	// create path
-	if wdir, e := os.Getwd(); e != nil {
-		log.Fatalln(e)
-	} else {
-		*h.sock = wdir + string(os.PathSeparator) + *h.sock
-	}
+	*h.sock = os.TempDir() + string(os.PathSeparator) + *h.sock
 
 	// generate host/realm
-	h.OrigHost, h.OrigRealm = genHostRealm(ohost)
-	h.DestHost, h.DestRealm = genHostRealm(dhost)
+	hst, rlm := genHostRealm(ohost)
+	h.OriginHost = msg.OriginHost(hst)
+	h.OriginRealm = msg.OriginRealm(rlm)
+	hst, rlm = genHostRealm(dhost)
+	h.DestinationHost = msg.DestinationHost(hst)
+	h.DestinationRealm = msg.DestinationRealm(rlm)
 
-	// generate session id
-	rand.Seed(time.Now().Unix())
-	h.SessionID = string(ohost) + ";"
-	h.SessionID += strconv.FormatInt(time.Now().Unix()+2208988800, 10) + ";"
-	h.SessionID += strconv.FormatInt(int64(rand.Uint32()), 10) + ";"
-	h.SessionID += "0"
+	h.SessionID = msg.SessionID(fmt.Sprintf("%s;%d;%d;0",
+		h.OriginHost, time.Now().Unix()+2208988800, rand.Uint32()))
 }
 
 // Push send message
@@ -55,29 +50,29 @@ func (h *Handler) Push(f func() *msg.Message) {
 	// open UNIX socket
 	c, e := net.Dial("unix", *h.sock)
 	if e != nil {
-		log.Fatalln(e)
+		Log.Fatalln(e)
 	}
 	defer c.Close()
 
 	// create message
-	log.Println("generating...")
+	Log.Println("generating...")
 	m := f()
 
 	// handle message
 	buf := new(bytes.Buffer)
 	m.PrintStack(buf)
-	log.Println("send message\n" + buf.String())
+	Log.Println("send message\n" + buf.String())
 	if _, e = m.WriteTo(c); e != nil {
-		log.Fatalln(e)
+		Log.Fatalln(e)
 	}
 
-	log.Println("waiting message...")
+	Log.Println("waiting message...")
 	if _, e = m.ReadFrom(c); e != nil {
-		log.Fatalln(e)
+		Log.Fatalln(e)
 	}
 	buf = new(bytes.Buffer)
 	m.PrintStack(buf)
-	log.Println("receive message\n" + buf.String())
+	Log.Println("receive message\n" + buf.String())
 }
 
 // Pull get message
@@ -85,7 +80,7 @@ func (h *Handler) Pull(f func(*msg.Message) *msg.Message) {
 	// open UNIX socket
 	c, e := net.Dial("unix", *h.sock)
 	if e != nil {
-		log.Fatalln(e)
+		Log.Fatalln(e)
 	}
 	defer c.Close()
 
@@ -93,32 +88,27 @@ func (h *Handler) Pull(f func(*msg.Message) *msg.Message) {
 	m := &msg.Message{}
 
 	// handle message
-	log.Println("waiting message...")
+	Log.Println("waiting message...")
 	if _, e = m.ReadFrom(c); e != nil {
-		log.Fatalln(e)
+		Log.Fatalln(e)
 	}
 	buf := new(bytes.Buffer)
 	m.PrintStack(buf)
-	log.Println("receive message\n" + buf.String())
+	Log.Println("receive message\n" + buf.String())
 
 	if avp, e := m.Decode(); e != nil {
-		log.Fatalln(e)
+		Log.Fatalln(e)
 	} else {
-		for _, a := range avp {
-			if a.Code == 263 {
-				a.Decode(&h.SessionID)
-				break
-			}
-		}
+		h.SessionID, _ = msg.GetSessionID(avp)
 	}
 	m = f(m)
 
 	buf = new(bytes.Buffer)
 	m.PrintStack(buf)
-	log.Println("send message\n" + buf.String())
+	Log.Println("send message\n" + buf.String())
 	if _, e = m.WriteTo(c); e != nil {
-		log.Fatalln(e)
+		Log.Fatalln(e)
 	}
 
-	log.Println("end")
+	Log.Println("end")
 }

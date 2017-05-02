@@ -2,8 +2,9 @@ package main
 
 import (
 	"log"
+	"os"
 
-	"github.com/fkgi/diameter/example"
+	"github.com/fkgi/diameter/example/common"
 	"github.com/fkgi/diameter/msg"
 	"github.com/fkgi/diameter/ts29338"
 )
@@ -27,8 +28,8 @@ import (
 */
 
 func main() {
-	log.SetFlags(log.Ltime | log.Lmicroseconds)
-	h := &example.Handler{}
+	common.Log = log.New(os.Stderr, "", log.Ltime|log.Lmicroseconds)
+	h := &common.Handler{}
 
 	h.Init("responder.in", "SMSC01.test.com", "MME01.test.com")
 
@@ -44,24 +45,25 @@ func main() {
 
 		var avps []msg.Avp
 		// Session-Id
-		avps = append(avps, msg.SessionID(h.SessionID))
+		avps = append(avps, h.SessionID.Encode())
 		// Vendor-Specific-Application-Id
-		avps = append(avps, msg.VendorSpecificApplicationID(
-			10415, 16777313, true))
+		avps = append(avps, msg.VendorSpecificApplicationID{
+			VendorID: 10415,
+			App:      msg.AuthApplicationID(16777313)}.Encode())
 		// Result-Code AVP
-		avps = append(avps, msg.ResultCode(2000))
+		avps = append(avps, msg.DiameterSuccess.Encode())
 		// Auth-Session-State
-		avps = append(avps, msg.AuthSessionState(false))
+		avps = append(avps, msg.AuthSessionState(msg.StateNotMaintained).Encode())
 		// Origin-Host
-		avps = append(avps, msg.OriginHost(h.OrigHost))
+		avps = append(avps, h.OriginHost.Encode())
 		// Origin-Realm
-		avps = append(avps, msg.OriginRealm(h.OrigRealm))
+		avps = append(avps, h.OriginRealm.Encode())
 
 		// SMS data (SM-RP-UI AVP)
 		avps = append(avps, ts29338.SMRPUI([]byte{
 			0x21, 0x8f, 0x0b, 0x81, 0x90, 0x90, 0x99, 0x19,
 			0x17, 0xf1, 0x00, 0x08, 0x06, 0x00, 0x31, 0x00,
-			0x2d, 0x00, 0x31}))
+			0x2d, 0x00, 0x31}).Encode())
 
 		m.Encode(avps)
 		return &m
