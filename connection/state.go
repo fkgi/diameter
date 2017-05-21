@@ -33,6 +33,7 @@ func (v eventConnect) exec(p *Connection) error {
 		Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
 	if e != nil {
 		p.con.Close()
+		p.openNtfy <- false
 	}
 	return nil
 }
@@ -144,8 +145,10 @@ func (v eventRcvCER) exec(p *Connection) (e error) {
 		if code != 2001 {
 			e = fmt.Errorf("close with error response %d", code)
 			p.con.Close()
+			p.openNtfy <- false
 		} else {
 			p.state = open
+			p.openNtfy <- true
 			p.resetWatchdog()
 		}
 	}
@@ -174,10 +177,12 @@ func (v eventRcvCEA) exec(p *Connection) (e error) {
 		}
 		if c == msg.DiameterSuccess {
 			p.state = open
+			p.openNtfy <- true
 			p.resetWatchdog()
 		} else {
 			e = fmt.Errorf("CEA Nack received")
 			p.con.Close()
+			p.openNtfy <- false
 		}
 	}
 	notify(&CapabilityExchangeEvent{

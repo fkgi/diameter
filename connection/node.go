@@ -89,6 +89,7 @@ func (l *LocalNode) Dial(n *PeerNode, c net.Conn) *Connection {
 		con:      c,
 		rcvstack: make(chan *msg.Message, MsgStackLen),
 		sndstack: make(map[uint32]chan *msg.Message),
+		openNtfy: make(chan bool, 1),
 		local:    l,
 		peer:     n}
 
@@ -109,6 +110,7 @@ func (l *LocalNode) Accept(c net.Conn) *Connection {
 		con:      c,
 		rcvstack: make(chan *msg.Message, MsgStackLen),
 		sndstack: make(map[uint32]chan *msg.Message),
+		openNtfy: make(chan bool, 1),
 		local:    l,
 		peer:     &PeerNode{Properties: l.Properties}}
 

@@ -30,6 +30,8 @@ type Connection struct {
 	rcvstack chan *msg.Message
 	sndstack map[uint32]chan *msg.Message
 
+	openNtfy chan bool
+
 	cachemsg msg.Message
 }
 
@@ -156,6 +158,11 @@ func (p *Connection) Recieve() (r msg.Message, ch chan *msg.Message, e error) {
 		}
 	}()
 	return
+}
+
+// WaitOpen wait for open state of this connection
+func (p *Connection) WaitOpen() bool {
+	return <-p.openNtfy
 }
 
 const (
