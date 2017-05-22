@@ -74,11 +74,11 @@ func (l *LocalNode) NextEtE() uint32 {
 }
 
 // NextSession make session ID
-func (l *LocalNode) NextSession() string {
+func (l *LocalNode) NextSession() msg.SessionID {
 	ret := <-l.sessionID
 	l.sessionID <- ret + 1
-	return fmt.Sprintf("%s;%d;%d;0",
-		l.Host, time.Now().Unix()+2208988800, ret)
+	return msg.SessionID(fmt.Sprintf("%s;%d;%d;0",
+		l.Host, time.Now().Unix()+2208988800, ret))
 }
 
 // Dial make new Connection that use specified peernode and connection

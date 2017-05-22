@@ -24,14 +24,10 @@ import (
 		 * [ AVP ]
 */
 func (p *Connection) makeCER(c net.Conn) (m msg.Message) {
-	m = msg.Message{}
-	m.Ver = msg.DiaVer
-	m.FlgR = true
-	m.FlgP = false
-	m.FlgE = false
-	m.FlgT = false
-	m.Code = uint32(257)
-	m.AppID = uint32(0)
+	m = msg.Message{
+		Ver:  msg.DiaVer,
+		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
+		Code: uint32(257), AppID: uint32(0)}
 
 	m.EtEID = p.local.NextEtE()
 	var avps []msg.Avp
@@ -96,16 +92,11 @@ func getIP(c net.Conn) (ip []net.IP) {
 		 * [ AVP ]
 */
 func (p *Connection) makeCEA(r msg.Message, c net.Conn) (m msg.Message, i msg.ResultCode) {
-	m = msg.Message{}
-	m.Ver = msg.DiaVer
-	m.FlgR = false
-	m.FlgP = r.FlgP
-	m.FlgE = false
-	m.FlgT = false
-	m.HbHID = r.HbHID
-	m.EtEID = r.EtEID
-	m.Code = r.Code
-	m.AppID = r.AppID
+	m = msg.Message{
+		Ver:  msg.DiaVer,
+		FlgR: false, FlgP: r.FlgP, FlgE: false, FlgT: false,
+		HbHID: r.HbHID, EtEID: r.EtEID,
+		Code: r.Code, AppID: r.AppID}
 
 	var avps []msg.Avp
 	avps = append(avps, msg.DiameterSuccess.Encode())
@@ -143,14 +134,10 @@ func (p *Connection) makeCEA(r msg.Message, c net.Conn) (m msg.Message, i msg.Re
 		  * [ AVP ]
 */
 func (p *Connection) makeDPR(i msg.Enumerated) (m msg.Message) {
-	m = msg.Message{}
-	m.Ver = msg.DiaVer
-	m.FlgR = true
-	m.FlgP = false
-	m.FlgE = false
-	m.FlgT = false
-	m.Code = uint32(282)
-	m.AppID = uint32(0)
+	m = msg.Message{
+		Ver:  msg.DiaVer,
+		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
+		Code: uint32(282), AppID: uint32(0)}
 
 	m.EtEID = p.local.NextEtE()
 
@@ -174,16 +161,11 @@ func (p *Connection) makeDPR(i msg.Enumerated) (m msg.Message) {
 		  * [ AVP ]
 */
 func (p *Connection) makeDPA(r msg.Message) (m msg.Message, i msg.ResultCode) {
-	m = msg.Message{}
-	m.Ver = msg.DiaVer
-	m.FlgR = false
-	m.FlgP = r.FlgP
-	m.FlgE = false
-	m.FlgT = false
-	m.HbHID = r.HbHID
-	m.EtEID = r.EtEID
-	m.Code = r.Code
-	m.AppID = r.AppID
+	m = msg.Message{
+		Ver:  msg.DiaVer,
+		FlgR: false, FlgP: r.FlgP, FlgE: false, FlgT: false,
+		HbHID: r.HbHID, EtEID: r.EtEID,
+		Code: r.Code, AppID: r.AppID}
 
 	var avps []msg.Avp
 	avps = append(avps, msg.DiameterSuccess.Encode())
@@ -204,14 +186,10 @@ func (p *Connection) makeDPA(r msg.Message) (m msg.Message, i msg.ResultCode) {
 		  * [ AVP ]
 */
 func (p *Connection) makeDWR() (m msg.Message) {
-	m = msg.Message{}
-	m.Ver = msg.DiaVer
-	m.FlgR = true
-	m.FlgP = false
-	m.FlgE = false
-	m.FlgT = false
-	m.Code = uint32(280)
-	m.AppID = uint32(0)
+	m = msg.Message{
+		Ver:  msg.DiaVer,
+		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
+		Code: uint32(280), AppID: uint32(0)}
 
 	m.EtEID = p.local.NextEtE()
 
@@ -235,16 +213,11 @@ func (p *Connection) makeDWR() (m msg.Message) {
 		  * [ AVP ]
 */
 func (p *Connection) makeDWA(r msg.Message) (m msg.Message, i msg.ResultCode) {
-	m = msg.Message{}
-	m.Ver = msg.DiaVer
-	m.FlgR = false
-	m.FlgP = r.FlgP
-	m.FlgE = false
-	m.FlgT = false
-	m.HbHID = r.HbHID
-	m.EtEID = r.EtEID
-	m.Code = r.Code
-	m.AppID = r.AppID
+	m = msg.Message{
+		Ver:  msg.DiaVer,
+		FlgR: false, FlgP: r.FlgP, FlgE: false, FlgT: false,
+		HbHID: r.HbHID, EtEID: r.EtEID,
+		Code: r.Code, AppID: r.AppID}
 
 	var avps []msg.Avp
 	avps = append(avps, msg.DiameterSuccess.Encode())
@@ -258,16 +231,11 @@ func (p *Connection) makeDWA(r msg.Message) (m msg.Message, i msg.ResultCode) {
 }
 
 func (p *Connection) makeUnableToDeliver(r msg.Message) (m msg.Message) {
-	m = msg.Message{}
-	m.Ver = msg.DiaVer
-	m.FlgR = false
-	m.FlgP = r.FlgP
-	m.FlgE = true
-	m.FlgT = false
-	m.HbHID = r.HbHID
-	m.EtEID = r.EtEID
-	m.Code = r.Code
-	m.AppID = r.AppID
+	m = msg.Message{
+		Ver:  msg.DiaVer,
+		FlgR: false, FlgP: r.FlgP, FlgE: true, FlgT: false,
+		HbHID: r.HbHID, EtEID: r.EtEID,
+		Code: r.Code, AppID: r.AppID}
 
 	var avps []msg.Avp
 	avps = append(avps, msg.DiameterUnableToDeliver.Encode())

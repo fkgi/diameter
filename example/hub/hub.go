@@ -41,26 +41,26 @@ func main() {
 	if e != nil {
 		logger.Fatalln(" | invalid host name:", e)
 	}
-	logger.Printf(" | diameter host  =%s", ln.Host)
+	logger.Printf(" | diameter host              =%s", ln.Host)
 
 	ln.Realm, e = msg.ParseDiameterIdentity((*fqdn)[strings.Index(*fqdn, ".")+1:])
 	if e != nil {
 		logger.Fatalln(" | invalid host realm:", e)
 	}
-	logger.Printf(" | diameter realm =%s", ln.Realm)
+	logger.Printf(" | diameter realm             =%s", ln.Realm)
 	ln.InitIDs()
 
 	ln.Properties.Tw = time.Second * time.Duration(tw)
-	logger.Printf(" | watchdog timer       =%d[sec]", tw)
+	logger.Printf(" | watchdog timer             =%d[sec]", tw)
 
 	ln.Properties.Ew = ew
-	logger.Printf(" | watchdog retry count =%d", ew)
+	logger.Printf(" | watchdog retry count       =%d", ew)
 
 	ln.Properties.Tp = time.Second * time.Duration(tp)
-	logger.Printf(" | msg send timer       =%d[sec]", tp)
+	logger.Printf(" | msg send timer             =%d[sec]", tp)
 
 	ln.Properties.Cp = cp
-	logger.Printf(" | msg send retry count =%d", cp)
+	logger.Printf(" | msg send retry count       =%d", cp)
 
 	ln.Properties.Ts = time.Millisecond * time.Duration(ts)
 	logger.Printf(" | msg send transport timeout =%d[msec]", ts)
