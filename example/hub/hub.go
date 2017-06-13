@@ -27,6 +27,8 @@ func main() {
 	logger.Printf("booting HUB with <%s REV.%d>...",
 		connection.ProductName, connection.FirmwareRevision)
 
+	connection.Notificator = func(e connection.Notice) { e.Log(logger) }
+
 	h, e := os.Hostname()
 	if e != nil {
 		h = "localhost.localnetwork"
@@ -94,6 +96,7 @@ func handleConnection(c *connection.Connection) {
 	}
 	logger.Printf("connection (host=%s, realm=%s) is open", c.PeerHost(), c.PeerRealm())
 	if _, ok := conset[msg.DestinationHost(c.PeerHost())]; ok {
+		logger.Printf("error duplicate host")
 		c.Close(msg.Rebooting)
 		return
 	}
@@ -102,15 +105,17 @@ func handleConnection(c *connection.Connection) {
 	for {
 		m, ch, e := c.Recieve()
 		if e != nil {
-			logger.Println(e)
+			logger.Printf("recieve message failed: %s", e)
 			break
 		}
+		logger.Printf("recieve message from host=%s, realm=%s", c.PeerHost(), c.PeerRealm())
 		if avp, e := m.Decode(); e == nil {
 			t, ok := msg.GetDestinationHost(avp)
 			if !ok {
 				t = msg.DestinationHost(*gateway)
 			}
 			if dst, ok := conset[t]; ok {
+				logger.Printf("message send to host=%s, realm=%s", dst.PeerHost(), dst.PeerRealm())
 				m = dst.Transmit(m)
 				ch <- &m
 				continue
@@ -133,7 +138,10 @@ func handleConnection(c *connection.Connection) {
 		avps = append(avps, msg.OriginRealm(c.LocalRealm()).Encode())
 		m.Encode(avps)
 
+		logger.Printf("message destination not found")
 		ch <- &m
 	}
 	c.Close(msg.Rebooting)
+	delete(conset, msg.DestinationHost(c.PeerHost()))
+	logger.Printf("connection (host=%s, realm=%s) is closed", c.PeerHost(), c.PeerRealm())
 }

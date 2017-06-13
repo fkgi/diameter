@@ -100,14 +100,17 @@ func (p *Connection) Send(r msg.Message) (a msg.Message, e error) {
 	for i := 0; i <= p.peer.Cp; i++ {
 		a = p.Transmit(r)
 
-		res := msg.DiameterUnableToComply
 		if avp, e := a.Decode(); e == nil {
-			if t, ok := msg.GetResultCode(avp); ok {
-				res = t
+			res, _ := msg.GetResultCode(avp)
+			if res != msg.DiameterUnableToDeliver {
+				break
+			}
+			ori, _ := msg.GetOriginHost(avp)
+			if ori != msg.OriginHost(p.local.Host) {
+				break
 			}
 		}
-
-		if res < 3000 || res > 3999 || i >= p.peer.Cp {
+		if i >= p.peer.Cp {
 			break
 		}
 		r.FlgT = true

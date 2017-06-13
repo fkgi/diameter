@@ -107,6 +107,7 @@ func (v eventPeerDisc) name() string {
 
 func (v eventPeerDisc) exec(p *Connection) (e error) {
 	p.con.Close()
+	p.rcvstack <- nil
 	p.state = shutdown
 	return
 }
