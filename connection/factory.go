@@ -39,14 +39,23 @@ func (p *Connection) makeCER(c net.Conn) (m msg.Message) {
 	avps = append(avps, VendorID.Encode())
 	avps = append(avps, ProductName.Encode())
 
+	if p.local.StateID != 0 {
+		avps = append(avps, msg.OriginStateID(p.local.StateID).Encode())
+	}
+
 	for _, app := range p.peer.Apps {
 		if app.VendorID != 0 {
 			avps = append(avps, msg.SupportedVendorID(app.VendorID).Encode())
-			avps = append(avps, msg.VendorSpecificApplicationID{
-				VendorID: app.VendorID,
-				App:      app.AppID}.Encode())
+			for _, id := range app.AppID {
+				avps = append(avps, msg.VendorSpecificApplicationID{
+					VendorID: app.VendorID,
+					App:      id}.Encode())
+			}
+		} else {
+			for _, id := range app.AppID {
+				avps = append(avps, msg.AuthApplicationID(id).Encode())
+			}
 		}
-		avps = append(avps, msg.AuthApplicationID(app.AppID).Encode())
 	}
 
 	avps = append(avps, FirmwareRevision.Encode())
@@ -91,7 +100,10 @@ func getIP(c net.Conn) (ip []net.IP) {
 		   [ Firmware-Revision ]
 		 * [ AVP ]
 */
-func (p *Connection) makeCEA(r msg.Message, c net.Conn) (m msg.Message, i msg.ResultCode) {
+func (p *Connection) makeCEA(
+	r msg.Message, c net.Conn, peer []PeerNode) (
+	m msg.Message, i msg.ResultCode) {
+
 	m = msg.Message{
 		Ver:  msg.DiaVer,
 		FlgR: false, FlgP: r.FlgP, FlgE: false, FlgT: false,
@@ -112,11 +124,16 @@ func (p *Connection) makeCEA(r msg.Message, c net.Conn) (m msg.Message, i msg.Re
 	for _, app := range p.peer.Apps {
 		if app.VendorID != 0 {
 			avps = append(avps, msg.SupportedVendorID(app.VendorID).Encode())
-			avps = append(avps, msg.VendorSpecificApplicationID{
-				VendorID: app.VendorID,
-				App:      app.AppID}.Encode())
+			for _, id := range app.AppID {
+				avps = append(avps, msg.VendorSpecificApplicationID{
+					VendorID: app.VendorID,
+					App:      id}.Encode())
+			}
+		} else {
+			for _, id := range app.AppID {
+				avps = append(avps, msg.AuthApplicationID(id).Encode())
+			}
 		}
-		avps = append(avps, msg.AuthApplicationID(app.AppID).Encode())
 	}
 
 	avps = append(avps, FirmwareRevision.Encode())

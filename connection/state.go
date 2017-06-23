@@ -114,6 +114,7 @@ func (v eventPeerDisc) exec(p *Connection) (e error) {
 
 type eventRcvCER struct {
 	m msg.Message
+	p []PeerNode
 }
 
 func (eventRcvCER) name() string {
@@ -138,7 +139,7 @@ func (v eventRcvCER) exec(p *Connection) (e error) {
 			p.peer.Realm = msg.DiameterIdentity(t)
 		}
 	}
-	a, code := p.makeCEA(v.m, p.con)
+	a, code := p.makeCEA(v.m, p.con, v.p)
 	p.con.SetWriteDeadline(time.Now().Add(p.peer.Ts))
 	_, e = a.WriteTo(p.con)
 

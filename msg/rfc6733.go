@@ -351,6 +351,28 @@ func GetFirmwareRevision(o GroupedAVP) (FirmwareRevision, bool) {
 	return FirmwareRevision(*s), true
 }
 
+// OriginStateID AVP
+type OriginStateID uint32
+
+// Encode return AVP struct of this value
+func (v OriginStateID) Encode() Avp {
+	a := Avp{Code: 278, VenID: 0,
+		FlgV: false, FlgM: true, FlgP: false}
+	a.Encode(uint32(v))
+	return a
+}
+
+// GetOriginStateID get AVP value
+func GetOriginStateID(o GroupedAVP) (OriginStateID, bool) {
+	a, ok := o.Get(278, 0)
+	if !ok {
+		return 0, false
+	}
+	s := new(uint32)
+	a.Decode(s)
+	return OriginStateID(*s), true
+}
+
 // SupportedVendorID AVP
 type SupportedVendorID uint32
 

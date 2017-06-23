@@ -22,6 +22,7 @@ type LocalNode struct {
 	hbHID     chan uint32
 	etEID     chan uint32
 	sessionID chan uint32
+	StateID   uint32
 }
 
 // Properties is set of diameter properties
@@ -42,7 +43,7 @@ type Properties struct {
 // AuthApplication is set of authenticated application
 type AuthApplication struct {
 	VendorID msg.VendorID
-	AppID    msg.AuthApplicationID
+	AppID    []msg.AuthApplicationID
 }
 
 // InitIDs initiate each IDs
@@ -93,7 +94,7 @@ func (l *LocalNode) Dial(n *PeerNode, c net.Conn) *Connection {
 		local:    l,
 		peer:     n}
 
-	go p.run()
+	go p.run(nil)
 	r := p.makeCER(p.con)
 	r.HbHID = p.local.NextHbH()
 
@@ -103,7 +104,7 @@ func (l *LocalNode) Dial(n *PeerNode, c net.Conn) *Connection {
 }
 
 // Accept accept new transport connection and return Connection
-func (l *LocalNode) Accept(c net.Conn) *Connection {
+func (l *LocalNode) Accept(c net.Conn, peer []PeerNode) *Connection {
 	p := &Connection{
 		notify:   make(chan stateEvent),
 		state:    closed,
@@ -114,7 +115,7 @@ func (l *LocalNode) Accept(c net.Conn) *Connection {
 		local:    l,
 		peer:     &PeerNode{Properties: l.Properties}}
 
-	go p.run()
+	go p.run(peer)
 	p.notify <- eventAccept{}
 
 	return p

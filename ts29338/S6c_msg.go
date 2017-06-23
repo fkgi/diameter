@@ -1,9 +1,15 @@
 package ts29338
 
+import (
+	"github.com/fkgi/diameter/msg"
+	"github.com/fkgi/diameter/ts29329"
+)
+
 /*
+SendRoutingInfoForSMRequest is SRR message.
  <SRR> ::= < Diameter Header: 8388647, REQ, PXY, 16777312 >
            < Session-Id >
-		   [ DRMP ]
+		       [ DRMP ]
            [ Vendor-Specific-Application-Id ]
            { Auth-Session-State }
            { Origin-Host }
@@ -22,10 +28,32 @@ package ts29338
          * [ AVP ]
          * [ Proxy-Info ]
          * [ Route-Record ]
+*/
+type SendRoutingInfoForSMRequest struct {
+	msg.SessionID
+	// DRMP
+	msg.OriginHost
+	msg.OriginRealm
+	*msg.DestinationHost
+	msg.DestinationRealm
+	*ts29329.MSISDN
+	*msg.UserName
+	// SMSMICorrelationID
+	// SupportedFeatures
+	*SCAddress
+	*SMRPMTI
+	*SMRPSMEA
+	*SRRFlags
+	*SMDeliveryNotIntended
+	// Proxy-Info
+	RouteRecord []msg.RouteRecord
+}
 
+/*
+SendRoutingInfoForSMAnswer is SRA message.
  <SRA> ::= < Diameter Header: 8388647, PXY, 16777312 >
            < Session-Id >
-		   [ DRMP ]
+		       [ DRMP ]
            [ Vendor-Specific-Application-Id ]
            [ Result-Code ]
            [ Experimental-Result ]
@@ -49,6 +77,7 @@ package ts29338
 */
 
 /*
+AlertServiceCentreRequest is ALR message.
  <ALR> ::= < Diameter Header: 8388648, REQ, PXY, 16777312 >
            < Session-Id >
            [ DRMP ]
@@ -68,6 +97,9 @@ package ts29338
          * [ AVP ]
          * [ Proxy-Info ]
          * [ Route-Record ]
+*/
+/*
+ AlertServiceCentreAnswer is ALA message.
  <ALA> ::= < Diameter Header: 8388648, PXY, 16777312 >
            < Session-Id >
            [ DRMP ]
@@ -85,6 +117,7 @@ package ts29338
 */
 
 /*
+ReportSMDeliveryStatusRequest is RDR message.
  <RDR> ::= < Diameter Header: 8388649, REQ, PXY, 16777312 >
            < Session-Id >
            [ DRMP ]
@@ -103,6 +136,9 @@ package ts29338
          * [ AVP ]
          * [ Proxy-Info ]
          * [ Route-Record ]
+*/
+/*
+ReportSMDeliveryStatusAnswer is RDA message.
  <RDA> ::= < Diameter Header: 8388649, PXY, 16777312 >
            < Session-Id >
            [ DRMP ]

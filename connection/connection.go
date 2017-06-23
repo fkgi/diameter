@@ -194,7 +194,7 @@ func (p *Connection) State() string {
 	return "Shutdown"
 }
 
-func (p *Connection) run() {
+func (p *Connection) run(peer []PeerNode) {
 	go func() {
 		for {
 			m := msg.Message{}
@@ -206,7 +206,7 @@ func (p *Connection) run() {
 
 			p.wE = 0
 			if m.AppID == 0 && m.Code == 257 && m.FlgR {
-				p.notify <- eventRcvCER{m}
+				p.notify <- eventRcvCER{m, peer}
 			} else if m.AppID == 0 && m.Code == 257 && !m.FlgR {
 				p.notify <- eventRcvCEA{m}
 			} else if m.AppID == 0 && m.Code == 280 && m.FlgR {
