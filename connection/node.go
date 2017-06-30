@@ -35,15 +35,9 @@ type Properties struct {
 	Tp time.Duration // pending Diameter answer time
 	Cp int           // retry Diameter request count
 
-	Apps []AuthApplication
+	AuthApps map[msg.VendorID][]msg.ApplicationID
 	// for Vendor-Specific-Application-Id,
 	//     Auth-Application-Id, Supported-Vendor-Id AVP
-}
-
-// AuthApplication is set of authenticated application
-type AuthApplication struct {
-	VendorID msg.VendorID
-	AppID    []msg.AuthApplicationID
 }
 
 // InitIDs initiate each IDs

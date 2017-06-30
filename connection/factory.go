@@ -17,9 +17,9 @@ import (
 		   [ Origin-State-Id ]
 		 * [ Supported-Vendor-Id ]
 		 * [ Auth-Application-Id ]
-		 * [ Inband-Security-Id ]
-		 * [ Acct-Application-Id ]
-		 * [ Vendor-Specific-Application-Id ]
+		 * [ Inband-Security-Id ]   // not supported (not recommended)
+		 * [ Acct-Application-Id ]  // not supported
+		 * [ Vendor-Specific-Application-Id ] // only support auth
 		   [ Firmware-Revision ]
 		 * [ AVP ]
 */
@@ -38,30 +38,26 @@ func (p *Connection) makeCER(c net.Conn) (m msg.Message) {
 	}
 	avps = append(avps, VendorID.Encode())
 	avps = append(avps, ProductName.Encode())
-
 	if p.local.StateID != 0 {
 		avps = append(avps, msg.OriginStateID(p.local.StateID).Encode())
 	}
-
-	for _, app := range p.peer.Apps {
-		if app.VendorID != 0 {
-			avps = append(avps, msg.SupportedVendorID(app.VendorID).Encode())
-			for _, id := range app.AppID {
+	for ven, app := range p.local.AuthApps {
+		if ven != 0 {
+			avps = append(avps, msg.SupportedVendorID(ven).Encode())
+			for _, id := range app {
 				avps = append(avps, msg.VendorSpecificApplicationID{
-					VendorID: app.VendorID,
+					VendorID: ven,
 					App:      id}.Encode())
 			}
 		} else {
-			for _, id := range app.AppID {
-				avps = append(avps, msg.AuthApplicationID(id).Encode())
+			for _, id := range app {
+				avps = append(avps, id.Encode())
 			}
 		}
 	}
-
 	avps = append(avps, FirmwareRevision.Encode())
 
 	m.Encode(avps)
-
 	return
 }
 
@@ -94,9 +90,9 @@ func getIP(c net.Conn) (ip []net.IP) {
 		   [ Failed-AVP ]
 		 * [ Supported-Vendor-Id ]
 		 * [ Auth-Application-Id ]
-		 * [ Inband-Security-Id ]
-		 * [ Acct-Application-Id ]
-		 * [ Vendor-Specific-Application-Id ]
+		 * [ Inband-Security-Id ]   // not supported (not recommended)
+		 * [ Acct-Application-Id ]  // not supported
+		 * [ Vendor-Specific-Application-Id ] // only support auth
 		   [ Firmware-Revision ]
 		 * [ AVP ]
 */
@@ -113,6 +109,7 @@ func (p *Connection) makeCEA(
 	var avps []msg.Avp
 	avps = append(avps, msg.DiameterSuccess.Encode())
 	i = msg.DiameterSuccess
+
 	avps = append(avps, msg.OriginHost(p.local.Host).Encode())
 	avps = append(avps, msg.OriginRealm(p.local.Realm).Encode())
 	for _, ip := range getIP(c) {
@@ -121,17 +118,17 @@ func (p *Connection) makeCEA(
 	avps = append(avps, VendorID.Encode())
 	avps = append(avps, ProductName.Encode())
 
-	for _, app := range p.peer.Apps {
-		if app.VendorID != 0 {
-			avps = append(avps, msg.SupportedVendorID(app.VendorID).Encode())
-			for _, id := range app.AppID {
+	for ven, app := range p.local.AuthApps {
+		if ven != 0 {
+			avps = append(avps, msg.SupportedVendorID(ven).Encode())
+			for _, id := range app {
 				avps = append(avps, msg.VendorSpecificApplicationID{
-					VendorID: app.VendorID,
+					VendorID: ven,
 					App:      id}.Encode())
 			}
 		} else {
-			for _, id := range app.AppID {
-				avps = append(avps, msg.AuthApplicationID(id).Encode())
+			for _, id := range app {
+				avps = append(avps, id.Encode())
 			}
 		}
 	}
@@ -139,7 +136,6 @@ func (p *Connection) makeCEA(
 	avps = append(avps, FirmwareRevision.Encode())
 
 	m.Encode(avps)
-
 	return
 }
 

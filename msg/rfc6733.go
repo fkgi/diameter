@@ -395,8 +395,38 @@ func GetSupportedVendorID(o GroupedAVP) (SupportedVendorID, bool) {
 	return SupportedVendorID(*s), true
 }
 
+// GetSupportedVendorIDs get AVP value
+func GetSupportedVendorIDs(o GroupedAVP) (r []SupportedVendorID) {
+	for _, a := range o {
+		if a.Code == 265 && a.VenID == 0 {
+			s := new(uint32)
+			a.Decode(s)
+			r = append(r, SupportedVendorID(*s))
+		}
+	}
+	return
+}
+
+// ApplicationID is ID of diameter application
+type ApplicationID interface {
+	isAuth() bool
+	Encode() Avp
+}
+
+func getApplicationID(o GroupedAVP) (id ApplicationID, ok bool) {
+	id, ok = GetAuthApplicationID(o)
+	if !ok {
+		id, ok = GetAcctApplicationID(o)
+	}
+	return
+}
+
 // AuthApplicationID AVP
 type AuthApplicationID uint32
+
+func (AuthApplicationID) isAuth() bool {
+	return true
+}
 
 // Encode return AVP struct of this value
 func (v AuthApplicationID) Encode() Avp {
@@ -417,8 +447,24 @@ func GetAuthApplicationID(o GroupedAVP) (AuthApplicationID, bool) {
 	return AuthApplicationID(*s), true
 }
 
+// GetAuthApplicationIDs get AVP value
+func GetAuthApplicationIDs(o GroupedAVP) (r []AuthApplicationID) {
+	for _, a := range o {
+		if a.Code == 258 && a.VenID == 0 {
+			s := new(uint32)
+			a.Decode(s)
+			r = append(r, AuthApplicationID(*s))
+		}
+	}
+	return
+}
+
 // AcctApplicationID AVP
 type AcctApplicationID uint32
+
+func (AcctApplicationID) isAuth() bool {
+	return false
+}
 
 // Encode return AVP struct of this value
 func (v AcctApplicationID) Encode() Avp {
@@ -439,25 +485,31 @@ func GetAcctApplicationID(o GroupedAVP) (AcctApplicationID, bool) {
 	return AcctApplicationID(*s), true
 }
 
+// GetAcctApplicationIDs get AVP value
+func GetAcctApplicationIDs(o GroupedAVP) (r []AcctApplicationID) {
+	for _, a := range o {
+		if a.Code == 259 && a.VenID == 0 {
+			s := new(uint32)
+			a.Decode(s)
+			r = append(r, AcctApplicationID(*s))
+		}
+	}
+	return
+}
+
 // VendorSpecificApplicationID AVP
 type VendorSpecificApplicationID struct {
 	VendorID
-	App interface{}
+	App ApplicationID
 }
 
 // Encode return AVP struct of this value
 func (v VendorSpecificApplicationID) Encode() Avp {
-	t := make([]Avp, 2)
-	t[0] = v.VendorID.Encode()
-	switch d := v.App.(type) {
-	case AuthApplicationID:
-		t[1] = d.Encode()
-	case AcctApplicationID:
-		t[1] = d.Encode()
-	}
 	a := Avp{Code: 260, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
-	a.Encode(GroupedAVP(t))
+	a.Encode(GroupedAVP([]Avp{
+		v.VendorID.Encode(),
+		v.App.Encode()}))
 	return a
 }
 
@@ -470,16 +522,24 @@ func GetVendorSpecificApplicationID(o GroupedAVP) (VendorSpecificApplicationID, 
 	s := VendorSpecificApplicationID{}
 	o = GroupedAVP{}
 	a.Decode(&o)
-	if t, ok := GetVendorID(o); ok {
-		s.VendorID = t
-	}
-	if t, ok := GetAuthApplicationID(o); ok {
-		s.App = t
-	}
-	if t, ok := GetAcctApplicationID(o); ok {
-		s.App = t
-	}
+	s.VendorID, _ = GetVendorID(o)
+	s.App, _ = getApplicationID(o)
 	return s, true
+}
+
+// GetVendorSpecificApplicationIDs get AVP value
+func GetVendorSpecificApplicationIDs(o GroupedAVP) (r []VendorSpecificApplicationID) {
+	for _, a := range o {
+		if a.Code == 260 && a.VenID == 0 {
+			s := VendorSpecificApplicationID{}
+			o = GroupedAVP{}
+			a.Decode(&o)
+			s.VendorID, _ = GetVendorID(o)
+			s.App, _ = getApplicationID(o)
+			r = append(r, s)
+		}
+	}
+	return
 }
 
 // ErrorMessage AVP

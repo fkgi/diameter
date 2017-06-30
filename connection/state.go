@@ -125,11 +125,6 @@ func (v eventRcvCER) exec(p *Connection) (e error) {
 	if p.state != waitCER {
 		e = fmt.Errorf("not acceptable message")
 	}
-	notify(&CapabilityExchangeEvent{
-		Tx: false, Req: true, Local: p.local, Peer: p.peer, Err: e})
-	if e != nil {
-		return
-	}
 
 	if avp, e := v.m.Decode(); e == nil {
 		if t, ok := msg.GetOriginHost(avp); ok {
@@ -138,7 +133,23 @@ func (v eventRcvCER) exec(p *Connection) (e error) {
 		if t, ok := msg.GetOriginRealm(avp); ok {
 			p.peer.Realm = msg.DiameterIdentity(t)
 		}
+		for _, vid := range msg.GetSupportedVendorIDs(avp) {
+			p.peer.AuthApps[msg.VendorID(vid)] = make([]msg.ApplicationID, 0)
+		}
+		for _, vsa := range msg.GetVendorSpecificApplicationIDs(avp) {
+			p.peer.AuthApps[vsa.VendorID] = append(p.peer.AuthApps[vsa.VendorID], vsa.App)
+		}
+		for _, aid := range msg.GetAuthApplicationIDs(avp) {
+			p.peer.AuthApps[0] = append(p.peer.AuthApps[0], aid)
+		}
 	}
+
+	notify(&CapabilityExchangeEvent{
+		Tx: false, Req: true, Local: p.local, Peer: p.peer, Err: e})
+	if e != nil {
+		return
+	}
+
 	a, code := p.makeCEA(v.m, p.con, v.p)
 	p.con.SetWriteDeadline(time.Now().Add(p.peer.Ts))
 	_, e = a.WriteTo(p.con)
