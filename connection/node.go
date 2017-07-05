@@ -88,8 +88,8 @@ func (l *LocalNode) Dial(n *PeerNode, c net.Conn) *Connection {
 		local:    l,
 		peer:     n}
 
-	go p.run(nil)
-	r := p.makeCER(p.con)
+	go p.run()
+	r := p.makeCER()
 	r.HbHID = p.local.NextHbH()
 
 	p.notify <- eventConnect{r}
@@ -98,7 +98,7 @@ func (l *LocalNode) Dial(n *PeerNode, c net.Conn) *Connection {
 }
 
 // Accept accept new transport connection and return Connection
-func (l *LocalNode) Accept(c net.Conn, peer []PeerNode) *Connection {
+func (l *LocalNode) Accept(n *PeerNode, c net.Conn) *Connection {
 	p := &Connection{
 		notify:   make(chan stateEvent),
 		state:    closed,
@@ -107,9 +107,9 @@ func (l *LocalNode) Accept(c net.Conn, peer []PeerNode) *Connection {
 		sndstack: make(map[uint32]chan *msg.Message),
 		openNtfy: make(chan bool, 1),
 		local:    l,
-		peer:     &PeerNode{Properties: l.Properties}}
+		peer:     n}
 
-	go p.run(peer)
+	go p.run()
 	p.notify <- eventAccept{}
 
 	return p

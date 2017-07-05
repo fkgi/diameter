@@ -409,7 +409,7 @@ func GetSupportedVendorIDs(o GroupedAVP) (r []SupportedVendorID) {
 
 // ApplicationID is ID of diameter application
 type ApplicationID interface {
-	isAuth() bool
+	Equals(ApplicationID) bool
 	Encode() Avp
 }
 
@@ -424,8 +424,12 @@ func getApplicationID(o GroupedAVP) (id ApplicationID, ok bool) {
 // AuthApplicationID AVP
 type AuthApplicationID uint32
 
-func (AuthApplicationID) isAuth() bool {
-	return true
+// Equals compare Application ID
+func (v AuthApplicationID) Equals(i ApplicationID) bool {
+	if a, ok := i.(AuthApplicationID); ok {
+		return a == v
+	}
+	return false
 }
 
 // Encode return AVP struct of this value
@@ -462,7 +466,11 @@ func GetAuthApplicationIDs(o GroupedAVP) (r []AuthApplicationID) {
 // AcctApplicationID AVP
 type AcctApplicationID uint32
 
-func (AcctApplicationID) isAuth() bool {
+// Equals compare Application ID
+func (v AcctApplicationID) Equals(i ApplicationID) bool {
+	if a, ok := i.(AcctApplicationID); ok {
+		return a == v
+	}
 	return false
 }
 

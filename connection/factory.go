@@ -23,7 +23,7 @@ import (
 		   [ Firmware-Revision ]
 		 * [ AVP ]
 */
-func (p *Connection) makeCER(c net.Conn) (m msg.Message) {
+func (p *Connection) makeCER() (m msg.Message) {
 	m = msg.Message{
 		Ver:  msg.DiaVer,
 		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
@@ -33,7 +33,7 @@ func (p *Connection) makeCER(c net.Conn) (m msg.Message) {
 	var avps []msg.Avp
 	avps = append(avps, msg.OriginHost(p.local.Host).Encode())
 	avps = append(avps, msg.OriginRealm(p.local.Realm).Encode())
-	for _, ip := range getIP(c) {
+	for _, ip := range getIP(p.con) {
 		avps = append(avps, msg.HostIPAddress(ip).Encode())
 	}
 	avps = append(avps, VendorID.Encode())
@@ -97,8 +97,28 @@ func getIP(c net.Conn) (ip []net.IP) {
 		 * [ AVP ]
 */
 func (p *Connection) makeCEA(
-	r msg.Message, c net.Conn, peer []PeerNode) (
-	m msg.Message, i msg.ResultCode) {
+	r msg.Message, peer *PeerNode) (m msg.Message, i msg.ResultCode) {
+
+	i = msg.DiameterSuccess
+	if p.peer == nil {
+		p.peer = &PeerNode{
+			Host:  peer.Host,
+			Realm: peer.Realm}
+	} else if peer.Host != p.peer.Host || peer.Realm != p.peer.Realm {
+		i = msg.DiameterUnknownPeer
+	}
+	if i == msg.DiameterSuccess {
+		relay := msg.AuthApplicationID(0xffffffff)
+		for _, id := range p.local.AuthApps[0] {
+			if relay.Equals(id) {
+				relay = msg.AuthApplicationID(0)
+				break
+			}
+		}
+		if relay != 0 {
+
+		}
+	}
 
 	m = msg.Message{
 		Ver:  msg.DiaVer,
@@ -112,7 +132,7 @@ func (p *Connection) makeCEA(
 
 	avps = append(avps, msg.OriginHost(p.local.Host).Encode())
 	avps = append(avps, msg.OriginRealm(p.local.Realm).Encode())
-	for _, ip := range getIP(c) {
+	for _, ip := range getIP(p.con) {
 		avps = append(avps, msg.HostIPAddress(ip).Encode())
 	}
 	avps = append(avps, VendorID.Encode())

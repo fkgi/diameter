@@ -114,7 +114,6 @@ func (v eventPeerDisc) exec(p *Connection) (e error) {
 
 type eventRcvCER struct {
 	m msg.Message
-	p []PeerNode
 }
 
 func (eventRcvCER) name() string {
@@ -122,40 +121,31 @@ func (eventRcvCER) name() string {
 }
 
 func (v eventRcvCER) exec(p *Connection) (e error) {
+	peer := &PeerNode{}
 	if p.state != waitCER {
 		e = fmt.Errorf("not acceptable message")
-	}
-
-	if avp, e := v.m.Decode(); e == nil {
+	} else if avp, e := v.m.Decode(); e == nil {
 		if t, ok := msg.GetOriginHost(avp); ok {
-			p.peer.Host = msg.DiameterIdentity(t)
+			peer.Host = msg.DiameterIdentity(t)
 		}
 		if t, ok := msg.GetOriginRealm(avp); ok {
-			p.peer.Realm = msg.DiameterIdentity(t)
+			peer.Realm = msg.DiameterIdentity(t)
 		}
-		for _, vid := range msg.GetSupportedVendorIDs(avp) {
-			p.peer.AuthApps[msg.VendorID(vid)] = make([]msg.ApplicationID, 0)
-		}
-		for _, vsa := range msg.GetVendorSpecificApplicationIDs(avp) {
-			p.peer.AuthApps[vsa.VendorID] = append(p.peer.AuthApps[vsa.VendorID], vsa.App)
-		}
-		for _, aid := range msg.GetAuthApplicationIDs(avp) {
-			p.peer.AuthApps[0] = append(p.peer.AuthApps[0], aid)
-		}
+		getProvidedAuthApp(peer, avp)
 	}
 
 	notify(&CapabilityExchangeEvent{
-		Tx: false, Req: true, Local: p.local, Peer: p.peer, Err: e})
+		Tx: false, Req: true, Local: p.local, Peer: peer, Err: e})
 	if e != nil {
 		return
 	}
 
-	a, code := p.makeCEA(v.m, p.con, v.p)
+	a, code := p.makeCEA(v.m, peer)
 	p.con.SetWriteDeadline(time.Now().Add(p.peer.Ts))
 	_, e = a.WriteTo(p.con)
 
 	if e == nil {
-		if code != 2001 {
+		if code != msg.DiameterSuccess {
 			e = fmt.Errorf("close with error response %d", code)
 			p.con.Close()
 			p.openNtfy <- false
@@ -168,6 +158,24 @@ func (v eventRcvCER) exec(p *Connection) (e error) {
 	notify(&CapabilityExchangeEvent{
 		Tx: true, Req: false, Local: p.local, Peer: p.peer})
 	return
+}
+
+func getProvidedAuthApp(p *PeerNode, avp msg.GroupedAVP) {
+	p.AuthApps = map[msg.VendorID][]msg.ApplicationID{}
+
+	for _, vid := range msg.GetSupportedVendorIDs(avp) {
+		p.AuthApps[msg.VendorID(vid)] = make([]msg.ApplicationID, 0)
+	}
+	for _, vsa := range msg.GetVendorSpecificApplicationIDs(avp) {
+		if _, ok := p.AuthApps[vsa.VendorID]; !ok {
+			p.AuthApps[vsa.VendorID] = make([]msg.ApplicationID, 0)
+		}
+		p.AuthApps[vsa.VendorID] = append(p.AuthApps[vsa.VendorID], vsa.App)
+	}
+	p.AuthApps[0] = make([]msg.ApplicationID, 0)
+	for _, aid := range msg.GetAuthApplicationIDs(avp) {
+		p.AuthApps[0] = append(p.AuthApps[0], aid)
+	}
 }
 
 type eventRcvCEA struct {
@@ -187,6 +195,7 @@ func (v eventRcvCEA) exec(p *Connection) (e error) {
 			if t, ok := msg.GetResultCode(avp); ok {
 				c = t
 			}
+			getProvidedAuthApp(p.peer, avp)
 		}
 		if c == msg.DiameterSuccess {
 			p.state = open
