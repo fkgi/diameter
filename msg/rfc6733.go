@@ -16,6 +16,7 @@ const (
 	//	AUTHORIZE_AUTHENTICATE Enumerated = 3
 	//	AUTHORIZE_ONLY Enumerated = 0
 	//	AUTHORIZE_AUTHENTICATE Enumerated = 1
+	
 	REFUSE_SERVICE          Enumerated = 0
 	TRY_AGAIN               Enumerated = 1
 	ALLOW_SERVICE           Enumerated = 2
