@@ -16,7 +16,7 @@ const (
 	//	AUTHORIZE_AUTHENTICATE Enumerated = 3
 	//	AUTHORIZE_ONLY Enumerated = 0
 	//	AUTHORIZE_AUTHENTICATE Enumerated = 1
-	
+
 	REFUSE_SERVICE          Enumerated = 0
 	TRY_AGAIN               Enumerated = 1
 	ALLOW_SERVICE           Enumerated = 2
@@ -209,6 +209,18 @@ func GetHostIPAddress(o GroupedAVP) (HostIPAddress, bool) {
 	s := new(net.IP)
 	a.Decode(s)
 	return HostIPAddress(*s), true
+}
+
+// GetHostIPAddresses get AVP value
+func GetHostIPAddresses(o GroupedAVP) (r []HostIPAddress) {
+	for _, a := range o {
+		if a.Code == 257 && a.VenID == 0 {
+			s := new(net.IP)
+			a.Decode(s)
+			r = append(r, HostIPAddress(*s))
+		}
+	}
+	return
 }
 
 // VendorID AVP

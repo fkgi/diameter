@@ -129,11 +129,9 @@ func LoadConfig(conf string, ln *connection.LocalNode, pn *connection.PeerNode) 
 	Log.Printf("  msg send transport timeout =%d[msec]",
 		ln.Properties.Ts/time.Millisecond)
 
-	ln.Properties.Apps = make([]connection.AuthApplication, 0)
-	ln.Properties.Apps = append(ln.Properties.Apps,
-		connection.AuthApplication{VendorID: 0, AppID: 0})
-	ln.Properties.Apps = append(ln.Properties.Apps,
-		connection.AuthApplication{VendorID: 0, AppID: 0xffffffff})
+	ln.Properties.AuthApps = make(map[msg.VendorID][]msg.ApplicationID)
+	ln.Properties.AuthApps[0] = []msg.ApplicationID{
+		msg.AuthApplicationID(0xffffffff)}
 
 	if pn != nil {
 		pn.Properties = ln.Properties

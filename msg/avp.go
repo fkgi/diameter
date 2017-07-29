@@ -339,9 +339,9 @@ func (a *Avp) setAddressData(ip net.IP) (e error) {
 }
 
 func (a Avp) getAddressData(ip *net.IP) (e error) {
-	if len(a.data) == 7 && a.data[0] == 0x00 && a.data[1] == 0x01 {
+	if len(a.data) == 6 && a.data[0] == 0x00 && a.data[1] == 0x01 {
 		*ip = net.IP(a.data[2:6])
-	} else if len(a.data) == 19 && a.data[0] == 0x00 && a.data[1] == 0x02 {
+	} else if len(a.data) == 18 && a.data[0] == 0x00 && a.data[1] == 0x02 {
 		*ip = net.IP(a.data[2:18])
 	} else {
 		e = fmt.Errorf("invalid address family")

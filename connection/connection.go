@@ -36,69 +36,69 @@ type Connection struct {
 }
 
 // Close stop state machine
-func (p *Connection) Close(cause msg.Enumerated) {
-	if p.state != open {
+func (c *Connection) Close(cause msg.Enumerated) {
+	if c.state != open {
 		return
 	}
 
 	ch := make(chan *msg.Message)
-	r := p.makeDPR(cause)
-	r.HbHID = p.local.NextHbH()
-	p.sndstack[r.HbHID] = ch
+	r := c.makeDPR(cause)
+	r.HbHID = c.local.NextHbH()
+	c.sndstack[r.HbHID] = ch
 
-	p.notify <- eventStop{r}
+	c.notify <- eventStop{r}
 
-	t := time.AfterFunc(p.peer.Tp, func() {
+	t := time.AfterFunc(c.peer.Tp, func() {
 		ch <- nil
 		notify(&PurgeEvent{
-			Tx: false, Req: false, Local: p.local, Peer: p.peer,
+			Tx: false, Req: false, Local: c.local, Peer: c.peer,
 			Err: fmt.Errorf("no answer")})
 	})
 	ap := <-ch
 	t.Stop()
-	delete(p.sndstack, r.HbHID)
+	delete(c.sndstack, r.HbHID)
 
 	if ap != nil {
-		p.notify <- eventPeerDisc{nil}
+		c.notify <- eventPeerDisc{nil}
 	}
 }
 
 // LocalHost returns local host name
-func (p *Connection) LocalHost() msg.DiameterIdentity {
-	return p.local.Host
+func (c *Connection) LocalHost() msg.DiameterIdentity {
+	return c.local.Host
 }
 
 // LocalRealm returns local realm name
-func (p *Connection) LocalRealm() msg.DiameterIdentity {
-	return p.local.Realm
+func (c *Connection) LocalRealm() msg.DiameterIdentity {
+	return c.local.Realm
 }
 
 // PeerHost returns peer host name
-func (p *Connection) PeerHost() msg.DiameterIdentity {
-	return p.peer.Host
+func (c *Connection) PeerHost() msg.DiameterIdentity {
+	return c.peer.Host
 }
 
 // PeerRealm returns peer realm name
-func (p *Connection) PeerRealm() msg.DiameterIdentity {
-	return p.peer.Realm
+func (c *Connection) PeerRealm() msg.DiameterIdentity {
+	return c.peer.Realm
 }
 
 // Connection returns transport connection of state machine
-func (p *Connection) Connection() net.Conn {
-	return p.con
+func (c *Connection) Connection() net.Conn {
+	return c.con
 }
 
 // Properties returns properties of this state machine
-func (p *Connection) Properties() Properties {
-	return p.peer.Properties
+func (c *Connection) Properties() Properties {
+	return c.peer.Properties
 }
 
 // Send send Diameter request message
-func (p *Connection) Send(r msg.Message) (a msg.Message, e error) {
-	r.EtEID = p.local.NextEtE()
+func (c *Connection) Send(r msg.Message) (a msg.Message, e error) {
+	r.EtEID = c.local.NextEtE()
 
-	for i := 0; i <= p.peer.Cp; i++ {
-		a = p.Transmit(r)
+	for i := 0; i <= c.peer.Cp; i++ {
+		a = c.Transmit(r)
 
 		if avp, e := a.Decode(); e == nil {
 			res, _ := msg.GetResultCode(avp)
@@ -106,11 +106,11 @@ func (p *Connection) Send(r msg.Message) (a msg.Message, e error) {
 				break
 			}
 			ori, _ := msg.GetOriginHost(avp)
-			if ori != msg.OriginHost(p.local.Host) {
+			if ori != msg.OriginHost(c.local.Host) {
 				break
 			}
 		}
-		if i >= p.peer.Cp {
+		if i >= c.peer.Cp {
 			break
 		}
 		r.FlgT = true
@@ -119,31 +119,31 @@ func (p *Connection) Send(r msg.Message) (a msg.Message, e error) {
 }
 
 // Transmit send Diameter request message
-func (p *Connection) Transmit(r msg.Message) (a msg.Message) {
-	r.HbHID = p.local.NextHbH()
+func (c *Connection) Transmit(r msg.Message) (a msg.Message) {
+	r.HbHID = c.local.NextHbH()
 
 	ch := make(chan *msg.Message)
-	p.sndstack[r.HbHID] = ch
-	p.notify <- eventSndMsg{r}
+	c.sndstack[r.HbHID] = ch
+	c.notify <- eventSndMsg{r}
 
-	t := time.AfterFunc(p.peer.Tp, func() {
-		a := p.makeUnableToDeliver(r)
+	t := time.AfterFunc(c.peer.Tp, func() {
+		a := c.makeUnableToDeliver(r)
 		ch <- &a
 	})
 
 	a = *<-ch
 	t.Stop()
-	delete(p.sndstack, r.HbHID)
+	delete(c.sndstack, r.HbHID)
 
 	return
 }
 
 // Recieve recieve Diameter request message
-func (p *Connection) Recieve() (r msg.Message, ch chan *msg.Message, e error) {
-	rp := <-p.rcvstack
+func (c *Connection) Recieve() (r msg.Message, ch chan *msg.Message, e error) {
+	rp := <-c.rcvstack
 	if rp == nil {
 		e = fmt.Errorf("closed")
-		p.rcvstack <- nil
+		c.rcvstack <- nil
 		return
 	}
 	r = *rp
@@ -153,19 +153,19 @@ func (p *Connection) Recieve() (r msg.Message, ch chan *msg.Message, e error) {
 		if a := <-ch; a == nil {
 			e = fmt.Errorf("request is discarded")
 			notify(&MessageEvent{
-				Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
+				Tx: true, Req: false, Local: c.local, Peer: c.peer, Err: e})
 		} else {
 			a.HbHID = r.HbHID
 			a.EtEID = r.EtEID
-			p.notify <- eventSndMsg{*a}
+			c.notify <- eventSndMsg{*a}
 		}
 	}()
 	return
 }
 
 // WaitOpen wait for open state of this connection
-func (p *Connection) WaitOpen() bool {
-	return <-p.openNtfy
+func (c *Connection) WaitOpen() bool {
+	return <-c.openNtfy
 }
 
 const (
@@ -178,8 +178,8 @@ const (
 )
 
 // State returns status of state machine
-func (p *Connection) State() string {
-	switch p.state {
+func (c *Connection) State() string {
+	switch c.state {
 	case closed:
 		return "Closed"
 	case waitCER:
@@ -194,86 +194,86 @@ func (p *Connection) State() string {
 	return "Shutdown"
 }
 
-func (p *Connection) run() {
+func (c *Connection) run() {
 	go func() {
 		for {
 			m := msg.Message{}
-			p.con.SetReadDeadline(time.Time{})
-			if _, e := m.ReadFrom(p.con); e != nil {
-				p.notify <- eventPeerDisc{e}
+			c.con.SetReadDeadline(time.Time{})
+			if _, e := m.ReadFrom(c.con); e != nil {
+				c.notify <- eventPeerDisc{e}
 				break
 			}
 
-			p.wE = 0
+			c.wE = 0
 			if m.AppID == 0 && m.Code == 257 && m.FlgR {
-				p.notify <- eventRcvCER{m}
+				c.notify <- eventRcvCER{m}
 			} else if m.AppID == 0 && m.Code == 257 && !m.FlgR {
-				p.notify <- eventRcvCEA{m}
+				c.notify <- eventRcvCEA{m}
 			} else if m.AppID == 0 && m.Code == 280 && m.FlgR {
-				p.notify <- eventRcvDWR{m}
+				c.notify <- eventRcvDWR{m}
 			} else if m.AppID == 0 && m.Code == 280 && !m.FlgR {
-				p.notify <- eventRcvDWA{m}
+				c.notify <- eventRcvDWA{m}
 			} else if m.AppID == 0 && m.Code == 282 && m.FlgR {
-				p.notify <- eventRcvDPR{m}
+				c.notify <- eventRcvDPR{m}
 			} else if m.AppID == 0 && m.Code == 282 && !m.FlgR {
-				p.notify <- eventRcvDPA{m}
+				c.notify <- eventRcvDPA{m}
 			} else {
-				p.notify <- eventRcvMsg{m}
+				c.notify <- eventRcvMsg{m}
 			}
 		}
-		if p.wT != nil {
-			p.wT.Stop()
+		if c.wT != nil {
+			c.wT.Stop()
 		}
 	}()
 
 	old := "Shutdown"
 	notify(&StateUpdate{
-		OldState: old, NewState: p.State(), Event: "Start",
-		Local: p.local, Peer: p.peer, Err: nil})
+		OldState: old, NewState: c.State(), Event: "Start",
+		Local: c.local, Peer: c.peer, Err: nil})
 
-	for p.state != shutdown {
-		event := <-p.notify
-		old = p.State()
-		e := event.exec(p)
+	for c.state != shutdown {
+		event := <-c.notify
+		old = c.State()
+		e := event.exec(c)
 
 		notify(&StateUpdate{
-			OldState: old, NewState: p.State(), Event: event.name(),
-			Local: p.local, Peer: p.peer, Err: e})
+			OldState: old, NewState: c.State(), Event: event.name(),
+			Local: c.local, Peer: c.peer, Err: e})
 	}
 }
 
-func (p *Connection) resetWatchdog() {
+func (c *Connection) resetWatchdog() {
 	f := func() {
-		p.wT = nil
+		c.wT = nil
 
-		p.wE++
-		if p.wE > p.peer.Ew {
-			p.Close(msg.Enumerated(0))
+		c.wE++
+		if c.wE > c.peer.Ew {
+			c.Close(msg.Enumerated(0))
 		} else {
 			ch := make(chan *msg.Message)
-			r := p.makeDWR()
-			r.HbHID = p.local.NextHbH()
-			p.sndstack[r.HbHID] = ch
-			p.notify <- eventWatchdog{r}
+			r := c.makeDWR()
+			r.HbHID = c.local.NextHbH()
+			c.sndstack[r.HbHID] = ch
+			c.notify <- eventWatchdog{r}
 
-			t := time.AfterFunc(p.peer.Tp, func() {
+			t := time.AfterFunc(c.peer.Tp, func() {
 				ch <- nil
 				notify(&WatchdogEvent{
-					Tx: false, Req: false, Local: p.local, Peer: p.peer,
+					Tx: false, Req: false, Local: c.local, Peer: c.peer,
 					Err: fmt.Errorf("no answer")})
 			})
 			ap := <-ch
 			t.Stop()
-			delete(p.sndstack, r.HbHID)
+			delete(c.sndstack, r.HbHID)
 			if ap != nil {
-				p.wE = 0
+				c.wE = 0
 			}
 		}
 	}
 
-	if p.wT != nil {
-		p.wT.Reset(p.peer.Tw)
+	if c.wT != nil {
+		c.wT.Reset(c.peer.Tw)
 	} else {
-		p.wT = time.AfterFunc(p.peer.Tw, f)
+		c.wT = time.AfterFunc(c.peer.Tw, f)
 	}
 }
