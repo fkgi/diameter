@@ -12,6 +12,11 @@ const (
 	DiaVer = uint8(1)
 )
 
+var (
+	// Indent for String() output for message
+	Indent = " | "
+)
+
 // Message is Diameter message
 type Message struct {
 	Ver   uint8  // Version = 1
@@ -43,6 +48,26 @@ func (m Message) PrintStack(w io.Writer) {
 			a.PrintStack(w)
 		}
 	}
+}
+
+func (m Message) String() string {
+	w := new(bytes.Buffer)
+	fmt.Fprintf(w, "%sVersion       =%d\n", Indent, m.Ver)
+	fmt.Fprintf(w, "%sMessage Length=%d\n", Indent, m.leng)
+	fmt.Fprintf(w, "%sFlags        R=%t, P=%t, E=%t, T=%t\n",
+		Indent, m.FlgR, m.FlgP, m.FlgE, m.FlgT)
+	fmt.Fprintf(w, "%sCommand-Code  =%d\n", Indent, m.Code)
+	fmt.Fprintf(w, "%sApplication-ID=%d\n", Indent, m.AppID)
+	fmt.Fprintf(w, "%sHop-by-Hop ID =%d\n", Indent, m.HbHID)
+	fmt.Fprintf(w, "%sEnd-to-End ID =%d", Indent, m.EtEID)
+
+	if avp, e := m.Decode(); e == nil {
+		for i, a := range avp {
+			fmt.Fprintf(w, "\n%sAVP [%d]\n%s", Indent, i, a)
+		}
+	}
+
+	return w.String()
 }
 
 // WriteTo write binary data to io.Writer

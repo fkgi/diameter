@@ -3,7 +3,7 @@ package msg
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
+	"io"
 )
 
 // Convert from bool list to byte array
@@ -38,7 +38,7 @@ func numConv(v interface{}) (b []byte, e error) {
 
 func numRConv(b []byte, s int, v interface{}) (e error) {
 	if len(b) != s {
-		e = fmt.Errorf("invalid data size")
+		e = io.EOF
 	} else {
 		buf := bytes.NewReader(b)
 		e = binary.Read(buf, binary.BigEndian, v)

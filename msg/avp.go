@@ -32,6 +32,19 @@ func (a Avp) PrintStack(w io.Writer) {
 	fmt.Fprintf(w, "Data          =% x\n", a.data)
 }
 
+func (a Avp) String() string {
+	w := new(bytes.Buffer)
+	fmt.Fprintf(w, "%s%sAVP Code      =%d\n", Indent, Indent, a.Code)
+	fmt.Fprintf(w, "%s%sFlags        V=%t, M=%t, P=%t\n",
+		Indent, Indent, a.FlgV, a.FlgM, a.FlgP)
+	fmt.Fprintf(w, "%s%sAVP Length    =%d\n", Indent, Indent, a.leng)
+	if a.FlgV {
+		fmt.Fprintf(w, "%s%sVendor-ID     =%d\n", Indent, Indent, a.VenID)
+	}
+	fmt.Fprintf(w, "%s%sData          =% x", Indent, Indent, a.data)
+	return w.String()
+}
+
 // WriteTo wite binary data to io.Writer
 func (a Avp) WriteTo(w io.Writer) (n int64, e error) {
 	// set length value
@@ -74,7 +87,6 @@ func (a Avp) WriteTo(w io.Writer) (n int64, e error) {
 
 // ReadFrom read binary data from io.Reader
 func (a *Avp) ReadFrom(r io.Reader) (n int64, e error) {
-	i := 0
 	buf, i, e := subread(r, 8)
 	n += int64(i)
 	if e != nil {
@@ -116,43 +128,41 @@ func (a *Avp) ReadFrom(r io.Reader) (n int64, e error) {
 
 // Encode make AVP from primitive go value
 func (a *Avp) Encode(d interface{}) (e error) {
-	if d == nil {
-		e = fmt.Errorf("nil AVP data")
-	} else {
-		switch d := d.(type) {
-		case net.IP:
-			e = a.setAddressData(d)
-		case time.Time:
-			e = a.setTimeData(d)
-		case DiameterIdentity:
-			e = a.setDiameterIdentityData(d)
-		case DiameterURI:
-			e = a.setDiameterURIData(d)
-		case Enumerated:
-			e = a.setEnumeratedData(d)
-		case IPFilterRule:
-			e = a.setIPFilterRuleData(d)
-		case GroupedAVP:
-			e = a.setGroupedData(d)
-		case string:
-			e = a.setUTF8StringData(d)
-		case []byte:
-			e = a.setOctetStringData(d)
-		case int32:
-			e = a.setInteger32Data(d)
-		case int64:
-			e = a.setInteger64Data(d)
-		case uint32:
-			e = a.setUnsigned32Data(d)
-		case uint64:
-			e = a.setUnsigned64Data(d)
-		case float32:
-			e = a.setFloat32Data(d)
-		case float64:
-			e = a.setFloat64Data(d)
-		default:
-			e = fmt.Errorf("unknown AVP data type")
-		}
+	switch d := d.(type) {
+	case nil:
+		a.data = []byte{}
+	case net.IP:
+		e = a.setAddressData(d)
+	case time.Time:
+		e = a.setTimeData(d)
+	case DiameterIdentity:
+		e = a.setDiameterIdentityData(d)
+	case DiameterURI:
+		e = a.setDiameterURIData(d)
+	case Enumerated:
+		e = a.setEnumeratedData(d)
+	case IPFilterRule:
+		e = a.setIPFilterRuleData(d)
+	case GroupedAVP:
+		e = a.setGroupedData(d)
+	case string:
+		e = a.setUTF8StringData(d)
+	case []byte:
+		e = a.setOctetStringData(d)
+	case int32:
+		e = a.setInteger32Data(d)
+	case int64:
+		e = a.setInteger64Data(d)
+	case uint32:
+		e = a.setUnsigned32Data(d)
+	case uint64:
+		e = a.setUnsigned64Data(d)
+	case float32:
+		e = a.setFloat32Data(d)
+	case float64:
+		e = a.setFloat64Data(d)
+	default:
+		e = &UnknownAVPTypeError{}
 	}
 
 	if e != nil {
@@ -167,7 +177,7 @@ func (a *Avp) Encode(d interface{}) (e error) {
 // Decode make primitive go value from AVP
 func (a Avp) Decode(d interface{}) (e error) {
 	if a.data == nil {
-		e = fmt.Errorf("nil AVP data")
+		d = nil
 		return
 	}
 	switch d := d.(type) {
@@ -176,7 +186,7 @@ func (a Avp) Decode(d interface{}) (e error) {
 	case *time.Time:
 		e = a.getTimeData(d)
 	case *DiameterIdentity:
-		*d, e = ParseDiameterIdentity(string(a.data))
+		e = a.getDiameterIdentityData(d)
 	case *DiameterURI:
 		e = a.getDiameterURIData(d)
 	case *Enumerated:
@@ -202,7 +212,7 @@ func (a Avp) Decode(d interface{}) (e error) {
 	case *float64:
 		e = a.getFloat64Data(d)
 	default:
-		e = fmt.Errorf("unknown AVP data type")
+		e = &UnknownAVPTypeError{}
 	}
 	return
 }
