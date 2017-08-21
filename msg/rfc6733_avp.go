@@ -2,35 +2,6 @@ package msg
 
 import "net"
 
-/*
-const (
-	DONT_CACHE                 Enumerated = 0
-	ALL_SESSION                Enumerated = 1
-	ALL_REALM                  Enumerated = 2
-	REALM_AND_APPLICATION      Enumerated = 3
-	ALL_APPLICATION            Enumerated = 4
-	ALL_HOST                   Enumerated = 5
-	ALL_USER                   Enumerated = 6
-	AUTHENTICATE_ONLY          Enumerated = 1
-	//	AUTHORIZE_ONLY Enumerated = 2
-	//	AUTHORIZE_AUTHENTICATE Enumerated = 3
-	//	AUTHORIZE_ONLY Enumerated = 0
-	//	AUTHORIZE_AUTHENTICATE Enumerated = 1
-
-	REFUSE_SERVICE          Enumerated = 0
-	TRY_AGAIN               Enumerated = 1
-	ALLOW_SERVICE           Enumerated = 2
-	TRY_AGAIN_ALLOW_SERVICE Enumerated = 3
-	EVENT_RECORD            Enumerated = 1
-	START_RECORD            Enumerated = 2
-	INTERIM_RECORD          Enumerated = 3
-	STOP_RECORD             Enumerated = 4
-	DELIVER_AND_GRANT       Enumerated = 1
-	GRANT_AND_STORE         Enumerated = 2
-	GRANT_AND_LOSE          Enumerated = 3
-)
-*/
-
 // Get search AVP that have code and vendor-id.
 func (g GroupedAVP) Get(c, v uint32) (*Avp, bool) {
 	for _, a := range g {

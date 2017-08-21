@@ -25,9 +25,8 @@ type CapabilitiesExchangeRequest struct {
 	ProductName
 	*OriginStateID
 	SupportedVendorID []SupportedVendorID
-	AuthApplicationID []AuthApplicationID
+	ApplicationID     []ApplicationID
 	// []InbandSecurityID
-	// []AcctApplicationId
 	VendorSpecificApplicationID []VendorSpecificApplicationID
 	*FirmwareRevision
 }
@@ -53,7 +52,7 @@ func (v *CapabilitiesExchangeRequest) Encode() Message {
 	for _, id := range v.SupportedVendorID {
 		avps = append(avps, id.Encode())
 	}
-	for _, id := range v.AuthApplicationID {
+	for _, id := range v.ApplicationID {
 		avps = append(avps, id.Encode())
 	}
 	for _, id := range v.VendorSpecificApplicationID {
@@ -96,7 +95,12 @@ func (v *CapabilitiesExchangeRequest) Decode(m Message) error {
 		v.OriginStateID = nil
 	}
 	v.SupportedVendorID = GetSupportedVendorIDs(avp)
-	v.AuthApplicationID = GetAuthApplicationIDs(avp)
+	for _, a := range GetAuthApplicationIDs(avp) {
+		v.ApplicationID = append(v.ApplicationID, a)
+	}
+	for _, a := range GetAcctApplicationIDs(avp) {
+		v.ApplicationID = append(v.ApplicationID, a)
+	}
 	v.VendorSpecificApplicationID = GetVendorSpecificApplicationIDs(avp)
 	if tmp, ok := GetFirmwareRevision(avp); ok {
 		v.FirmwareRevision = &tmp
