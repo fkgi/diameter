@@ -45,11 +45,24 @@ func (g GroupedAVP) Get(c, v uint32) (*Avp, bool) {
 type SessionID string
 
 // Encode return AVP struct of this value
-func (v SessionID) Encode() Avp {
+func (v *SessionID) Encode() Avp {
 	a := Avp{Code: 263, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
-	a.Encode(string(v))
+	a.Encode(string(*v))
 	return a
+}
+
+// Decode get AVP value
+func (v *SessionID) Decode(a Avp) (e error) {
+	if a.Code == 263 && a.VenID == 0 {
+		s := new(string)
+		if e = a.Decode(s); e == nil {
+			*v = SessionID(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
 }
 
 // GetSessionID get AVP value
@@ -63,25 +76,46 @@ func GetSessionID(o GroupedAVP) (SessionID, bool) {
 	return SessionID(*s), true
 }
 
-// AuthSessionState AVP (true=STATE_MAINTAINED / false=STATE_NOT_MAINTAINED)
+// AuthSessionState AVP
 type AuthSessionState bool
 
-// StateMaintained is value of AuthSessionState
-const StateMaintained AuthSessionState = true
-
-// StateNotMaintained is value of AuthSessionState
-const StateNotMaintained AuthSessionState = false
+const (
+	// StateMaintained is value of AuthSessionState
+	StateMaintained AuthSessionState = true
+	// StateNotMaintained is value of AuthSessionState
+	StateNotMaintained AuthSessionState = false
+)
 
 // Encode return AVP struct of this value
-func (v AuthSessionState) Encode() Avp {
+func (v *AuthSessionState) Encode() Avp {
 	a := Avp{Code: 277, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
-	if v {
+	if *v {
 		a.Encode(Enumerated(0))
 	} else {
 		a.Encode(Enumerated(1))
 	}
 	return a
+}
+
+// Decode get AVP value
+func (v *AuthSessionState) Decode(a Avp) (e error) {
+	if a.Code == 277 && a.VenID == 0 {
+		s := new(Enumerated)
+		if e = a.Decode(s); e == nil {
+			switch *s {
+			case 0:
+				*v = StateMaintained
+			case 1:
+				*v = StateNotMaintained
+			default:
+				e = InvalidAVPError{}
+			}
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
 }
 
 // GetAuthSessionState get AVP value
@@ -105,11 +139,24 @@ func GetAuthSessionState(o GroupedAVP) (AuthSessionState, bool) {
 type OriginHost DiameterIdentity
 
 // Encode return AVP struct of this value
-func (v OriginHost) Encode() Avp {
+func (v *OriginHost) Encode() Avp {
 	a := Avp{Code: 264, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
-	a.Encode(DiameterIdentity(v))
+	a.Encode(DiameterIdentity(*v))
 	return a
+}
+
+// Decode get AVP value
+func (v *OriginHost) Decode(a Avp) (e error) {
+	if a.Code == 264 && a.VenID == 0 {
+		s := new(DiameterIdentity)
+		if e = a.Decode(s); e == nil {
+			*v = OriginHost(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
 }
 
 // GetOriginHost get AVP value
@@ -127,11 +174,24 @@ func GetOriginHost(o GroupedAVP) (OriginHost, bool) {
 type OriginRealm DiameterIdentity
 
 // Encode return AVP struct of this value
-func (v OriginRealm) Encode() Avp {
+func (v *OriginRealm) Encode() Avp {
 	a := Avp{Code: 296, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
-	a.Encode(DiameterIdentity(v))
+	a.Encode(DiameterIdentity(*v))
 	return a
+}
+
+// Decode get AVP value
+func (v *OriginRealm) Decode(a Avp) (e error) {
+	if a.Code == 296 && a.VenID == 0 {
+		s := new(DiameterIdentity)
+		if e = a.Decode(s); e == nil {
+			*v = OriginRealm(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
 }
 
 // GetOriginRealm get AVP value
@@ -149,11 +209,24 @@ func GetOriginRealm(o GroupedAVP) (OriginRealm, bool) {
 type DestinationHost DiameterIdentity
 
 // Encode return AVP struct of this value
-func (v DestinationHost) Encode() Avp {
+func (v *DestinationHost) Encode() Avp {
 	a := Avp{Code: 293, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
-	a.Encode(DiameterIdentity(v))
+	a.Encode(DiameterIdentity(*v))
 	return a
+}
+
+// Decode get AVP value
+func (v *DestinationHost) Decode(a Avp) (e error) {
+	if a.Code == 293 && a.VenID == 0 {
+		s := new(DiameterIdentity)
+		if e = a.Decode(s); e == nil {
+			*v = DestinationHost(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
 }
 
 // GetDestinationHost get AVP value
@@ -171,11 +244,24 @@ func GetDestinationHost(o GroupedAVP) (DestinationHost, bool) {
 type DestinationRealm DiameterIdentity
 
 // Encode return AVP struct of this value
-func (v DestinationRealm) Encode() Avp {
+func (v *DestinationRealm) Encode() Avp {
 	a := Avp{Code: 283, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
-	a.Encode(DiameterIdentity(v))
+	a.Encode(DiameterIdentity(*v))
 	return a
+}
+
+// Decode get AVP value
+func (v *DestinationRealm) Decode(a Avp) (e error) {
+	if a.Code == 283 && a.VenID == 0 {
+		s := new(DiameterIdentity)
+		if e = a.Decode(s); e == nil {
+			*v = DestinationRealm(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
 }
 
 // GetDestinationRealm get AVP value
