@@ -2,6 +2,7 @@ package sock
 
 import (
 	"net"
+	"strings"
 	"time"
 
 	"github.com/fkgi/diameter/msg"
@@ -55,22 +56,37 @@ func Dial(l *Local, p *Peer) (*Conn, error) {
 	con.run()
 
 	r := msg.CapabilitiesExchangeRequest{
-		OriginHost:    msg.OriginHost(l.Host),
-		OriginRealm:   msg.OriginRealm(l.Realm),
-		HostIPAddress: make([]msg.HostIPAddress, 0),
-		VendorID:      VendorID,
-		ProductName:   ProductName,
+		OriginHost:  msg.OriginHost(l.Host),
+		OriginRealm: msg.OriginRealm(l.Realm),
+		//HostIPAddress: make([]msg.HostIPAddress, 0),
+		VendorID:    VendorID,
+		ProductName: ProductName,
 		// *OriginStateID:
 		SupportedVendorID:           make([]msg.SupportedVendorID, 0),
 		ApplicationID:               make([]msg.ApplicationID, 0),
 		VendorSpecificApplicationID: make([]msg.VendorSpecificApplicationID, 0),
 		FirmwareRevision:            &FirmwareRevision}
+
+	switch l.Addr.Network() {
+	case "tcp":
+		s := l.Addr.String()
+		s = s[:strings.LastIndex(s, ":")]
+		r.HostIPAddress = []msg.HostIPAddress{msg.HostIPAddress(net.ParseIP(s))}
+	case "sctp":
+		s := l.Addr.String()
+		s = s[:strings.LastIndex(s, ":")]
+		r.HostIPAddress = []msg.HostIPAddress{}
+		for _, i := range strings.Split(s, "/") {
+			r.HostIPAddress = append(r.HostIPAddress, msg.HostIPAddress(net.ParseIP(i)))
+		}
+	}
 	if l.StateID != 0 {
 		r.OriginStateID = &l.StateID
 	}
 	for v, a := range l.AuthApps {
 		if v != 0 {
-			r.SupportedVendorID = append(r.SupportedVendorID, msg.SupportedVendorID(v))
+			r.SupportedVendorID = append(
+				r.SupportedVendorID, msg.SupportedVendorID(v))
 			for _, i := range a {
 				r.VendorSpecificApplicationID = append(
 					r.VendorSpecificApplicationID,

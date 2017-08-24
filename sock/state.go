@@ -2,6 +2,8 @@ package sock
 
 import (
 	"fmt"
+	"net"
+	"strings"
 
 	"github.com/fkgi/diameter/msg"
 )
@@ -53,9 +55,7 @@ func (eventConnect) String() string {
 
 func (v eventConnect) exec(c *Conn) error {
 	if c.state != closed {
-		return NotAcceptableEvent{
-			event: v,
-			state: c.state}
+		return NotAcceptableEvent{event: v, state: c.state}
 	}
 
 	c.state = waitCEA
@@ -81,9 +81,7 @@ func (eventWatchdog) String() string {
 
 func (v eventWatchdog) exec(c *Conn) error {
 	if c.state != open {
-		return NotAcceptableEvent{
-			event: v,
-			state: c.state}
+		return NotAcceptableEvent{event: v, state: c.state}
 	}
 
 	c.setTransportDeadline()
@@ -108,9 +106,7 @@ func (eventStop) String() string {
 
 func (v eventStop) exec(c *Conn) error {
 	if c.state != open {
-		return NotAcceptableEvent{
-			event: v,
-			state: c.state}
+		return NotAcceptableEvent{event: v, state: c.state}
 	}
 
 	c.state = closing
@@ -157,35 +153,154 @@ func (eventRcvCER) String() string {
 
 func (v eventRcvCER) exec(c *Conn) error {
 	if c.state != waitCER {
-		return NotAcceptableEvent{
-			event: v,
-			state: c.state}
+		return NotAcceptableEvent{event: v, state: c.state}
 	}
 
-	p := &Peer{}
-	avp, e := v.m.Decode()
-	if e == nil {
-		if t, ok := msg.GetOriginHost(avp); ok {
-			p.Host = msg.DiameterIdentity(t)
-		}
-		if t, ok := msg.GetOriginRealm(avp); ok {
-			p.Realm = msg.DiameterIdentity(t)
-		}
-		getProvidedAuthApp(p, avp)
-	}
+	cer := msg.CapabilitiesExchangeRequest{}
+	cer.Decode(v.m)
 
 	//notify(&CapabilityExchangeEvent{
 	//	Tx: false, Req: true, Local: p.local, Peer: peer, Err: e})
-	if e != nil {
-		return e
+	cea := msg.CapabilitiesExchangeAnswer{
+		ResultCode:                  msg.DiameterSuccess,
+		VendorID:                    VendorID,
+		ProductName:                 ProductName,
+		SupportedVendorID:           make([]msg.SupportedVendorID, 0),
+		ApplicationID:               make([]msg.ApplicationID, 0),
+		VendorSpecificApplicationID: make([]msg.VendorSpecificApplicationID, 0),
+		FirmwareRevision:            &FirmwareRevision}
+	switch c.local.Addr.Network() {
+	case "tcp":
+		s := c.local.Addr.String()
+		s = s[:strings.LastIndex(s, ":")]
+		cea.HostIPAddress = []msg.HostIPAddress{msg.HostIPAddress(net.ParseIP(s))}
+	case "sctp":
+		s := c.local.Addr.String()
+		s = s[:strings.LastIndex(s, ":")]
+		cea.HostIPAddress = []msg.HostIPAddress{}
+		for _, i := range strings.Split(s, "/") {
+			cea.HostIPAddress = append(cea.HostIPAddress, msg.HostIPAddress(net.ParseIP(i)))
+		}
+	}
+	if c.local.StateID != 0 {
+		cea.OriginStateID = &c.local.StateID
 	}
 
-	a, code := c.makeCEA(v.m, p)
+	if c.peer == nil {
+		c.peer = &Peer{
+			Host:  msg.DiameterIdentity(cer.OriginHost),
+			Realm: msg.DiameterIdentity(cer.OriginRealm)}
+	} else if msg.DiameterIdentity(cer.OriginHost) != c.peer.Host ||
+		msg.DiameterIdentity(cer.OriginRealm) != c.peer.Realm {
+		cea.ResultCode = msg.DiameterUnknownPeer
+	}
+	if cea.ResultCode == msg.DiameterSuccess {
+		app := map[msg.VendorID][]msg.ApplicationID{}
+		for _, i := range cer.SupportedVendorID {
+			app[msg.VendorID(i)] = []msg.ApplicationID{}
+		}
+		for _, a := range cer.VendorSpecificApplicationID {
+			if _, ok := app[a.VendorID]; !ok {
+				app[a.VendorID] = []msg.ApplicationID{}
+			}
+			app[a.VendorID] = append(app[a.VendorID], a.App)
+		}
+		if len(cer.ApplicationID) != 0 {
+			if _, ok := app[0]; !ok {
+				app[0] = []msg.ApplicationID{}
+			}
+			for _, i := range cer.ApplicationID {
+				app[0] = append(app[0], i)
+			}
+		}
+
+		if c.peer.AuthApps == nil {
+			relay := msg.AuthApplicationID(0xffffffff)
+			for _, id := range c.local.AuthApps[0] {
+				if relay.Equals(id) {
+					c.peer.AuthApps = app
+					break
+				}
+			}
+			if c.peer.AuthApps == nil {
+				c.peer.AuthApps = map[msg.VendorID][]msg.ApplicationID{}
+				for key, ids := range app {
+					for _, rid := range ids {
+						if _, ok := c.local.AuthApps[key]; !ok {
+							continue
+						}
+						for _, lid := range c.local.AuthApps[key] {
+							if rid.Equals(lid) {
+								if _, ok := c.peer.AuthApps[key]; !ok {
+									c.peer.AuthApps[key] = []msg.ApplicationID{}
+								}
+								c.peer.AuthApps[key] = append(c.peer.AuthApps[key], rid)
+							}
+						}
+					}
+				}
+				if len(c.peer.AuthApps) == 0 {
+					cea.ResultCode = msg.DiameterApplicationUnsupported
+				}
+			}
+		} else {
+			a := map[msg.VendorID][]msg.ApplicationID{}
+			for key, ids := range app {
+				for _, rid := range ids {
+					if _, ok := c.peer.AuthApps[key]; !ok {
+						continue
+					}
+					for _, lid := range c.peer.AuthApps[key] {
+						if rid.Equals(lid) {
+							if _, ok := a[key]; !ok {
+								a[key] = []msg.ApplicationID{}
+							}
+							a[key] = append(a[key], rid)
+						}
+					}
+				}
+			}
+			if len(a) == 0 {
+				cea.ResultCode = msg.DiameterApplicationUnsupported
+			} else {
+				c.peer.AuthApps = a
+			}
+		}
+	}
+
+	if c.peer.WDInterval == 0 {
+		c.peer.WDInterval = WDInterval
+	}
+	if c.peer.WDExpired == 0 {
+		c.peer.WDExpired = WDExpired
+	}
+
+	for v, a := range c.peer.AuthApps {
+		if v != 0 {
+			cea.SupportedVendorID = append(
+				cea.SupportedVendorID, msg.SupportedVendorID(v))
+			for _, i := range a {
+				cea.VendorSpecificApplicationID = append(
+					cea.VendorSpecificApplicationID,
+					msg.VendorSpecificApplicationID{
+						VendorID: v,
+						App:      i})
+			}
+		} else {
+			for _, i := range a {
+				cea.ApplicationID = append(cea.ApplicationID, i)
+			}
+		}
+	}
+	m := cea.Encode()
+	m.HbHID = c.local.NextHbH()
+	m.EtEID = c.local.NextEtE()
+
 	c.setTransportDeadline()
-	_, e = a.WriteTo(c.con)
+	_, e := m.WriteTo(c.con)
 
 	if e == nil {
-		if code != msg.DiameterSuccess {
+		if cea.ResultCode != msg.DiameterSuccess {
 			e = fmt.Errorf("close with error response %d", code)
 			c.con.Close()
 		} else {
@@ -196,24 +311,6 @@ func (v eventRcvCER) exec(c *Conn) error {
 	//notify(&CapabilityExchangeEvent{
 	//	Tx: true, Req: false, Local: p.local, Peer: p.peer})
 	return e
-}
-
-func getProvidedAuthApp(p *Peer, avp msg.GroupedAVP) {
-	p.AuthApps = map[msg.VendorID][]msg.ApplicationID{}
-
-	for _, vid := range msg.GetSupportedVendorIDs(avp) {
-		p.AuthApps[msg.VendorID(vid)] = make([]msg.ApplicationID, 0)
-	}
-	for _, vsa := range msg.GetVendorSpecificApplicationIDs(avp) {
-		if _, ok := p.AuthApps[vsa.VendorID]; !ok {
-			p.AuthApps[vsa.VendorID] = make([]msg.ApplicationID, 0)
-		}
-		p.AuthApps[vsa.VendorID] = append(p.AuthApps[vsa.VendorID], vsa.App)
-	}
-	p.AuthApps[0] = make([]msg.ApplicationID, 0)
-	for _, aid := range msg.GetAuthApplicationIDs(avp) {
-		p.AuthApps[0] = append(p.AuthApps[0], aid)
-	}
 }
 
 // RcvCEA
