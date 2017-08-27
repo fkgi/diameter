@@ -55,7 +55,7 @@ func Dial(l *Local, p *Peer) (*Conn, error) {
 		sndstack: make(map[uint32]chan msg.Message)}
 	con.run()
 
-	r := msg.CapabilitiesExchangeRequest{
+	r := msg.CER{
 		OriginHost:  msg.OriginHost(l.Host),
 		OriginRealm: msg.OriginRealm(l.Realm),
 		//HostIPAddress: make([]msg.HostIPAddress, 0),
@@ -139,7 +139,7 @@ func (c *Conn) Close(cause msg.Enumerated, timeout int) {
 		return
 	}
 
-	r := msg.DisconnectPeerRequest{
+	r := msg.DPR{
 		OriginHost:      msg.OriginHost(c.local.Host),
 		OriginRealm:     msg.OriginRealm(c.local.Realm),
 		DisconnectCause: msg.DisconnectCause(cause)}
@@ -155,7 +155,19 @@ func (c *Conn) Close(cause msg.Enumerated, timeout int) {
 	t := time.AfterFunc(
 		time.Second*time.Duration(timeout),
 		func() {
-			ch <- nil
+			dwa := msg.DWA{
+				ResultCode:  msg.DiameterSuccess,
+				OriginHost:  msg.OriginHost(c.local.Host),
+				OriginRealm: msg.OriginRealm(c.local.Realm),
+			}
+			if c.local.StateID != 0 {
+				dwa.OriginStateID = &c.local.StateID
+			}
+			m := dwa.Encode()
+			m.HbHID = c.local.NextHbH()
+			m.EtEID = c.local.NextEtE()
+			m.FlgE = true
+			ch <- m
 			//notify(&PurgeEvent{
 			//	Tx: false, Req: false, Local: c.local, Peer: c.peer,
 			//	Err: fmt.Errorf("no answer")})
@@ -172,7 +184,7 @@ func (c *Conn) Close(cause msg.Enumerated, timeout int) {
 		}
 	}
 
-	c.notify <- eventPeerDisc{nil}
+	c.notify <- eventPeerDisc{}
 }
 
 // LocalHost returns local host name
@@ -217,7 +229,20 @@ func (c *Conn) Send(r msg.Message, d time.Duration) msg.Message {
 	c.notify <- eventSndMsg{r}
 
 	t := time.AfterFunc(d, func() {
-		ch <- c.makeUnableToDeliver(r)
+		nack := msg.Message{
+			Ver:  r.Ver,
+			FlgR: false, FlgP: r.FlgP, FlgE: true, FlgT: false,
+			HbHID: r.HbHID, EtEID: r.EtEID,
+			Code: r.Code, AppID: r.AppID}
+		host := msg.OriginHost(c.local.Host)
+		realm := msg.OriginRealm(c.local.Realm)
+		avps := []msg.Avp{
+			msg.DiameterUnableToDeliver.Encode(),
+			host.Encode(),
+			realm.Encode()}
+		nack.Encode(avps)
+
+		ch <- nack
 	})
 
 	a := <-ch
@@ -252,7 +277,6 @@ func (c *Conn) run() {
 			m := msg.Message{}
 			c.con.SetReadDeadline(time.Time{})
 			if _, e := m.ReadFrom(c.con); e != nil {
-				c.notify <- eventPeerDisc{e}
 				break
 			}
 
@@ -273,6 +297,7 @@ func (c *Conn) run() {
 				c.notify <- eventRcvMsg{m}
 			}
 		}
+		c.notify <- eventPeerDisc{}
 	}()
 }
 

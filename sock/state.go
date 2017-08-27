@@ -2,8 +2,6 @@ package sock
 
 import (
 	"fmt"
-	"net"
-	"strings"
 
 	"github.com/fkgi/diameter/msg"
 )
@@ -125,9 +123,7 @@ func (v eventStop) exec(c *Conn) error {
 }
 
 // PeerDisc
-type eventPeerDisc struct {
-	Err error
-}
+type eventPeerDisc struct{}
 
 func (eventPeerDisc) String() string {
 	return "Peer-Disc"
@@ -156,156 +152,32 @@ func (v eventRcvCER) exec(c *Conn) error {
 		return NotAcceptableEvent{event: v, state: c.state}
 	}
 
-	cer := msg.CapabilitiesExchangeRequest{}
-	cer.Decode(v.m)
-
+	cer := msg.CER{}
+	e := cer.Decode(v.m)
 	//notify(&CapabilityExchangeEvent{
 	//	Tx: false, Req: true, Local: p.local, Peer: peer, Err: e})
-	cea := msg.CapabilitiesExchangeAnswer{
-		ResultCode:                  msg.DiameterSuccess,
-		VendorID:                    VendorID,
-		ProductName:                 ProductName,
-		SupportedVendorID:           make([]msg.SupportedVendorID, 0),
-		ApplicationID:               make([]msg.ApplicationID, 0),
-		VendorSpecificApplicationID: make([]msg.VendorSpecificApplicationID, 0),
-		FirmwareRevision:            &FirmwareRevision}
-	switch c.local.Addr.Network() {
-	case "tcp":
-		s := c.local.Addr.String()
-		s = s[:strings.LastIndex(s, ":")]
-		cea.HostIPAddress = []msg.HostIPAddress{msg.HostIPAddress(net.ParseIP(s))}
-	case "sctp":
-		s := c.local.Addr.String()
-		s = s[:strings.LastIndex(s, ":")]
-		cea.HostIPAddress = []msg.HostIPAddress{}
-		for _, i := range strings.Split(s, "/") {
-			cea.HostIPAddress = append(cea.HostIPAddress, msg.HostIPAddress(net.ParseIP(i)))
-		}
-	}
-	if c.local.StateID != 0 {
-		cea.OriginStateID = &c.local.StateID
-	}
-
-	if c.peer == nil {
-		c.peer = &Peer{
-			Host:  msg.DiameterIdentity(cer.OriginHost),
-			Realm: msg.DiameterIdentity(cer.OriginRealm)}
-	} else if msg.DiameterIdentity(cer.OriginHost) != c.peer.Host ||
-		msg.DiameterIdentity(cer.OriginRealm) != c.peer.Realm {
-		cea.ResultCode = msg.DiameterUnknownPeer
-	}
-	if cea.ResultCode == msg.DiameterSuccess {
-		app := map[msg.VendorID][]msg.ApplicationID{}
-		for _, i := range cer.SupportedVendorID {
-			app[msg.VendorID(i)] = []msg.ApplicationID{}
-		}
-		for _, a := range cer.VendorSpecificApplicationID {
-			if _, ok := app[a.VendorID]; !ok {
-				app[a.VendorID] = []msg.ApplicationID{}
-			}
-			app[a.VendorID] = append(app[a.VendorID], a.App)
-		}
-		if len(cer.ApplicationID) != 0 {
-			if _, ok := app[0]; !ok {
-				app[0] = []msg.ApplicationID{}
-			}
-			for _, i := range cer.ApplicationID {
-				app[0] = append(app[0], i)
-			}
-		}
-
-		if c.peer.AuthApps == nil {
-			relay := msg.AuthApplicationID(0xffffffff)
-			for _, id := range c.local.AuthApps[0] {
-				if relay.Equals(id) {
-					c.peer.AuthApps = app
-					break
-				}
-			}
-			if c.peer.AuthApps == nil {
-				c.peer.AuthApps = map[msg.VendorID][]msg.ApplicationID{}
-				for key, ids := range app {
-					for _, rid := range ids {
-						if _, ok := c.local.AuthApps[key]; !ok {
-							continue
-						}
-						for _, lid := range c.local.AuthApps[key] {
-							if rid.Equals(lid) {
-								if _, ok := c.peer.AuthApps[key]; !ok {
-									c.peer.AuthApps[key] = []msg.ApplicationID{}
-								}
-								c.peer.AuthApps[key] = append(c.peer.AuthApps[key], rid)
-							}
-						}
-					}
-				}
-				if len(c.peer.AuthApps) == 0 {
-					cea.ResultCode = msg.DiameterApplicationUnsupported
-				}
-			}
-		} else {
-			a := map[msg.VendorID][]msg.ApplicationID{}
-			for key, ids := range app {
-				for _, rid := range ids {
-					if _, ok := c.peer.AuthApps[key]; !ok {
-						continue
-					}
-					for _, lid := range c.peer.AuthApps[key] {
-						if rid.Equals(lid) {
-							if _, ok := a[key]; !ok {
-								a[key] = []msg.ApplicationID{}
-							}
-							a[key] = append(a[key], rid)
-						}
-					}
-				}
-			}
-			if len(a) == 0 {
-				cea.ResultCode = msg.DiameterApplicationUnsupported
-			} else {
-				c.peer.AuthApps = a
-			}
-		}
-	}
-
-	if c.peer.WDInterval == 0 {
-		c.peer.WDInterval = WDInterval
-	}
-	if c.peer.WDExpired == 0 {
-		c.peer.WDExpired = WDExpired
-	}
-
-	for v, a := range c.peer.AuthApps {
-		if v != 0 {
-			cea.SupportedVendorID = append(
-				cea.SupportedVendorID, msg.SupportedVendorID(v))
-			for _, i := range a {
-				cea.VendorSpecificApplicationID = append(
-					cea.VendorSpecificApplicationID,
-					msg.VendorSpecificApplicationID{
-						VendorID: v,
-						App:      i})
-			}
-		} else {
-			for _, i := range a {
-				cea.ApplicationID = append(cea.ApplicationID, i)
-			}
-		}
-	}
-	m := cea.Encode()
-	m.HbHID = c.local.NextHbH()
-	m.EtEID = c.local.NextEtE()
-
-	c.setTransportDeadline()
-	_, e := m.WriteTo(c.con)
 
 	if e == nil {
+		cea := HandleCER(cer, c)
+
+		m := cea.Encode()
+		m.HbHID = c.local.NextHbH()
+		m.EtEID = c.local.NextEtE()
 		if cea.ResultCode != msg.DiameterSuccess {
-			e = fmt.Errorf("close with error response %d", code)
-			c.con.Close()
-		} else {
-			c.state = open
-			c.resetWatchdog()
+			m.FlgE = true
+		}
+
+		c.setTransportDeadline()
+		_, e = m.WriteTo(c.con)
+
+		if e == nil {
+			if cea.ResultCode != msg.DiameterSuccess {
+				e = fmt.Errorf("close with error response %d", cea.ResultCode)
+				c.con.Close()
+			} else {
+				c.state = open
+				c.resetWatchdog()
+			}
 		}
 	}
 	//notify(&CapabilityExchangeEvent{
@@ -322,30 +194,28 @@ func (eventRcvCEA) String() string {
 	return "Rcv-CEA"
 }
 
-func (v eventRcvCEA) exec(c *Conn) (e error) {
+func (v eventRcvCEA) exec(c *Conn) error {
 	if c.state != waitCEA {
-		return NotAcceptableEvent{
-			event: v,
-			state: c.state}
+		return NotAcceptableEvent{event: v, state: c.state}
 	}
 
-	var r msg.ResultCode
-	if avp, e := v.m.Decode(); e == nil {
-		if t, ok := msg.GetResultCode(avp); ok {
-			r = t
+	cea := msg.CEA{}
+	e := cea.Decode(v.m)
+
+	if e == nil {
+		HandleCEA(cea, c)
+
+		if cea.ResultCode == msg.DiameterSuccess {
+			c.state = open
+			c.resetWatchdog()
+		} else {
+			e = fmt.Errorf("CEA Nack received")
+			c.con.Close()
 		}
-		getProvidedAuthApp(c.peer, avp)
-	}
-	if r == msg.DiameterSuccess {
-		c.state = open
-		c.resetWatchdog()
-	} else {
-		e = fmt.Errorf("CEA Nack received")
-		c.con.Close()
 	}
 	//notify(&CapabilityExchangeEvent{
 	//	Tx: false, Req: false, Local: p.local, Peer: p.peer, Err: e})
-	return
+	return e
 }
 
 type eventRcvDWR struct {
@@ -358,23 +228,34 @@ func (eventRcvDWR) String() string {
 
 func (v eventRcvDWR) exec(c *Conn) error {
 	if c.state != open {
-		return NotAcceptableEvent{
-			event: v,
-			state: c.state}
+		return NotAcceptableEvent{event: v, state: c.state}
 	}
+
+	dwr := msg.DWR{}
+	e := dwr.Decode(v.m)
 	//notify(&WatchdogEvent{
 	//	Tx: false, Req: true, Local: p.local, Peer: p.peer, Err: e})
 
-	a, _ := c.makeDWA(v.m)
-	c.setTransportDeadline()
-	_, e := a.WriteTo(c.con)
-	// notify(&WatchdogEvent{
-	//	Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
-	if e != nil {
-		c.con.Close()
-		c.state = shutdown
-	} else {
-		c.resetWatchdog()
+	if e == nil {
+		dwa := HandleDWR(dwr, c)
+
+		m := dwa.Encode()
+		m.HbHID = c.local.NextHbH()
+		m.EtEID = c.local.NextEtE()
+		if dwa.ResultCode != msg.DiameterSuccess {
+			m.FlgE = true
+		}
+
+		c.setTransportDeadline()
+		_, e := m.WriteTo(c.con)
+		// notify(&WatchdogEvent{
+		//	Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
+		if e != nil {
+			c.con.Close()
+			c.state = shutdown
+		} else {
+			c.resetWatchdog()
+		}
 	}
 	return e
 }
@@ -388,23 +269,27 @@ func (eventRcvDWA) String() string {
 	return "Rcv-DWA"
 }
 
-func (v eventRcvDWA) exec(c *Conn) (e error) {
+func (v eventRcvDWA) exec(c *Conn) error {
 	if c.state != open {
-		return NotAcceptableEvent{
-			event: v,
-			state: c.state}
+		return NotAcceptableEvent{event: v, state: c.state}
 	}
 
-	if ch, ok := c.sndstack[v.m.HbHID]; ok {
-		delete(c.sndstack, v.m.HbHID)
-		ch <- v.m
-		c.resetWatchdog()
-	} else {
-		e = fmt.Errorf("unknown DWA recieved")
+	dwa := msg.DWA{}
+	e := dwa.Decode(v.m)
+
+	if e == nil {
+		HandleDWA(dwa, c)
+		if ch, ok := c.sndstack[v.m.HbHID]; ok {
+			delete(c.sndstack, v.m.HbHID)
+			ch <- v.m
+			c.resetWatchdog()
+		} else {
+			e = fmt.Errorf("unknown DWA recieved")
+		}
 	}
 	//notify(&WatchdogEvent{
 	//	Tx: false, Req: false, Local: p.local, Peer: p.peer, Err: e})
-	return
+	return e
 }
 
 type eventRcvDPR struct {
@@ -415,26 +300,36 @@ func (eventRcvDPR) String() string {
 	return "Rcv-DPR"
 }
 
-func (v eventRcvDPR) exec(c *Conn) (e error) {
+func (v eventRcvDPR) exec(c *Conn) error {
 	if c.state != open {
-		return NotAcceptableEvent{
-			event: v,
-			state: c.state}
+		return NotAcceptableEvent{event: v, state: c.state}
 	}
 
+	dpr := msg.DPR{}
+	e := dpr.Decode(v.m)
 	//notify(&PurgeEvent{
 	//	Tx: false, Req: true, Local: p.local, Peer: p.peer, Err: e})
 
-	c.state = closing
-	a, _ := c.makeDPA(v.m)
-	c.setTransportDeadline()
-	_, e = a.WriteTo(c.con)
-	//notify(&PurgeEvent{
-	//	Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
-	if e != nil {
-		c.con.Close()
+	if e == nil {
+		dpa := HandleDPR(dpr, c)
+		m := dpa.Encode()
+		m.HbHID = c.local.NextHbH()
+		m.EtEID = c.local.NextEtE()
+		if dpa.ResultCode != msg.DiameterSuccess {
+			m.FlgE = true
+		}
+
+		c.state = closing
+
+		c.setTransportDeadline()
+		_, e = m.WriteTo(c.con)
+		//notify(&PurgeEvent{
+		//	Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
+		if e != nil {
+			c.con.Close()
+		}
 	}
-	return
+	return e
 }
 
 type eventRcvDPA struct {
@@ -445,22 +340,26 @@ func (eventRcvDPA) String() string {
 	return "Rcv-DPA"
 }
 
-func (v eventRcvDPA) exec(c *Conn) (e error) {
+func (v eventRcvDPA) exec(c *Conn) error {
 	if c.state != closing {
-		return NotAcceptableEvent{
-			event: v,
-			state: c.state}
+		return NotAcceptableEvent{event: v, state: c.state}
 	}
 
-	if ch, ok := c.sndstack[v.m.HbHID]; ok {
-		ch <- v.m
-		// p.con.Close()
-	} else {
-		e = fmt.Errorf("unknown DPA recieved")
+	dpa := msg.DPA{}
+	e := dpa.Decode(v.m)
+
+	if e == nil {
+		HandleDPA(dpa, c)
+		if ch, ok := c.sndstack[v.m.HbHID]; ok {
+			ch <- v.m
+			// p.con.Close()
+		} else {
+			e = fmt.Errorf("unknown DPA recieved")
+		}
 	}
 	//notify(&PurgeEvent{
 	//	Tx: false, Req: false, Local: p.local, Peer: p.peer, Err: e})
-	return
+	return e
 }
 
 type eventSndMsg struct {
@@ -473,9 +372,7 @@ func (eventSndMsg) String() string {
 
 func (v eventSndMsg) exec(c *Conn) error {
 	if c.state != open {
-		return NotAcceptableEvent{
-			event: v,
-			state: c.state}
+		return NotAcceptableEvent{event: v, state: c.state}
 	}
 
 	c.setTransportDeadline()

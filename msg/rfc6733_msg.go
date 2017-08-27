@@ -1,7 +1,7 @@
 package msg
 
 /*
-CapabilitiesExchangeRequest is CER message
+CER is Capabilities-Exchange-Request message
  <CER> ::= < Diameter Header: 257, REQ >
 		   { Origin-Host }
 		   { Origin-Realm }
@@ -17,7 +17,7 @@ CapabilitiesExchangeRequest is CER message
 		   [ Firmware-Revision ]
 		 * [ AVP ]
 */
-type CapabilitiesExchangeRequest struct {
+type CER struct {
 	OriginHost
 	OriginRealm
 	HostIPAddress []HostIPAddress
@@ -32,7 +32,7 @@ type CapabilitiesExchangeRequest struct {
 }
 
 // Encode return Message struct of this value
-func (v *CapabilitiesExchangeRequest) Encode() Message {
+func (v *CER) Encode() Message {
 	m := Message{
 		Ver:  DiaVer,
 		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
@@ -67,7 +67,7 @@ func (v *CapabilitiesExchangeRequest) Encode() Message {
 }
 
 // Decode make this value from Message struct
-func (v *CapabilitiesExchangeRequest) Decode(m Message) error {
+func (v *CER) Decode(m Message) error {
 	if m.AppID != 0 || m.Code != 257 || !m.FlgR {
 		return InvalidMessageError{}
 	}
@@ -111,7 +111,7 @@ func (v *CapabilitiesExchangeRequest) Decode(m Message) error {
 }
 
 /*
-CapabilitiesExchangeAnswer is CEA message
+CEA is Capabilities-Exchange-Answer message
  <CEA> ::= < Diameter Header: 257 >
 		   { Result-Code }
 		   { Origin-Host }
@@ -130,7 +130,7 @@ CapabilitiesExchangeAnswer is CEA message
 		   [ Firmware-Revision ]
 		 * [ AVP ]
 */
-type CapabilitiesExchangeAnswer struct {
+type CEA struct {
 	ResultCode
 	OriginHost
 	OriginRealm
@@ -149,7 +149,7 @@ type CapabilitiesExchangeAnswer struct {
 }
 
 // Encode return Message struct of this value
-func (v *CapabilitiesExchangeAnswer) Encode() Message {
+func (v *CEA) Encode() Message {
 	m := Message{
 		Ver:  DiaVer,
 		FlgR: false, FlgP: false, FlgE: false, FlgT: false,
@@ -192,7 +192,7 @@ func (v *CapabilitiesExchangeAnswer) Encode() Message {
 }
 
 // Decode make this value from Message struct
-func (v *CapabilitiesExchangeAnswer) Decode(m Message) error {
+func (v *CEA) Decode(m Message) error {
 	if m.AppID != 0 || m.Code != 257 || m.FlgR {
 		return InvalidMessageError{}
 	}
@@ -249,21 +249,21 @@ func (v *CapabilitiesExchangeAnswer) Decode(m Message) error {
 }
 
 /*
-DisconnectPeerRequest is DPR message
+DPR is Disconnect-Peer-Request message
  <DPR>  ::= < Diameter Header: 282, REQ >
 			{ Origin-Host }
 			{ Origin-Realm }
 			{ Disconnect-Cause }
 		  * [ AVP ]
 */
-type DisconnectPeerRequest struct {
+type DPR struct {
 	OriginHost
 	OriginRealm
 	DisconnectCause
 }
 
 // Encode return Message struct of this value
-func (v *DisconnectPeerRequest) Encode() Message {
+func (v *DPR) Encode() Message {
 	m := Message{
 		Ver:  DiaVer,
 		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
@@ -279,7 +279,7 @@ func (v *DisconnectPeerRequest) Encode() Message {
 }
 
 // Decode make this value from Message struct
-func (v *DisconnectPeerRequest) Decode(m Message) error {
+func (v *DPR) Decode(m Message) error {
 	if m.AppID != 0 || m.Code != 282 || !m.FlgR {
 		return InvalidMessageError{}
 	}
@@ -301,7 +301,7 @@ func (v *DisconnectPeerRequest) Decode(m Message) error {
 }
 
 /*
-DisconnectPeerAnswer is DPA message
+DPA is Disconnect-Peer-Answer message
  <DPA>  ::= < Diameter Header: 282 >
 			{ Result-Code }
 			{ Origin-Host }
@@ -310,7 +310,7 @@ DisconnectPeerAnswer is DPA message
 			[ Failed-AVP ]
 		  * [ AVP ]
 */
-type DisconnectPeerAnswer struct {
+type DPA struct {
 	ResultCode
 	OriginHost
 	OriginRealm
@@ -319,7 +319,7 @@ type DisconnectPeerAnswer struct {
 }
 
 // Encode return Message struct of this value
-func (v *DisconnectPeerAnswer) Encode() Message {
+func (v *DPA) Encode() Message {
 	m := Message{
 		Ver:  DiaVer,
 		FlgR: false, FlgP: false, FlgE: false, FlgT: false,
@@ -342,7 +342,7 @@ func (v *DisconnectPeerAnswer) Encode() Message {
 }
 
 // Decode make this value from Message struct
-func (v *DisconnectPeerAnswer) Decode(m Message) error {
+func (v *DPA) Decode(m Message) error {
 	if m.AppID != 0 || m.Code != 282 || m.FlgR {
 		return InvalidMessageError{}
 	}
@@ -374,21 +374,21 @@ func (v *DisconnectPeerAnswer) Decode(m Message) error {
 }
 
 /*
-DeviceWatchdogRequest is DWR message
+DWR is DeviceWatchdogRequest message
  <DWR>  ::= < Diameter Header: 280, REQ >
 			{ Origin-Host }
 			{ Origin-Realm }
 			[ Origin-State-Id ]
 		  * [ AVP ]
 */
-type DeviceWatchdogRequest struct {
+type DWR struct {
 	OriginHost
 	OriginRealm
 	*OriginStateID
 }
 
 // Encode return Message struct of this value
-func (v *DeviceWatchdogRequest) Encode() Message {
+func (v *DWR) Encode() Message {
 	m := Message{
 		Ver:  DiaVer,
 		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
@@ -406,7 +406,7 @@ func (v *DeviceWatchdogRequest) Encode() Message {
 }
 
 // Decode make this value from Message struct
-func (v *DeviceWatchdogRequest) Decode(m Message) error {
+func (v *DWR) Decode(m Message) error {
 	if m.AppID != 0 || m.Code != 280 || !m.FlgR {
 		return InvalidMessageError{}
 	}
@@ -430,7 +430,7 @@ func (v *DeviceWatchdogRequest) Decode(m Message) error {
 }
 
 /*
-DeviceWatchdogAnswer is DWA message
+DWA Device-Watchdo-gAnswer message
  <DWA>  ::= < Diameter Header: 280 >
 			{ Result-Code }
 			{ Origin-Host }
@@ -440,7 +440,7 @@ DeviceWatchdogAnswer is DWA message
 			[ Origin-State-Id ]
 		  * [ AVP ]
 */
-type DeviceWatchdogAnswer struct {
+type DWA struct {
 	ResultCode
 	OriginHost
 	OriginRealm
@@ -450,7 +450,7 @@ type DeviceWatchdogAnswer struct {
 }
 
 // Encode return Message struct of this value
-func (v *DeviceWatchdogAnswer) Encode() Message {
+func (v *DWA) Encode() Message {
 	m := Message{
 		Ver:  DiaVer,
 		FlgR: false, FlgP: false, FlgE: false, FlgT: false,
@@ -476,7 +476,7 @@ func (v *DeviceWatchdogAnswer) Encode() Message {
 }
 
 // Decode make this value from Message struct
-func (v *DeviceWatchdogAnswer) Decode(m Message) error {
+func (v *DWA) Decode(m Message) error {
 	if m.AppID != 0 || m.Code != 280 || m.FlgR {
 		return InvalidMessageError{}
 	}
