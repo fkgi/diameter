@@ -2,7 +2,6 @@ package sock
 
 import (
 	"net"
-	"strings"
 	"time"
 
 	"github.com/fkgi/diameter/msg"
@@ -55,52 +54,8 @@ func Dial(l *Local, p *Peer) (*Conn, error) {
 		sndstack: make(map[uint32]chan msg.Message)}
 	con.run()
 
-	r := msg.CER{
-		OriginHost:  msg.OriginHost(l.Host),
-		OriginRealm: msg.OriginRealm(l.Realm),
-		//HostIPAddress: make([]msg.HostIPAddress, 0),
-		VendorID:    VendorID,
-		ProductName: ProductName,
-		// *OriginStateID:
-		SupportedVendorID:           make([]msg.SupportedVendorID, 0),
-		ApplicationID:               make([]msg.ApplicationID, 0),
-		VendorSpecificApplicationID: make([]msg.VendorSpecificApplicationID, 0),
-		FirmwareRevision:            &FirmwareRevision}
-
-	switch l.Addr.Network() {
-	case "tcp":
-		s := l.Addr.String()
-		s = s[:strings.LastIndex(s, ":")]
-		r.HostIPAddress = []msg.HostIPAddress{msg.HostIPAddress(net.ParseIP(s))}
-	case "sctp":
-		s := l.Addr.String()
-		s = s[:strings.LastIndex(s, ":")]
-		r.HostIPAddress = []msg.HostIPAddress{}
-		for _, i := range strings.Split(s, "/") {
-			r.HostIPAddress = append(r.HostIPAddress, msg.HostIPAddress(net.ParseIP(i)))
-		}
-	}
-	if l.StateID != 0 {
-		r.OriginStateID = &l.StateID
-	}
-	for v, a := range l.AuthApps {
-		if v != 0 {
-			r.SupportedVendorID = append(
-				r.SupportedVendorID, msg.SupportedVendorID(v))
-			for _, i := range a {
-				r.VendorSpecificApplicationID = append(
-					r.VendorSpecificApplicationID,
-					msg.VendorSpecificApplicationID{
-						VendorID: v,
-						App:      i})
-			}
-		} else {
-			for _, i := range a {
-				r.ApplicationID = append(r.ApplicationID, i)
-			}
-		}
-	}
-	m := r.Encode()
+	cer := MakeCER(con)
+	m := cer.Encode()
 	m.HbHID = l.NextHbH()
 	m.EtEID = l.NextEtE()
 
@@ -134,16 +89,13 @@ func Accept(l *Local, p *Peer) (*Conn, error) {
 }
 
 // Close stop state machine
-func (c *Conn) Close(cause msg.Enumerated, timeout int) {
+func (c *Conn) Close(timeout int) {
 	if c.state != open {
 		return
 	}
 
-	r := msg.DPR{
-		OriginHost:      msg.OriginHost(c.local.Host),
-		OriginRealm:     msg.OriginRealm(c.local.Realm),
-		DisconnectCause: msg.DisconnectCause(cause)}
-	m := r.Encode()
+	dpr := MakeDPR(c)
+	m := dpr.Encode()
 	m.HbHID = c.local.NextHbH()
 	m.EtEID = c.local.NextEtE()
 
@@ -301,40 +253,40 @@ func (c *Conn) run() {
 	}()
 }
 
-/*
 func (c *Conn) resetWatchdog() {
 	f := func() {
-		c.wT = nil
+		c.wTimer = nil
 
-		c.wE++
-		if c.wE > c.peer.Ew {
-			c.Close(msg.Enumerated(0))
+		c.wCounter++
+		if c.wCounter > c.peer.WDExpired {
+			c.con.Close()
 		} else {
-			ch := make(chan *msg.Message)
-			r := c.makeDWR()
-			r.HbHID = c.local.NextHbH()
-			c.sndstack[r.HbHID] = ch
-			c.notify <- eventWatchdog{r}
+			ch := make(chan msg.Message)
+			dwr := MakeDWR(c)
+			m := dwr.Encode()
+			m.HbHID = c.local.NextHbH()
+			m.EtEID = c.local.NextEtE()
+			c.sndstack[m.HbHID] = ch
+			c.notify <- eventWatchdog{m}
 
-			t := time.AfterFunc(c.peer.Tp, func() {
+			t := time.AfterFunc(c.peer.WDInterval, func() {
 				ch <- nil
-				notify(&WatchdogEvent{
-					Tx: false, Req: false, Local: c.local, Peer: c.peer,
-					Err: fmt.Errorf("no answer")})
+				//notify(&WatchdogEvent{
+				//	Tx: false, Req: false, Local: c.local, Peer: c.peer,
+				//	Err: fmt.Errorf("no answer")})
 			})
-			ap := <-ch
+			dwa := <-ch
 			t.Stop()
-			delete(c.sndstack, r.HbHID)
-			if ap != nil {
-				c.wE = 0
+			delete(c.sndstack, m.HbHID)
+			if dwa != nil {
+				c.wCounter = 0
 			}
 		}
 	}
 
-	if c.wT != nil {
-		c.wT.Reset(c.peer.Tw)
+	if c.wTimer != nil {
+		c.wTimer.Reset(c.peer.WDInterval)
 	} else {
-		c.wT = time.AfterFunc(c.peer.Tw, f)
+		c.wTimer = time.AfterFunc(c.peer.WDInterval, f)
 	}
 }
-*/

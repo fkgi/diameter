@@ -7,6 +7,66 @@ import (
 	"github.com/fkgi/diameter/msg"
 )
 
+// HandleMSG is diameter request handler
+var HandleMSG = func(r msg.Message, c *Conn) {
+	go func() {
+		a := c.peer.Handler(r)
+		a.HbHID = r.HbHID
+		a.EtEID = r.EtEID
+		c.notify <- eventSndMsg{a}
+	}()
+}
+
+// MakeCER returns new CER
+var MakeCER = func(c *Conn) msg.CER {
+	r := msg.CER{
+		OriginHost:  msg.OriginHost(c.local.Host),
+		OriginRealm: msg.OriginRealm(c.local.Realm),
+		//HostIPAddress: make([]msg.HostIPAddress, 0),
+		VendorID:    VendorID,
+		ProductName: ProductName,
+		// *OriginStateID:
+		SupportedVendorID:           make([]msg.SupportedVendorID, 0),
+		ApplicationID:               make([]msg.ApplicationID, 0),
+		VendorSpecificApplicationID: make([]msg.VendorSpecificApplicationID, 0),
+		FirmwareRevision:            &FirmwareRevision}
+
+	switch c.local.Addr.Network() {
+	case "tcp":
+		s := c.local.Addr.String()
+		s = s[:strings.LastIndex(s, ":")]
+		r.HostIPAddress = []msg.HostIPAddress{msg.HostIPAddress(net.ParseIP(s))}
+	case "sctp":
+		s := c.local.Addr.String()
+		s = s[:strings.LastIndex(s, ":")]
+		r.HostIPAddress = []msg.HostIPAddress{}
+		for _, i := range strings.Split(s, "/") {
+			r.HostIPAddress = append(r.HostIPAddress, msg.HostIPAddress(net.ParseIP(i)))
+		}
+	}
+	if c.local.StateID != 0 {
+		r.OriginStateID = &c.local.StateID
+	}
+	for v, a := range c.local.AuthApps {
+		if v != 0 {
+			r.SupportedVendorID = append(
+				r.SupportedVendorID, msg.SupportedVendorID(v))
+			for _, i := range a {
+				r.VendorSpecificApplicationID = append(
+					r.VendorSpecificApplicationID,
+					msg.VendorSpecificApplicationID{
+						VendorID: v,
+						App:      i})
+			}
+		} else {
+			for _, i := range a {
+				r.ApplicationID = append(r.ApplicationID, i)
+			}
+		}
+	}
+	return r
+}
+
 // HandleCER is CER handler function
 var HandleCER = func(r msg.CER, c *Conn) msg.CEA {
 	cea := msg.CEA{
@@ -168,6 +228,17 @@ var HandleCEA = func(m msg.CEA, c *Conn) {
 	c.peer.AuthApps = app
 }
 
+// MakeDWR returns new DWR
+var MakeDWR = func(c *Conn) msg.DWR {
+	dwr := msg.DWR{
+		OriginHost:  msg.OriginHost(c.local.Host),
+		OriginRealm: msg.OriginRealm(c.local.Realm)}
+	if c.local.StateID != 0 {
+		dwr.OriginStateID = &c.local.StateID
+	}
+	return dwr
+}
+
 // HandleDWR is DWR handler function
 var HandleDWR = func(r msg.DWR, c *Conn) msg.DWA {
 	dwa := msg.DWA{
@@ -193,6 +264,15 @@ var HandleDWR = func(r msg.DWR, c *Conn) msg.DWA {
 
 // HandleDWA is DWA handler function
 var HandleDWA = func(r msg.DWA, c *Conn) {
+}
+
+// MakeDPR returns new DWR
+var MakeDPR = func(c *Conn) msg.DPR {
+	r := msg.DPR{
+		OriginHost:      msg.OriginHost(c.local.Host),
+		OriginRealm:     msg.OriginRealm(c.local.Realm),
+		DisconnectCause: msg.DisconnectCause(msg.Rebooting)}
+	return r
 }
 
 // HandleDPR is DPR handler function

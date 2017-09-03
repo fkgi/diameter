@@ -401,10 +401,10 @@ func (v eventRcvMsg) exec(c *Conn) (e error) {
 	}
 
 	if v.m.FlgR {
-		c.rcvstack <- &v.m
+		HandleMSG(v.m, c)
 		c.resetWatchdog()
 	} else if ch, ok := c.sndstack[v.m.HbHID]; ok {
-		ch <- &v.m
+		ch <- v.m
 		c.resetWatchdog()
 	} else {
 		e = fmt.Errorf("unknown answer message received")
