@@ -213,7 +213,8 @@ func (c *Conn) run() {
 		for {
 			event := <-c.notify
 			//old = c.State()
-			e := event.exec(c)
+			//e :=
+			event.exec(c)
 
 			//notify(&StateUpdate{
 			//	OldState: old, NewState: c.State(), Event: event.name(),
@@ -232,7 +233,6 @@ func (c *Conn) run() {
 				break
 			}
 
-			c.wCounter = 0
 			if m.AppID == 0 && m.Code == 257 && m.FlgR {
 				c.notify <- eventRcvCER{m}
 			} else if m.AppID == 0 && m.Code == 257 && !m.FlgR {
@@ -253,6 +253,7 @@ func (c *Conn) run() {
 	}()
 }
 
+/*
 func (c *Conn) resetWatchdog() {
 	f := func() {
 		c.wTimer = nil
@@ -270,6 +271,7 @@ func (c *Conn) resetWatchdog() {
 			c.notify <- eventWatchdog{m}
 
 			t := time.AfterFunc(c.peer.WDInterval, func() {
+				c.notify <- eventRcvDWA{m}
 				ch <- nil
 				//notify(&WatchdogEvent{
 				//	Tx: false, Req: false, Local: c.local, Peer: c.peer,
@@ -287,6 +289,10 @@ func (c *Conn) resetWatchdog() {
 	if c.wTimer != nil {
 		c.wTimer.Reset(c.peer.WDInterval)
 	} else {
-		c.wTimer = time.AfterFunc(c.peer.WDInterval, f)
+		c.wTimer = time.AfterFunc(c.peer.WDInterval, func() {
+			dwr := MakeDWR(c)
+			c.notify <- eventWatchdog{dwr.Encode()}
+		})
 	}
 }
+*/

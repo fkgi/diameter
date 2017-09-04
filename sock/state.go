@@ -2,6 +2,7 @@ package sock
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/fkgi/diameter/msg"
 )
@@ -82,6 +83,18 @@ func (v eventWatchdog) exec(c *Conn) error {
 		return NotAcceptableEvent{event: v, state: c.state}
 	}
 
+	c.wCounter++
+	if c.wCounter > c.peer.WDExpired {
+		c.con.Close()
+		return nil
+	}
+
+	v.m.HbHID = c.local.NextHbH()
+	v.m.EtEID = c.local.NextEtE()
+
+	// ch := make(chan msg.Message)
+	// c.sndstack[v.m.HbHID] = ch
+
 	c.setTransportDeadline()
 	_, e := v.m.WriteTo(c.con)
 
@@ -89,6 +102,11 @@ func (v eventWatchdog) exec(c *Conn) error {
 	//	Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
 	if e != nil {
 		c.con.Close()
+	} else {
+		c.wTimer = time.AfterFunc(c.peer.WDInterval, func() {
+			dwr := MakeDWR(c)
+			c.notify <- eventWatchdog{dwr.Encode()}
+		})
 	}
 	return e
 }
@@ -108,9 +126,8 @@ func (v eventStop) exec(c *Conn) error {
 	}
 
 	c.state = closing
-	if c.wTimer != nil {
-		c.wTimer.Stop()
-	}
+	c.wTimer.Stop()
+
 	c.setTransportDeadline()
 	_, e := v.m.WriteTo(c.con)
 
@@ -176,7 +193,10 @@ func (v eventRcvCER) exec(c *Conn) error {
 				c.con.Close()
 			} else {
 				c.state = open
-				c.resetWatchdog()
+				c.wTimer = time.AfterFunc(c.peer.WDInterval, func() {
+					dwr := MakeDWR(c)
+					c.notify <- eventWatchdog{dwr.Encode()}
+				})
 			}
 		}
 	}
@@ -207,7 +227,10 @@ func (v eventRcvCEA) exec(c *Conn) error {
 
 		if cea.ResultCode == msg.DiameterSuccess {
 			c.state = open
-			c.resetWatchdog()
+			c.wTimer = time.AfterFunc(c.peer.WDInterval, func() {
+				dwr := MakeDWR(c)
+				c.notify <- eventWatchdog{dwr.Encode()}
+			})
 		} else {
 			e = fmt.Errorf("CEA Nack received")
 			c.con.Close()
@@ -247,15 +270,16 @@ func (v eventRcvDWR) exec(c *Conn) error {
 		}
 
 		c.setTransportDeadline()
-		_, e := m.WriteTo(c.con)
+		_, e = m.WriteTo(c.con)
 		// notify(&WatchdogEvent{
 		//	Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
-		if e != nil {
-			c.con.Close()
-			c.state = shutdown
-		} else {
-			c.resetWatchdog()
-		}
+	}
+	if e != nil {
+		c.con.Close()
+		c.state = shutdown
+	} else {
+		c.wCounter = 0
+		c.wTimer.Reset(c.peer.WDInterval)
 	}
 	return e
 }
@@ -282,7 +306,9 @@ func (v eventRcvDWA) exec(c *Conn) error {
 		if ch, ok := c.sndstack[v.m.HbHID]; ok {
 			delete(c.sndstack, v.m.HbHID)
 			ch <- v.m
-			c.resetWatchdog()
+
+			c.wCounter = 0
+			c.wTimer.Reset(c.peer.WDInterval)
 		} else {
 			e = fmt.Errorf("unknown DWA recieved")
 		}
@@ -317,9 +343,10 @@ func (v eventRcvDPR) exec(c *Conn) error {
 		m.EtEID = c.local.NextEtE()
 		if dpa.ResultCode != msg.DiameterSuccess {
 			m.FlgE = true
+		} else {
+			c.state = closing
+			c.wTimer.Stop()
 		}
-
-		c.state = closing
 
 		c.setTransportDeadline()
 		_, e = m.WriteTo(c.con)
@@ -402,10 +429,12 @@ func (v eventRcvMsg) exec(c *Conn) (e error) {
 
 	if v.m.FlgR {
 		HandleMSG(v.m, c)
-		c.resetWatchdog()
+		c.wCounter = 0
+		c.wTimer.Reset(c.peer.WDInterval)
 	} else if ch, ok := c.sndstack[v.m.HbHID]; ok {
 		ch <- v.m
-		c.resetWatchdog()
+		c.wCounter = 0
+		c.wTimer.Reset(c.peer.WDInterval)
 	} else {
 		e = fmt.Errorf("unknown answer message received")
 	}
