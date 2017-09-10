@@ -31,13 +31,13 @@ var MakeCER = func(c *Conn) msg.CER {
 		VendorSpecificApplicationID: make([]msg.VendorSpecificApplicationID, 0),
 		FirmwareRevision:            &FirmwareRevision}
 
-	switch c.local.Addr.Network() {
+	switch c.con.LocalAddr().Network() {
 	case "tcp":
-		s := c.local.Addr.String()
+		s := c.con.LocalAddr().String()
 		s = s[:strings.LastIndex(s, ":")]
 		r.HostIPAddress = []msg.HostIPAddress{msg.HostIPAddress(net.ParseIP(s))}
 	case "sctp":
-		s := c.local.Addr.String()
+		s := c.con.LocalAddr().String()
 		s = s[:strings.LastIndex(s, ":")]
 		r.HostIPAddress = []msg.HostIPAddress{}
 		for _, i := range strings.Split(s, "/") {
@@ -79,13 +79,13 @@ var HandleCER = func(r msg.CER, c *Conn) msg.CEA {
 		ApplicationID:               make([]msg.ApplicationID, 0),
 		VendorSpecificApplicationID: make([]msg.VendorSpecificApplicationID, 0),
 		FirmwareRevision:            &FirmwareRevision}
-	switch c.local.Addr.Network() {
+	switch c.con.LocalAddr().Network() {
 	case "tcp":
-		s := c.local.Addr.String()
+		s := c.con.LocalAddr().String()
 		s = s[:strings.LastIndex(s, ":")]
 		cea.HostIPAddress = []msg.HostIPAddress{msg.HostIPAddress(net.ParseIP(s))}
 	case "sctp":
-		s := c.local.Addr.String()
+		s := c.con.LocalAddr().String()
 		s = s[:strings.LastIndex(s, ":")]
 		cea.HostIPAddress = []msg.HostIPAddress{}
 		for _, i := range strings.Split(s, "/") {
@@ -183,6 +183,9 @@ var HandleCER = func(r msg.CER, c *Conn) msg.CEA {
 	}
 	if c.peer.WDExpired == 0 {
 		c.peer.WDExpired = WDExpired
+	}
+	if c.peer.SndTimeout == 0 {
+		c.peer.SndTimeout = SndTimeout
 	}
 
 	for v, a := range c.peer.AuthApps {

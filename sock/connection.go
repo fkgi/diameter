@@ -28,7 +28,7 @@ type Conn struct {
 	con      net.Conn
 	sndstack map[uint32]chan msg.Message
 
-	cachemsg msg.Message
+	//	cachemsg msg.Message
 }
 
 func (c *Conn) setTransportDeadline() {
@@ -36,15 +36,16 @@ func (c *Conn) setTransportDeadline() {
 }
 
 // Dial make new Conn that use specified peernode and connection
-func Dial(l *Local, p *Peer) (*Conn, error) {
-	dialer := net.Dialer{
-		Timeout:   TransportTimeout,
-		LocalAddr: l.Addr}
-	c, e := dialer.Dial(p.Addr.Network(), p.Addr.String())
-	if e != nil {
-		return nil, e
-	}
-
+func Dial(l *Local, p *Peer, c net.Conn) (*Conn, error) {
+	/*
+		dialer := net.Dialer{
+			Timeout:   TransportTimeout,
+			LocalAddr: l.Addr}
+		c, e := dialer.Dial(p.Addr.Network(), p.Addr.String())
+		if e != nil {
+			return nil, e
+		}
+	*/
 	con := &Conn{
 		local:    l,
 		peer:     p,
@@ -54,28 +55,24 @@ func Dial(l *Local, p *Peer) (*Conn, error) {
 		sndstack: make(map[uint32]chan msg.Message)}
 	con.run()
 
-	cer := MakeCER(con)
-	m := cer.Encode()
-	m.HbHID = l.NextHbH()
-	m.EtEID = l.NextEtE()
-
-	con.notify <- eventConnect{m}
+	con.notify <- eventConnect{}
 
 	return con, nil
 }
 
 // Accept new transport connection and return Conn
-func Accept(l *Local, p *Peer) (*Conn, error) {
-	lnr, e := net.Listen(l.Addr.Network(), l.Addr.String())
-	if e != nil {
-		return nil, e
-	}
-	c, e := lnr.Accept()
-	lnr.Close()
-	if e != nil {
-		return nil, e
-	}
-
+func Accept(l *Local, p *Peer, c net.Conn) (*Conn, error) {
+	/*
+		lnr, e := net.Listen(l.Addr.Network(), l.Addr.String())
+		if e != nil {
+			return nil, e
+		}
+		c, e := lnr.Accept()
+		lnr.Close()
+		if e != nil {
+			return nil, e
+		}
+	*/
 	con := &Conn{
 		local:    l,
 		peer:     p,
@@ -94,49 +91,7 @@ func (c *Conn) Close(timeout int) {
 		return
 	}
 
-	dpr := MakeDPR(c)
-	m := dpr.Encode()
-	m.HbHID = c.local.NextHbH()
-	m.EtEID = c.local.NextEtE()
-
-	ch := make(chan msg.Message)
-	c.sndstack[m.HbHID] = ch
-
-	c.notify <- eventStop{m}
-
-	t := time.AfterFunc(
-		time.Second*time.Duration(timeout),
-		func() {
-			dwa := msg.DWA{
-				ResultCode:  msg.DiameterSuccess,
-				OriginHost:  msg.OriginHost(c.local.Host),
-				OriginRealm: msg.OriginRealm(c.local.Realm),
-			}
-			if c.local.StateID != 0 {
-				dwa.OriginStateID = &c.local.StateID
-			}
-			m := dwa.Encode()
-			m.HbHID = c.local.NextHbH()
-			m.EtEID = c.local.NextEtE()
-			m.FlgE = true
-			ch <- m
-			//notify(&PurgeEvent{
-			//	Tx: false, Req: false, Local: c.local, Peer: c.peer,
-			//	Err: fmt.Errorf("no answer")})
-		})
-	a := <-ch
-	t.Stop()
-	delete(c.sndstack, m.HbHID)
-
-	if avp, e := a.Decode(); e == nil {
-		if result, ok := msg.GetResultCode(avp); !ok {
-			if result == msg.DiameterSuccess {
-				return
-			}
-		}
-	}
-
-	c.notify <- eventPeerDisc{}
+	c.notify <- eventStop{}
 }
 
 // LocalHost returns local host name
@@ -175,27 +130,30 @@ func (c *Conn) AuthApplication() map[msg.VendorID][]msg.ApplicationID {
 }
 
 // Send send Diameter request
-func (c *Conn) Send(r msg.Message, d time.Duration) msg.Message {
+func (c *Conn) Send(r msg.Message) msg.Message {
 	ch := make(chan msg.Message)
+	r.HbHID = c.local.NextHbH()
 	c.sndstack[r.HbHID] = ch
+
 	c.notify <- eventSndMsg{r}
 
-	t := time.AfterFunc(d, func() {
-		nack := msg.Message{
-			Ver:  r.Ver,
-			FlgR: false, FlgP: r.FlgP, FlgE: true, FlgT: false,
-			HbHID: r.HbHID, EtEID: r.EtEID,
-			Code: r.Code, AppID: r.AppID}
-		host := msg.OriginHost(c.local.Host)
-		realm := msg.OriginRealm(c.local.Realm)
-		avps := []msg.Avp{
-			msg.DiameterUnableToDeliver.Encode(),
-			host.Encode(),
-			realm.Encode()}
-		nack.Encode(avps)
+	t := time.AfterFunc(c.peer.SndTimeout,
+		func() {
+			nack := msg.Message{
+				Ver:  r.Ver,
+				FlgR: false, FlgP: r.FlgP, FlgE: true, FlgT: false,
+				HbHID: r.HbHID, EtEID: r.EtEID,
+				Code: r.Code, AppID: r.AppID}
+			host := msg.OriginHost(c.local.Host)
+			realm := msg.OriginRealm(c.local.Realm)
+			avps := []msg.Avp{
+				msg.DiameterUnableToDeliver.Encode(),
+				host.Encode(),
+				realm.Encode()}
+			nack.Encode(avps)
 
-		ch <- nack
-	})
+			ch <- nack
+		})
 
 	a := <-ch
 	t.Stop()
@@ -252,47 +210,3 @@ func (c *Conn) run() {
 		c.notify <- eventPeerDisc{}
 	}()
 }
-
-/*
-func (c *Conn) resetWatchdog() {
-	f := func() {
-		c.wTimer = nil
-
-		c.wCounter++
-		if c.wCounter > c.peer.WDExpired {
-			c.con.Close()
-		} else {
-			ch := make(chan msg.Message)
-			dwr := MakeDWR(c)
-			m := dwr.Encode()
-			m.HbHID = c.local.NextHbH()
-			m.EtEID = c.local.NextEtE()
-			c.sndstack[m.HbHID] = ch
-			c.notify <- eventWatchdog{m}
-
-			t := time.AfterFunc(c.peer.WDInterval, func() {
-				c.notify <- eventRcvDWA{m}
-				ch <- nil
-				//notify(&WatchdogEvent{
-				//	Tx: false, Req: false, Local: c.local, Peer: c.peer,
-				//	Err: fmt.Errorf("no answer")})
-			})
-			dwa := <-ch
-			t.Stop()
-			delete(c.sndstack, m.HbHID)
-			if dwa != nil {
-				c.wCounter = 0
-			}
-		}
-	}
-
-	if c.wTimer != nil {
-		c.wTimer.Reset(c.peer.WDInterval)
-	} else {
-		c.wTimer = time.AfterFunc(c.peer.WDInterval, func() {
-			dwr := MakeDWR(c)
-			c.notify <- eventWatchdog{dwr.Encode()}
-		})
-	}
-}
-*/

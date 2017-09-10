@@ -3,7 +3,6 @@ package sock
 import (
 	"fmt"
 	"math/rand"
-	"net"
 	"time"
 
 	"github.com/fkgi/diameter/msg"
@@ -16,6 +15,8 @@ var (
 	WDInterval = time.Second * time.Duration(30)
 	// WDExpired is watchdog expired count
 	WDExpired = 3
+	// SndTimeout is message send timeout time
+	SndTimeout = time.Second * time.Duration(30)
 )
 
 func init() {
@@ -26,7 +27,7 @@ func init() {
 type Local struct {
 	Realm msg.DiameterIdentity
 	Host  msg.DiameterIdentity
-	Addr  net.Addr
+	//Addr  net.Addr
 
 	StateID msg.OriginStateID
 
@@ -86,10 +87,11 @@ func (l *Local) NextSession() msg.SessionID {
 type Peer struct {
 	Realm msg.DiameterIdentity
 	Host  msg.DiameterIdentity
-	Addr  net.Addr
+	//Addr  net.Addr
 
 	WDInterval time.Duration
 	WDExpired  int
+	SndTimeout time.Duration
 
 	Handler func(msg.Message) msg.Message
 
