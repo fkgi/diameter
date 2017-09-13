@@ -20,15 +20,13 @@ type Conn struct {
 	local *Local
 	peer  *Peer
 
-	wTimer   *time.Timer // watchdog timer
+	wTimer   *time.Timer // system message timer
 	wCounter int         // watchdog expired counter
 
-	notify   chan stateEvent
-	state    int
+	notify chan stateEvent
+	state
 	con      net.Conn
 	sndstack map[uint32]chan msg.Message
-
-	//	cachemsg msg.Message
 }
 
 func (c *Conn) setTransportDeadline() {
@@ -146,8 +144,10 @@ func (c *Conn) Send(r msg.Message) msg.Message {
 				Code: r.Code, AppID: r.AppID}
 			host := msg.OriginHost(c.local.Host)
 			realm := msg.OriginRealm(c.local.Realm)
+			state := msg.AuthSessionState(msg.StateNotMaintained)
 			avps := []msg.Avp{
 				msg.DiameterUnableToDeliver.Encode(),
+				state.Encode(),
 				host.Encode(),
 				realm.Encode()}
 			nack.Encode(avps)
@@ -164,19 +164,19 @@ func (c *Conn) Send(r msg.Message) msg.Message {
 
 func (c *Conn) run() {
 	go func() {
-		//notify(&StateUpdate{
-		//	OldState: c.State(), NewState: c.State(), Event: "Start",
-		//	Local: c.local, Peer: c.peer, Err: nil})
+		old := shutdown
+		Notify(StateUpdate{
+			oldStat: old, newStat: c.state,
+			stateEvent: eventInit{}, conn: c, Err: nil})
 
 		for {
 			event := <-c.notify
-			//old = c.State()
-			//e :=
-			event.exec(c)
+			old = c.state
+			e := event.exec(c)
 
-			//notify(&StateUpdate{
-			//	OldState: old, NewState: c.State(), Event: event.name(),
-			//	Local: c.local, Peer: c.peer, Err: e})
+			Notify(StateUpdate{
+				oldStat: old, newStat: c.state,
+				stateEvent: event, conn: c, Err: e})
 
 			if _, ok := event.(eventPeerDisc); ok {
 				break
@@ -209,4 +209,30 @@ func (c *Conn) run() {
 		}
 		c.notify <- eventPeerDisc{}
 	}()
+}
+
+func (c *Conn) sendSysMsg(req msg.Message, nak msg.Message) error {
+	req.HbHID = c.local.NextHbH()
+	nak.HbHID = req.HbHID
+	req.EtEID = c.local.NextEtE()
+	nak.EtEID = req.EtEID
+	c.sndstack[req.HbHID] = nil //make(chan msg.Message)
+
+	c.setTransportDeadline()
+	_, e := req.WriteTo(c.con)
+
+	if e != nil {
+		return e
+	}
+	c.wTimer = time.AfterFunc(c.peer.SndTimeout, func() {
+		switch nak.Code {
+		case 257:
+			c.notify <- eventRcvCEA{nak}
+		case 282:
+			c.notify <- eventRcvDPA{nak}
+		case 280:
+			c.notify <- eventRcvDWA{nak}
+		}
+	})
+	return nil
 }

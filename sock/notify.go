@@ -1,6 +1,7 @@
 package sock
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 )
@@ -17,152 +18,87 @@ type Notice interface {
 
 // StateUpdate notify event
 type StateUpdate struct {
-	OldState string
-	NewState string
-	Event    string
-	Local    *Local
-	Peer     *Peer
-	Err      error
+	oldStat state
+	newStat state
+	stateEvent
+	conn *Conn
+	Err  error
 }
 
-func (e *StateUpdate) String() string {
-	if e == nil {
-		return "<nil>"
-	} else if e.Err == nil {
-		return fmt.Sprintf(
-			"state change %s -> %s with event %s on connection %s - %s",
-			e.OldState, e.NewState, e.Event, e.Local, e.Peer)
-	} else {
-		return fmt.Sprintf(
-			"state change %s -> %s with event %s on connection %s - %s failed: %s",
-			e.OldState, e.NewState, e.Event, e.Local, e.Peer, e.Err)
+func (e StateUpdate) String() string {
+	w := new(bytes.Buffer)
+	fmt.Fprintf(w,
+		"state change %s -> %s with event %s on connection %s - %s",
+		e.oldStat, e.newStat, e.stateEvent, e.conn.local, e.conn.peer)
+	if e.Err != nil {
+		fmt.Fprintf(w, " failed: %s", e.Err)
 	}
+	return w.String()
+}
+
+func msgHandleLog(x, r bool, c *Conn, e error, req, ans string) string {
+	w := new(bytes.Buffer)
+	if x {
+		fmt.Fprintf(w, "-> ")
+	} else {
+		fmt.Fprintf(w, "<- ")
+	}
+	if r {
+		fmt.Fprintf(w, req)
+	} else {
+		fmt.Fprintf(w, ans)
+	}
+	fmt.Fprintf(w, "(%s -> %s)", c.local, c.peer)
+	if e != nil {
+		fmt.Fprintf(w, " failed: %s", e)
+	}
+	return w.String()
 }
 
 // CapabilityExchangeEvent notify capability exchange related event
 type CapabilityExchangeEvent struct {
-	Tx    bool
-	Req   bool
-	Local *Local
-	Peer  *Peer
-	Err   error
+	tx   bool
+	req  bool
+	conn *Conn
+	Err  error
 }
 
-func (e *CapabilityExchangeEvent) String() string {
-	if e == nil {
-		return "<nil>"
-	} else if e.Tx && e.Req && e.Err == nil {
-		return fmt.Sprintf("-> CER (%s -> %s)", e.Local, e.Peer)
-	} else if e.Tx && e.Req && e.Err != nil {
-		return fmt.Sprintf("-X CER (%s -> %s), %s", e.Local, e.Peer, e.Err)
-	} else if e.Tx && !e.Req && e.Err == nil {
-		return fmt.Sprintf("-> CEA (%s -> %s)", e.Local, e.Peer)
-	} else if e.Tx && !e.Req && e.Err != nil {
-		return fmt.Sprintf("-X CEA (%s -> %s), %s", e.Local, e.Peer, e.Err)
-	} else if !e.Tx && e.Req && e.Err == nil {
-		return fmt.Sprintf("<- CER (%s -> %s)", e.Local, e.Peer)
-	} else if !e.Tx && e.Req && e.Err != nil {
-		return fmt.Sprintf("X- CER (%s -> %s), %s", e.Local, e.Peer, e.Err)
-	} else if !e.Tx && !e.Req && e.Err == nil {
-		return fmt.Sprintf("<- CEA (%s -> %s)", e.Local, e.Peer)
-	} else if !e.Tx && !e.Req && e.Err != nil {
-		return fmt.Sprintf("X- CEA (%s -> %s), %s", e.Local, e.Peer, e.Err)
-	}
-	return "invalid event"
+func (e CapabilityExchangeEvent) String() string {
+	return msgHandleLog(e.tx, e.req, e.conn, e.Err, "CER", "CEA")
 }
 
 // WatchdogEvent notify watchdog related event
 type WatchdogEvent struct {
-	Tx    bool
-	Req   bool
-	Local *Local
-	Peer  *Peer
-	Err   error
+	tx   bool
+	req  bool
+	conn *Conn
+	Err  error
 }
 
-func (e *WatchdogEvent) String() string {
-	if e == nil {
-		return "<nil>"
-	} else if e.Tx && e.Req && e.Err == nil {
-		return fmt.Sprintf("-> DWR (%s -> %s)", e.Local, e.Peer)
-	} else if e.Tx && e.Req && e.Err != nil {
-		return fmt.Sprintf("-X DWR (%s -> %s), %s", e.Local, e.Peer, e.Err)
-	} else if e.Tx && !e.Req && e.Err == nil {
-		return fmt.Sprintf("-> DWA (%s -> %s)", e.Local, e.Peer)
-	} else if e.Tx && !e.Req && e.Err != nil {
-		return fmt.Sprintf("-X DWA (%s -> %s), %s", e.Local, e.Peer, e.Err)
-	} else if !e.Tx && e.Req && e.Err == nil {
-		return fmt.Sprintf("<- DWR (%s -> %s)", e.Local, e.Peer)
-	} else if !e.Tx && e.Req && e.Err != nil {
-		return fmt.Sprintf("X- DWR (%s -> %s), %s", e.Local, e.Peer, e.Err)
-	} else if !e.Tx && !e.Req && e.Err == nil {
-		return fmt.Sprintf("<- DWA (%s -> %s)", e.Local, e.Peer)
-	} else if !e.Tx && !e.Req && e.Err != nil {
-		return fmt.Sprintf("X- DWA (%s -> %s), %s", e.Local, e.Peer, e.Err)
-	}
-	return "invalid event"
+func (e WatchdogEvent) String() string {
+	return msgHandleLog(e.tx, e.req, e.conn, e.Err, "DWR", "DWA")
 }
 
 // MessageEvent notify diameter message related event
 type MessageEvent struct {
-	Tx    bool
-	Req   bool
-	Local *Local
-	Peer  *Peer
-	Err   error
+	tx   bool
+	req  bool
+	conn *Conn
+	Err  error
 }
 
-func (e *MessageEvent) String() string {
-	if e == nil {
-		return "<nil>"
-	} else if e.Tx && e.Req && e.Err == nil {
-		return fmt.Sprintf("-> REQ (%s -> %s)", e.Local, e.Peer)
-	} else if e.Tx && e.Req && e.Err != nil {
-		return fmt.Sprintf("-X REQ (%s -> %s), %s", e.Local, e.Peer, e.Err)
-	} else if e.Tx && !e.Req && e.Err == nil {
-		return fmt.Sprintf("-> ANS (%s -> %s)", e.Local, e.Peer)
-	} else if e.Tx && !e.Req && e.Err != nil {
-		return fmt.Sprintf("-X ANS (%s -> %s), %s", e.Local, e.Peer, e.Err)
-	} else if !e.Tx && e.Req && e.Err == nil {
-		return fmt.Sprintf("<- REQ (%s -> %s)", e.Local, e.Peer)
-	} else if !e.Tx && e.Req && e.Err != nil {
-		return fmt.Sprintf("X- REQ (%s -> %s), %s", e.Local, e.Peer, e.Err)
-	} else if !e.Tx && !e.Req && e.Err == nil {
-		return fmt.Sprintf("<- ANS (%s -> %s)", e.Local, e.Peer)
-	} else if !e.Tx && !e.Req && e.Err != nil {
-		return fmt.Sprintf("X- ANS (%s -> %s), %s", e.Local, e.Peer, e.Err)
-	}
-	return "invalid event"
+func (e MessageEvent) String() string {
+	return msgHandleLog(e.tx, e.req, e.conn, e.Err, "REQ", "ANS")
 }
 
 // PurgeEvent notify diameter purge related event
 type PurgeEvent struct {
-	Tx    bool
-	Req   bool
-	Local *Local
-	Peer  *Peer
-	Err   error
+	tx   bool
+	req  bool
+	conn *Conn
+	Err  error
 }
 
-func (e *PurgeEvent) String() string {
-	if e == nil {
-		return "<nil>"
-	} else if e.Tx && e.Req && e.Err == nil {
-		return fmt.Sprintf("-> DPR (%s -> %s)", e.Local, e.Peer)
-	} else if e.Tx && e.Req && e.Err != nil {
-		return fmt.Sprintf("-X DPR (%s -> %s), %s", e.Local, e.Peer, e.Err)
-	} else if e.Tx && !e.Req && e.Err == nil {
-		return fmt.Sprintf("-> DPA (%s -> %s)", e.Local, e.Peer)
-	} else if e.Tx && !e.Req && e.Err != nil {
-		return fmt.Sprintf("-X DPA (%s -> %s), %s", e.Local, e.Peer, e.Err)
-	} else if !e.Tx && e.Req && e.Err == nil {
-		return fmt.Sprintf("<- DPR (%s -> %s)", e.Local, e.Peer)
-	} else if !e.Tx && e.Req && e.Err != nil {
-		return fmt.Sprintf("X- DPR (%s -> %s), %s", e.Local, e.Peer, e.Err)
-	} else if !e.Tx && !e.Req && e.Err == nil {
-		return fmt.Sprintf("<- DPA (%s -> %s)", e.Local, e.Peer)
-	} else if !e.Tx && !e.Req && e.Err != nil {
-		return fmt.Sprintf("X- DPA (%s -> %s), %s", e.Local, e.Peer, e.Err)
-	}
-	return "invalid event"
+func (e PurgeEvent) String() string {
+	return msgHandleLog(e.tx, e.req, e.conn, e.Err, "PUR", "PUA")
 }

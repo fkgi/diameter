@@ -1,7 +1,6 @@
 package sock
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/fkgi/diameter/msg"
@@ -22,7 +21,7 @@ type FailureAnswer struct {
 }
 
 func (e FailureAnswer) Error() string {
-	return "Answer message with failure recieved"
+	return "Answer message with failure"
 }
 
 // RcvCER
@@ -36,41 +35,44 @@ func (eventRcvCER) String() string {
 
 func (v eventRcvCER) exec(c *Conn) error {
 	if c.state != waitCER {
-		return NotAcceptableEvent{event: v, state: c.state}
+		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
 	cer := msg.CER{}
 	e := cer.Decode(v.m)
-	//notify(&CapabilityExchangeEvent{
-	//	Tx: false, Req: true, Local: p.local, Peer: peer, Err: e})
+	Notify(CapabilityExchangeEvent{tx: false, req: true, conn: c, Err: e})
 
-	if e == nil {
-		cea := HandleCER(cer, c)
-
-		m := cea.Encode()
-		m.HbHID = c.local.NextHbH()
-		m.EtEID = c.local.NextEtE()
-		if cea.ResultCode != msg.DiameterSuccess {
-			m.FlgE = true
-		}
-
-		c.setTransportDeadline()
-		_, e = m.WriteTo(c.con)
-
-		if e == nil {
-			if cea.ResultCode != msg.DiameterSuccess {
-				e = fmt.Errorf("close with error response %d", cea.ResultCode)
-				c.con.Close()
-			} else {
-				c.state = open
-				c.wTimer = time.AfterFunc(c.peer.WDInterval, func() {
-					c.notify <- eventWatchdog{}
-				})
-			}
-		}
+	if e != nil {
+		// ToDo
+		// make error answer for undecodable CER
+		return e
 	}
-	//notify(&CapabilityExchangeEvent{
-	//	Tx: true, Req: false, Local: p.local, Peer: p.peer})
+
+	cea := HandleCER(cer, c)
+	m := cea.Encode()
+	m.HbHID = v.m.HbHID
+	m.EtEID = v.m.EtEID
+	if cea.ResultCode != msg.DiameterSuccess {
+		m.FlgE = true
+	}
+
+	c.setTransportDeadline()
+	_, e = m.WriteTo(c.con)
+
+	if e == nil && cea.ResultCode != msg.DiameterSuccess {
+		e = FailureAnswer{m}
+	}
+	if e == nil {
+		c.state = open
+		c.wTimer = time.AfterFunc(c.peer.WDInterval, func() {
+			c.notify <- eventWatchdog{}
+		})
+	}
+
+	Notify(CapabilityExchangeEvent{tx: true, req: false, conn: c, Err: e})
+	if e != nil {
+		c.con.Close()
+	}
 	return e
 }
 
@@ -85,7 +87,7 @@ func (eventRcvCEA) String() string {
 
 func (v eventRcvCEA) exec(c *Conn) error {
 	if c.state != waitCEA {
-		return NotAcceptableEvent{event: v, state: c.state}
+		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 	if _, ok := c.sndstack[v.m.HbHID]; !ok {
 		return UnknownIDAnswer{v.m}
@@ -96,8 +98,8 @@ func (v eventRcvCEA) exec(c *Conn) error {
 	cea := msg.CEA{}
 	e := cea.Decode(v.m)
 	if e == nil {
+		HandleCEA(cea, c)
 		if cea.ResultCode == msg.DiameterSuccess {
-			HandleCEA(cea, c)
 			c.state = open
 			c.wTimer = time.AfterFunc(c.peer.WDInterval, func() {
 				c.notify <- eventWatchdog{}
@@ -107,8 +109,7 @@ func (v eventRcvCEA) exec(c *Conn) error {
 		}
 	}
 
-	//notify(&CapabilityExchangeEvent{
-	//	Tx: false, Req: false, Local: p.local, Peer: p.peer, Err: e})
+	Notify(CapabilityExchangeEvent{tx: false, req: false, conn: c, Err: e})
 	if e != nil {
 		c.con.Close()
 	}
@@ -125,32 +126,33 @@ func (eventRcvDWR) String() string {
 
 func (v eventRcvDWR) exec(c *Conn) error {
 	if c.state != open {
-		return NotAcceptableEvent{event: v, state: c.state}
+		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
 	dwr := msg.DWR{}
 	e := dwr.Decode(v.m)
-	//notify(&WatchdogEvent{
-	//	Tx: false, Req: true, Local: p.local, Peer: p.peer, Err: e})
+	Notify(WatchdogEvent{tx: false, req: true, conn: c, Err: e})
 
-	if e == nil {
-		dwa := HandleDWR(dwr, c)
-
-		m := dwa.Encode()
-		m.HbHID = c.local.NextHbH()
-		m.EtEID = c.local.NextEtE()
-		if dwa.ResultCode != msg.DiameterSuccess {
-			m.FlgE = true
-		}
-
-		c.setTransportDeadline()
-		_, e = m.WriteTo(c.con)
-		// notify(&WatchdogEvent{
-		//	Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
+	if e != nil {
+		// ToDo
+		// make error answer for undecodable CER
+		return e
 	}
+
+	dwa := HandleDWR(dwr, c)
+	m := dwa.Encode()
+	m.HbHID = v.m.HbHID
+	m.EtEID = v.m.EtEID
+	if dwa.ResultCode != msg.DiameterSuccess {
+		m.FlgE = true
+	}
+
+	c.setTransportDeadline()
+	_, e = m.WriteTo(c.con)
+
+	Notify(WatchdogEvent{tx: true, req: false, conn: c, Err: e})
 	if e != nil {
 		c.con.Close()
-		c.state = shutdown
 	} else {
 		c.wCounter = 0
 		c.wTimer.Reset(c.peer.WDInterval)
@@ -169,7 +171,7 @@ func (eventRcvDWA) String() string {
 
 func (v eventRcvDWA) exec(c *Conn) error {
 	if c.state != open {
-		return NotAcceptableEvent{event: v, state: c.state}
+		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 	if _, ok := c.sndstack[v.m.HbHID]; !ok {
 		return UnknownIDAnswer{v.m}
@@ -180,15 +182,15 @@ func (v eventRcvDWA) exec(c *Conn) error {
 	dwa := msg.DWA{}
 	e := dwa.Decode(v.m)
 	if e == nil {
+		HandleDWA(dwa, c)
 		if dwa.ResultCode == msg.DiameterSuccess {
-			HandleDWA(dwa, c)
 			c.wCounter = 0
 		} else {
 			e = FailureAnswer{v.m}
 		}
 	}
-	//notify(&WatchdogEvent{
-	//	Tx: false, Req: false, Local: p.local, Peer: p.peer, Err: e})
+
+	Notify(WatchdogEvent{tx: false, req: false, conn: c, Err: e})
 	if c.wCounter > c.peer.WDExpired {
 		c.con.Close()
 	} else {
@@ -209,33 +211,36 @@ func (eventRcvDPR) String() string {
 
 func (v eventRcvDPR) exec(c *Conn) error {
 	if c.state != open {
-		return NotAcceptableEvent{event: v, state: c.state}
+		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
 	dpr := msg.DPR{}
 	e := dpr.Decode(v.m)
-	//notify(&PurgeEvent{
-	//	Tx: false, Req: true, Local: p.local, Peer: p.peer, Err: e})
+	Notify(PurgeEvent{tx: false, req: true, conn: c, Err: e})
 
-	if e == nil {
-		dpa := HandleDPR(dpr, c)
-		m := dpa.Encode()
-		m.HbHID = c.local.NextHbH()
-		m.EtEID = c.local.NextEtE()
-		if dpa.ResultCode != msg.DiameterSuccess {
-			m.FlgE = true
-		} else {
-			c.state = closing
-			c.wTimer.Stop()
-		}
+	if e != nil {
+		// ToDo
+		// make error answer for undecodable CER
+		return e
+	}
 
-		c.setTransportDeadline()
-		_, e = m.WriteTo(c.con)
-		//notify(&PurgeEvent{
-		//	Tx: true, Req: false, Local: p.local, Peer: p.peer, Err: e})
-		if e != nil {
-			c.con.Close()
-		}
+	dpa := HandleDPR(dpr, c)
+	m := dpa.Encode()
+	m.HbHID = v.m.HbHID
+	m.EtEID = v.m.EtEID
+	if dpa.ResultCode != msg.DiameterSuccess {
+		m.FlgE = true
+	} else {
+		c.state = closing
+		c.wTimer.Stop()
+	}
+
+	c.setTransportDeadline()
+	_, e = m.WriteTo(c.con)
+
+	Notify(&PurgeEvent{tx: true, req: false, conn: c, Err: e})
+	if e != nil {
+		c.con.Close()
 	}
 	return e
 }
@@ -250,7 +255,7 @@ func (eventRcvDPA) String() string {
 
 func (v eventRcvDPA) exec(c *Conn) error {
 	if c.state != closing {
-		return NotAcceptableEvent{event: v, state: c.state}
+		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 	if _, ok := c.sndstack[v.m.HbHID]; !ok {
 		return UnknownIDAnswer{v.m}
@@ -261,14 +266,13 @@ func (v eventRcvDPA) exec(c *Conn) error {
 	dpa := msg.DPA{}
 	e := dpa.Decode(v.m)
 	if e == nil {
-		if dpa.ResultCode == msg.DiameterSuccess {
-			HandleDPA(dpa, c)
-		} else {
+		HandleDPA(dpa, c)
+		if dpa.ResultCode != msg.DiameterSuccess {
 			e = FailureAnswer{v.m}
 		}
 	}
-	//notify(&PurgeEvent{
-	//	Tx: false, Req: false, Local: p.local, Peer: p.peer, Err: e})
+
+	Notify(PurgeEvent{tx: false, req: false, conn: c, Err: e})
 	c.con.Close()
 	return e
 }
@@ -283,7 +287,7 @@ func (eventRcvMsg) String() string {
 
 func (v eventRcvMsg) exec(c *Conn) (e error) {
 	if c.state != open {
-		return NotAcceptableEvent{event: v, state: c.state}
+		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 	c.wTimer.Stop()
 
@@ -304,7 +308,6 @@ func (v eventRcvMsg) exec(c *Conn) (e error) {
 		return UnknownIDAnswer{v.m}
 	}
 
-	//notify(&MessageEvent{
-	//	Tx: false, Req: v.m.FlgR, Local: p.local, Peer: p.peer, Err: e})
+	Notify(MessageEvent{tx: false, req: v.m.FlgR, conn: c, Err: e})
 	return
 }

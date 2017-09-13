@@ -1,42 +1,51 @@
 package sock
 
 import (
-	"time"
+	"fmt"
 
 	"github.com/fkgi/diameter/msg"
 )
 
-var (
-	stateMap = map[int]string{
-		shutdown: "shutdown",
-		closed:   "closed",
-		waitCER:  "waitCER",
-		waitCEA:  "waitCEA",
-		open:     "open",
-		closing:  "closing",
+type state int
+
+func (s state) String() string {
+	switch s {
+	case shutdown:
+		return "shutdown"
+	case closed:
+		return "closed"
+	case waitCER:
+		return "waitCER"
+	case waitCEA:
+		return "waitCEA"
+	case open:
+		return "open"
+	case closing:
+		return "closing"
 	}
-)
+	return "<nil>"
+}
 
 const (
-	shutdown = iota
-	closed   = iota
-	waitCER  = iota
-	waitCEA  = iota
-	open     = iota
-	closing  = iota
+	shutdown state = iota
+	closed   state = iota
+	waitCER  state = iota
+	waitCEA  state = iota
+	open     state = iota
+	closing  state = iota
 )
 
 var timeoutMsg msg.ErrorMessage = "no response from peer node"
 
 // NotAcceptableEvent is error
 type NotAcceptableEvent struct {
-	event stateEvent
-	state int
+	stateEvent
+	state
 }
 
 func (e NotAcceptableEvent) Error() string {
-	return "Event " + e.event.String() +
-		" is not acceptable in state " + stateMap[e.state]
+	return fmt.Sprintf("Event %s is not acceptable in state %s",
+		e.stateEvent, e.state)
 }
 
 type stateEvent interface {
@@ -44,30 +53,15 @@ type stateEvent interface {
 	String() string
 }
 
-func (c *Conn) sendSysMsg(req msg.Message, nak msg.Message) error {
-	req.HbHID = c.local.NextHbH()
-	nak.HbHID = req.HbHID
-	req.EtEID = c.local.NextEtE()
-	nak.EtEID = req.EtEID
-	c.sndstack[req.HbHID] = nil //make(chan msg.Message)
+// Init
+type eventInit struct{}
 
-	c.setTransportDeadline()
-	_, e := req.WriteTo(c.con)
+func (eventInit) String() string {
+	return "Initialize"
+}
 
-	if e != nil {
-		return e
-	}
-	c.wTimer = time.AfterFunc(c.peer.SndTimeout, func() {
-		switch nak.Code {
-		case 257:
-			c.notify <- eventRcvCEA{nak}
-		case 282:
-			c.notify <- eventRcvDPA{nak}
-		case 280:
-			c.notify <- eventRcvDWA{nak}
-		}
-	})
-	return nil
+func (v eventInit) exec(c *Conn) error {
+	return NotAcceptableEvent{stateEvent: v, state: c.state}
 }
 
 // Connect
@@ -79,7 +73,7 @@ func (eventConnect) String() string {
 
 func (v eventConnect) exec(c *Conn) error {
 	if c.state != closed {
-		return NotAcceptableEvent{event: v, state: c.state}
+		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
 	c.state = waitCEA
@@ -99,14 +93,8 @@ func (v eventConnect) exec(c *Conn) error {
 		VendorSpecificApplicationID: req.VendorSpecificApplicationID,
 		FirmwareRevision:            req.FirmwareRevision}
 	e := c.sendSysMsg(req.Encode(), nak.Encode())
-	// c.con.Close()
-	//notify(&PurgeEvent{
-	//	Tx: false, Req: false, Local: c.local, Peer: c.peer,
-	//	Err: fmt.Errorf("no answer")})
-	//})
 
-	//notify(&CapabilityExchangeEvent{
-	//	Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
+	Notify(CapabilityExchangeEvent{tx: true, req: true, conn: c, Err: e})
 	if e != nil {
 		c.con.Close()
 	}
@@ -122,7 +110,7 @@ func (eventWatchdog) String() string {
 
 func (v eventWatchdog) exec(c *Conn) error {
 	if c.state != open {
-		return NotAcceptableEvent{event: v, state: c.state}
+		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
 	c.wCounter++
@@ -140,8 +128,7 @@ func (v eventWatchdog) exec(c *Conn) error {
 		OriginStateID: req.OriginStateID}
 	e := c.sendSysMsg(req.Encode(), nak.Encode())
 
-	// notify(&WatchdogEvent{
-	//	Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
+	Notify(WatchdogEvent{tx: true, req: true, conn: c, Err: e})
 	if e != nil {
 		c.con.Close()
 		//} else {
@@ -161,7 +148,7 @@ func (eventStop) String() string {
 
 func (v eventStop) exec(c *Conn) error {
 	if c.state != open {
-		return NotAcceptableEvent{event: v, state: c.state}
+		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
 	c.state = closing
@@ -175,8 +162,7 @@ func (v eventStop) exec(c *Conn) error {
 		ErrorMessage: &timeoutMsg}
 	e := c.sendSysMsg(req.Encode(), nak.Encode())
 
-	// notify(&PurgeEvent{
-	// 	Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
+	Notify(PurgeEvent{tx: true, req: true, conn: c, Err: e})
 	if e != nil {
 		c.con.Close()
 		//	} else {
@@ -220,14 +206,13 @@ func (eventSndMsg) String() string {
 
 func (v eventSndMsg) exec(c *Conn) error {
 	if c.state != open {
-		return NotAcceptableEvent{event: v, state: c.state}
+		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
 	c.setTransportDeadline()
 	_, e := v.m.WriteTo(c.con)
 
-	//notify(&MessageEvent{
-	//	Tx: true, Req: v.m.FlgR, Local: p.local, Peer: p.peer, Err: e})
+	Notify(MessageEvent{tx: true, req: v.m.FlgR, conn: c, Err: e})
 	if e != nil {
 		c.con.Close()
 	}
