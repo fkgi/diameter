@@ -48,6 +48,13 @@ func (e NotAcceptableEvent) Error() string {
 		e.stateEvent, e.state)
 }
 
+// WatchdogExpired is error
+type WatchdogExpired struct{}
+
+func (e WatchdogExpired) Error() string {
+	return "watchdog is expired"
+}
+
 type stateEvent interface {
 	exec(p *Conn) error
 	String() string
@@ -116,7 +123,7 @@ func (v eventWatchdog) exec(c *Conn) error {
 	c.wCounter++
 	if c.wCounter > c.peer.WDExpired {
 		c.con.Close()
-		return nil
+		return WatchdogExpired{}
 	}
 
 	req := MakeDWR(c)
