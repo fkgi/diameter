@@ -11,7 +11,7 @@ import (
 var (
 	MsgStackLen                           = 10000
 	VendorID         msg.VendorID         = 41102
-	ProductName      msg.ProductName      = "yagtagarasu"
+	ProductName      msg.ProductName      = "yatagarasu"
 	FirmwareRevision msg.FirmwareRevision = 170819001
 )
 
@@ -20,17 +20,13 @@ type Conn struct {
 	local *Local
 	peer  *Peer
 
-	wTimer   *time.Timer // system message timer
-	wCounter int         // watchdog expired counter
+	sysTimer  *time.Timer // system message timer
+	wdCounter int         // watchdog expired counter
 
 	notify chan stateEvent
 	state
 	con      net.Conn
 	sndstack map[uint32]chan msg.Message
-}
-
-func (c *Conn) setTransportDeadline() {
-	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
 }
 
 // Dial make new Conn that use specified peernode and connection
@@ -211,20 +207,18 @@ func (c *Conn) run() {
 	}()
 }
 
-func (c *Conn) sendSysMsg(req msg.Message, nak msg.Message) error {
+func (c *Conn) sendSysMsg(req, nak msg.Message) error {
 	req.HbHID = c.local.NextHbH()
 	nak.HbHID = req.HbHID
 	req.EtEID = c.local.NextEtE()
 	nak.EtEID = req.EtEID
 	c.sndstack[req.HbHID] = nil //make(chan msg.Message)
 
-	c.setTransportDeadline()
-	_, e := req.WriteTo(c.con)
-
-	if e != nil {
+	if e := c.write(req); e != nil {
 		return e
 	}
-	c.wTimer = time.AfterFunc(c.peer.SndTimeout, func() {
+
+	c.sysTimer = time.AfterFunc(c.peer.SndTimeout, func() {
 		switch nak.Code {
 		case 257:
 			c.notify <- eventRcvCEA{nak}
@@ -235,4 +229,10 @@ func (c *Conn) sendSysMsg(req msg.Message, nak msg.Message) error {
 		}
 	})
 	return nil
+}
+
+func (c *Conn) write(m msg.Message) error {
+	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
+	_, e := m.WriteTo(c.con)
+	return e
 }

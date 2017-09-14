@@ -25,13 +25,15 @@ func (v *SessionID) Encode() Avp {
 
 // Decode get AVP value
 func (v *SessionID) Decode(a Avp) (e error) {
-	if a.Code == 263 && a.VenID == 0 {
+	if a.VenID != 0 || a.Code != 263 {
+		e = InvalidAVPError{}
+	} else if !a.FlgV || a.FlgM || !a.FlgP {
+		e = InvalidAVPError{}
+	} else {
 		s := new(string)
 		if e = a.Decode(s); e == nil {
 			*v = SessionID(*s)
 		}
-	} else {
-		e = InvalidAVPError{}
 	}
 	return
 }
@@ -110,10 +112,10 @@ func GetAuthSessionState(o GroupedAVP) (AuthSessionState, bool) {
 type OriginHost DiameterIdentity
 
 // Encode return AVP struct of this value
-func (v *OriginHost) Encode() Avp {
+func (v OriginHost) Encode() Avp {
 	a := Avp{Code: 264, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
-	a.Encode(DiameterIdentity(*v))
+	a.Encode(DiameterIdentity(v))
 	return a
 }
 
@@ -145,10 +147,10 @@ func GetOriginHost(o GroupedAVP) (OriginHost, bool) {
 type OriginRealm DiameterIdentity
 
 // Encode return AVP struct of this value
-func (v *OriginRealm) Encode() Avp {
+func (v OriginRealm) Encode() Avp {
 	a := Avp{Code: 296, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
-	a.Encode(DiameterIdentity(*v))
+	a.Encode(DiameterIdentity(v))
 	return a
 }
 
@@ -180,10 +182,10 @@ func GetOriginRealm(o GroupedAVP) (OriginRealm, bool) {
 type DestinationHost DiameterIdentity
 
 // Encode return AVP struct of this value
-func (v *DestinationHost) Encode() Avp {
+func (v DestinationHost) Encode() Avp {
 	a := Avp{Code: 293, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
-	a.Encode(DiameterIdentity(*v))
+	a.Encode(DiameterIdentity(v))
 	return a
 }
 
@@ -215,10 +217,10 @@ func GetDestinationHost(o GroupedAVP) (DestinationHost, bool) {
 type DestinationRealm DiameterIdentity
 
 // Encode return AVP struct of this value
-func (v *DestinationRealm) Encode() Avp {
+func (v DestinationRealm) Encode() Avp {
 	a := Avp{Code: 283, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
-	a.Encode(DiameterIdentity(*v))
+	a.Encode(DiameterIdentity(v))
 	return a
 }
 
@@ -257,6 +259,19 @@ func (v HostIPAddress) Encode() Avp {
 	return a
 }
 
+// Decode get AVP value
+func (v *HostIPAddress) Decode(a Avp) (e error) {
+	if a.Code == 257 && a.VenID == 0 {
+		s := new(net.IP)
+		if e = a.Decode(s); e == nil {
+			*v = HostIPAddress(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
+}
+
 // GetHostIPAddress get AVP value
 func GetHostIPAddress(o GroupedAVP) (HostIPAddress, bool) {
 	a, ok := o.Get(257, 0)
@@ -291,6 +306,19 @@ func (v VendorID) Encode() Avp {
 	return a
 }
 
+// Decode get AVP value
+func (v *VendorID) Decode(a Avp) (e error) {
+	if a.Code == 266 && a.VenID == 0 {
+		s := new(uint32)
+		if e = a.Decode(s); e == nil {
+			*v = VendorID(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
+}
+
 // GetVendorID get AVP value
 func GetVendorID(o GroupedAVP) (VendorID, bool) {
 	a, ok := o.Get(266, 0)
@@ -311,6 +339,19 @@ func (v ProductName) Encode() Avp {
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(string(v))
 	return a
+}
+
+// Decode get AVP value
+func (v *ProductName) Decode(a Avp) (e error) {
+	if a.Code == 269 && a.VenID == 0 {
+		s := new(string)
+		if e = a.Decode(s); e == nil {
+			*v = ProductName(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
 }
 
 // GetProductName get AVP value
@@ -335,6 +376,19 @@ func (v ResultCode) Encode() Avp {
 	return a
 }
 
+// Decode get AVP value
+func (v *ResultCode) Decode(a Avp) (e error) {
+	if a.Code == 268 && a.VenID == 0 {
+		s := new(uint32)
+		if e = a.Decode(s); e == nil {
+			*v = ResultCode(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
+}
+
 // GetResultCode get AVP value
 func GetResultCode(o GroupedAVP) (ResultCode, bool) {
 	a, ok := o.Get(268, 0)
@@ -355,6 +409,19 @@ func (v DisconnectCause) Encode() Avp {
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(Enumerated(v))
 	return a
+}
+
+// Decode get AVP value
+func (v *DisconnectCause) Decode(a Avp) (e error) {
+	if a.Code == 273 && a.VenID == 0 {
+		s := new(Enumerated)
+		if e = a.Decode(s); e == nil {
+			*v = DisconnectCause(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
 }
 
 // GetDisconnectCause get AVP value
@@ -388,6 +455,19 @@ func (v UserName) Encode() Avp {
 	return a
 }
 
+// Decode get AVP value
+func (v *UserName) Decode(a Avp) (e error) {
+	if a.Code == 1 && a.VenID == 0 {
+		s := new(string)
+		if e = a.Decode(s); e == nil {
+			*v = UserName(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
+}
+
 // GetUserName get AVP value
 func GetUserName(o GroupedAVP) (UserName, bool) {
 	a, ok := o.Get(1, 0)
@@ -408,6 +488,19 @@ func (v FirmwareRevision) Encode() Avp {
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(uint32(v))
 	return a
+}
+
+// Decode get AVP value
+func (v *FirmwareRevision) Decode(a Avp) (e error) {
+	if a.Code == 267 && a.VenID == 0 {
+		s := new(uint32)
+		if e = a.Decode(s); e == nil {
+			*v = FirmwareRevision(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
 }
 
 // GetFirmwareRevision get AVP value
@@ -432,6 +525,19 @@ func (v OriginStateID) Encode() Avp {
 	return a
 }
 
+// Decode get AVP value
+func (v *OriginStateID) Decode(a Avp) (e error) {
+	if a.Code == 278 && a.VenID == 0 {
+		s := new(uint32)
+		if e = a.Decode(s); e == nil {
+			*v = OriginStateID(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
+}
+
 // GetOriginStateID get AVP value
 func GetOriginStateID(o GroupedAVP) (OriginStateID, bool) {
 	a, ok := o.Get(278, 0)
@@ -452,6 +558,19 @@ func (v SupportedVendorID) Encode() Avp {
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(uint32(v))
 	return a
+}
+
+// Decode get AVP value
+func (v *SupportedVendorID) Decode(a Avp) (e error) {
+	if a.Code == 265 && a.VenID == 0 {
+		s := new(uint32)
+		if e = a.Decode(s); e == nil {
+			*v = SupportedVendorID(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
 }
 
 // GetSupportedVendorID get AVP value
@@ -510,6 +629,19 @@ func (v AuthApplicationID) Encode() Avp {
 	return a
 }
 
+// Decode get AVP value
+func (v *AuthApplicationID) Decode(a Avp) (e error) {
+	if a.Code == 258 && a.VenID == 0 {
+		s := new(uint32)
+		if e = a.Decode(s); e == nil {
+			*v = AuthApplicationID(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
+}
+
 // GetAuthApplicationID get AVP value
 func GetAuthApplicationID(o GroupedAVP) (AuthApplicationID, bool) {
 	a, ok := o.Get(258, 0)
@@ -552,6 +684,19 @@ func (v AcctApplicationID) Encode() Avp {
 	return a
 }
 
+// Decode get AVP value
+func (v *AcctApplicationID) Decode(a Avp) (e error) {
+	if a.Code == 259 && a.VenID == 0 {
+		s := new(uint32)
+		if e = a.Decode(s); e == nil {
+			*v = AcctApplicationID(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
+}
+
 // GetAcctApplicationID get AVP value
 func GetAcctApplicationID(o GroupedAVP) (AcctApplicationID, bool) {
 	a, ok := o.Get(259, 0)
@@ -589,6 +734,21 @@ func (v VendorSpecificApplicationID) Encode() Avp {
 		v.VendorID.Encode(),
 		v.App.Encode()}))
 	return a
+}
+
+// Decode get AVP value
+func (v *VendorSpecificApplicationID) Decode(a Avp) (e error) {
+	if a.Code == 260 && a.VenID == 0 {
+		s := VendorSpecificApplicationID{}
+		o := GroupedAVP{}
+		a.Decode(&o)
+		s.VendorID, _ = GetVendorID(o)
+		s.App, _ = getApplicationID(o)
+		*v = s
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
 }
 
 // GetVendorSpecificApplicationID get AVP value
@@ -631,6 +791,19 @@ func (v ErrorMessage) Encode() Avp {
 	return a
 }
 
+// Decode get AVP value
+func (v *ErrorMessage) Decode(a Avp) (e error) {
+	if a.Code == 281 && a.VenID == 0 {
+		s := new(string)
+		if e = a.Decode(s); e == nil {
+			*v = ErrorMessage(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
+}
+
 // GetErrorMessage get AVP value
 func GetErrorMessage(o GroupedAVP) (ErrorMessage, bool) {
 	a, ok := o.Get(281, 0)
@@ -651,6 +824,19 @@ func (v FailedAVP) Encode() Avp {
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(GroupedAVP(v))
 	return a
+}
+
+// Decode get AVP value
+func (v *FailedAVP) Decode(a Avp) (e error) {
+	if a.Code == 279 && a.VenID == 0 {
+		s := new(GroupedAVP)
+		if e = a.Decode(s); e == nil {
+			*v = FailedAVP(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
 }
 
 // GetFailedAVP get AVP value
@@ -684,6 +870,25 @@ func (v ExperimentalResult) Encode() Avp {
 	return a
 }
 
+// Decode get AVP value
+func (v *ExperimentalResult) Decode(a Avp) (e error) {
+	if a.Code == 297 && a.VenID == 0 {
+		s := ExperimentalResult{}
+		o := GroupedAVP{}
+		a.Decode(&o)
+		if t, ok := GetVendorID(o); ok {
+			s.VendorID = t
+		}
+		if t, ok := o.Get(298, 0); ok {
+			t.Decode(&s.Code)
+		}
+		*v = s
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
+}
+
 // GetExperimentalResult get AVP value
 func GetExperimentalResult(o GroupedAVP) (ExperimentalResult, bool) {
 	s := ExperimentalResult{}
@@ -706,11 +911,24 @@ func GetExperimentalResult(o GroupedAVP) (ExperimentalResult, bool) {
 type RouteRecord DiameterIdentity
 
 // Encode return AVP struct of this value
-func (v RouteRecord) Encode() Avp {
+func (v *RouteRecord) Encode() Avp {
 	a := Avp{Code: 282, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
-	a.Encode(DiameterIdentity(v))
+	a.Encode(DiameterIdentity(*v))
 	return a
+}
+
+// Decode get AVP value
+func (v *RouteRecord) Decode(a Avp) (e error) {
+	if a.Code == 282 && a.VenID == 0 {
+		s := new(DiameterIdentity)
+		if e = a.Decode(s); e == nil {
+			*v = RouteRecord(*s)
+		}
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
 }
 
 // GetRouteRecord get AVP value
@@ -743,7 +961,7 @@ type ProxyInfo struct {
 }
 
 // Encode return AVP struct of this value
-func (v ProxyInfo) Encode() Avp {
+func (v *ProxyInfo) Encode() Avp {
 	t := make([]Avp, 2)
 	t[0] = Avp{Code: 280, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
@@ -756,6 +974,27 @@ func (v ProxyInfo) Encode() Avp {
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(GroupedAVP(t))
 	return a
+}
+
+// Decode get AVP value
+func (v *ProxyInfo) Decode(a Avp) (e error) {
+	if a.Code == 284 && a.VenID == 0 {
+		s := ProxyInfo{}
+		o := GroupedAVP{}
+		a.Decode(&o)
+		if t, ok := o.Get(280, 0); ok {
+			t.Decode(&s.DiameterIdentity)
+		}
+		if t, ok := o.Get(33, 0); ok {
+			stat := new([]byte)
+			t.Decode(stat)
+			s.State = string(*stat)
+		}
+		*v = s
+	} else {
+		e = InvalidAVPError{}
+	}
+	return
 }
 
 // GetProxyInfo get AVP value

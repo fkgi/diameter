@@ -120,8 +120,8 @@ func (v eventWatchdog) exec(c *Conn) error {
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
-	c.wCounter++
-	if c.wCounter > c.peer.WDExpired {
+	c.wdCounter++
+	if c.wdCounter > c.peer.WDExpired {
 		c.con.Close()
 		return WatchdogExpired{}
 	}
@@ -138,10 +138,6 @@ func (v eventWatchdog) exec(c *Conn) error {
 	Notify(WatchdogEvent{tx: true, req: true, conn: c, Err: e})
 	if e != nil {
 		c.con.Close()
-		//} else {
-		//	c.wTimer = time.AfterFunc(c.peer.WDInterval, func() {
-		//		c.notify <- eventWatchdog{}
-		//	})
 	}
 	return e
 }
@@ -159,7 +155,7 @@ func (v eventStop) exec(c *Conn) error {
 	}
 
 	c.state = closing
-	c.wTimer.Stop()
+	c.sysTimer.Stop()
 
 	req := MakeDPR(c)
 	nak := msg.DPA{
@@ -172,16 +168,6 @@ func (v eventStop) exec(c *Conn) error {
 	Notify(PurgeEvent{tx: true, req: true, conn: c, Err: e})
 	if e != nil {
 		c.con.Close()
-		//	} else {
-		//		c.wTimer = time.AfterFunc(
-		//			c.peer.SndTimeout,
-		//			func() {
-		//				delete(c.sndstack, m.HbHID)
-		//				c.con.Close()
-		//notify(&PurgeEvent{
-		//	Tx: false, Req: false, Local: c.local, Peer: c.peer,
-		//	Err: fmt.Errorf("no answer")})
-		//			})
 	}
 	return e
 }
@@ -216,9 +202,7 @@ func (v eventSndMsg) exec(c *Conn) error {
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
-	c.setTransportDeadline()
-	_, e := v.m.WriteTo(c.con)
-
+	e := c.write(v.m)
 	Notify(MessageEvent{tx: true, req: v.m.FlgR, conn: c, Err: e})
 	if e != nil {
 		c.con.Close()

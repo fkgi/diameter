@@ -25,11 +25,8 @@ func init() {
 
 // Local is local node of Diameter
 type Local struct {
-	Realm msg.DiameterIdentity
-	Host  msg.DiameterIdentity
-	//Addr  net.Addr
-
-	StateID msg.OriginStateID
+	Realm, Host msg.DiameterIdentity
+	StateID     msg.OriginStateID
 
 	hbHID     chan uint32
 	etEID     chan uint32
@@ -85,9 +82,7 @@ func (l *Local) NextSession() msg.SessionID {
 
 // Peer is peer node of Diameter
 type Peer struct {
-	Realm msg.DiameterIdentity
-	Host  msg.DiameterIdentity
-	//Addr  net.Addr
+	Realm, Host msg.DiameterIdentity
 
 	WDInterval time.Duration
 	WDExpired  int

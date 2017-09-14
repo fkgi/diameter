@@ -55,16 +55,14 @@ func (v eventRcvCER) exec(c *Conn) error {
 	if cea.ResultCode != msg.DiameterSuccess {
 		m.FlgE = true
 	}
-
-	c.setTransportDeadline()
-	_, e = m.WriteTo(c.con)
+	e = c.write(m)
 
 	if e == nil && cea.ResultCode != msg.DiameterSuccess {
 		e = FailureAnswer{m}
 	}
 	if e == nil {
 		c.state = open
-		c.wTimer = time.AfterFunc(c.peer.WDInterval, func() {
+		c.sysTimer = time.AfterFunc(c.peer.WDInterval, func() {
 			c.notify <- eventWatchdog{}
 		})
 	}
@@ -93,7 +91,7 @@ func (v eventRcvCEA) exec(c *Conn) error {
 		return UnknownIDAnswer{v.m}
 	}
 	delete(c.sndstack, v.m.HbHID)
-	c.wTimer.Stop()
+	c.sysTimer.Stop()
 
 	cea := msg.CEA{}
 	e := cea.Decode(v.m)
@@ -101,7 +99,7 @@ func (v eventRcvCEA) exec(c *Conn) error {
 		HandleCEA(cea, c)
 		if cea.ResultCode == msg.DiameterSuccess {
 			c.state = open
-			c.wTimer = time.AfterFunc(c.peer.WDInterval, func() {
+			c.sysTimer = time.AfterFunc(c.peer.WDInterval, func() {
 				c.notify <- eventWatchdog{}
 			})
 		} else {
@@ -146,16 +144,14 @@ func (v eventRcvDWR) exec(c *Conn) error {
 	if dwa.ResultCode != msg.DiameterSuccess {
 		m.FlgE = true
 	}
-
-	c.setTransportDeadline()
-	_, e = m.WriteTo(c.con)
+	e = c.write(m)
 
 	Notify(WatchdogEvent{tx: true, req: false, conn: c, Err: e})
 	if e != nil {
 		c.con.Close()
 	} else {
-		c.wCounter = 0
-		c.wTimer.Reset(c.peer.WDInterval)
+		c.wdCounter = 0
+		c.sysTimer.Reset(c.peer.WDInterval)
 	}
 	return e
 }
@@ -177,27 +173,23 @@ func (v eventRcvDWA) exec(c *Conn) error {
 		return UnknownIDAnswer{v.m}
 	}
 	delete(c.sndstack, v.m.HbHID)
-	c.wTimer.Stop()
+	c.sysTimer.Stop()
 
 	dwa := msg.DWA{}
 	e := dwa.Decode(v.m)
 	if e == nil {
 		HandleDWA(dwa, c)
 		if dwa.ResultCode == msg.DiameterSuccess {
-			c.wCounter = 0
+			c.wdCounter = 0
 		} else {
 			e = FailureAnswer{v.m}
 		}
 	}
 
 	Notify(WatchdogEvent{tx: false, req: false, conn: c, Err: e})
-	if c.wCounter > c.peer.WDExpired {
-		c.con.Close()
-	} else {
-		c.wTimer = time.AfterFunc(c.peer.WDInterval, func() {
-			c.notify <- eventWatchdog{}
-		})
-	}
+	c.sysTimer = time.AfterFunc(c.peer.WDInterval, func() {
+		c.notify <- eventWatchdog{}
+	})
 	return e
 }
 
@@ -232,11 +224,9 @@ func (v eventRcvDPR) exec(c *Conn) error {
 		m.FlgE = true
 	} else {
 		c.state = closing
-		c.wTimer.Stop()
+		c.sysTimer.Stop()
 	}
-
-	c.setTransportDeadline()
-	_, e = m.WriteTo(c.con)
+	e = c.write(m)
 
 	Notify(&PurgeEvent{tx: true, req: false, conn: c, Err: e})
 	if e != nil {
@@ -261,7 +251,7 @@ func (v eventRcvDPA) exec(c *Conn) error {
 		return UnknownIDAnswer{v.m}
 	}
 	delete(c.sndstack, v.m.HbHID)
-	c.wTimer.Stop()
+	c.sysTimer.Stop()
 
 	dpa := msg.DPA{}
 	e := dpa.Decode(v.m)
@@ -289,19 +279,19 @@ func (v eventRcvMsg) exec(c *Conn) (e error) {
 	if c.state != open {
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
-	c.wTimer.Stop()
+	c.sysTimer.Stop()
 
 	if v.m.FlgR {
 		HandleMSG(v.m, c)
-		c.wCounter = 0
-		c.wTimer = time.AfterFunc(c.peer.WDInterval, func() {
+		c.wdCounter = 0
+		c.sysTimer = time.AfterFunc(c.peer.WDInterval, func() {
 			c.notify <- eventWatchdog{}
 		})
 	} else if ch, ok := c.sndstack[v.m.HbHID]; ok {
 		delete(c.sndstack, v.m.HbHID)
 		ch <- v.m
-		c.wCounter = 0
-		c.wTimer = time.AfterFunc(c.peer.WDInterval, func() {
+		c.wdCounter = 0
+		c.sysTimer = time.AfterFunc(c.peer.WDInterval, func() {
 			c.notify <- eventWatchdog{}
 		})
 	} else {
