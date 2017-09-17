@@ -22,6 +22,7 @@ type Avp struct {
 }
 
 // PrintStack print parameter of AVP
+/*
 func (a Avp) PrintStack(w io.Writer) {
 	fmt.Fprintf(w, "AVP Code      =%d\n", a.Code)
 	fmt.Fprintf(w, "Flags        V=%t, M=%t, P=%t\n", a.FlgV, a.FlgM, a.FlgP)
@@ -31,7 +32,7 @@ func (a Avp) PrintStack(w io.Writer) {
 	}
 	fmt.Fprintf(w, "Data          =% x\n", a.data)
 }
-
+*/
 func (a Avp) String() string {
 	w := new(bytes.Buffer)
 	fmt.Fprintf(w, "%s%sAVP Code      =%d\n", Indent, Indent, a.Code)
@@ -47,7 +48,6 @@ func (a Avp) String() string {
 
 // WriteTo wite binary data to io.Writer
 func (a Avp) WriteTo(w io.Writer) (n int64, e error) {
-	// set length value
 	a.leng = uint32(8 + len(a.data))
 	if a.FlgV {
 		a.leng += 4

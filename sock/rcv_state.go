@@ -146,12 +146,16 @@ func (v eventRcvDWR) exec(c *Conn) error {
 	}
 	e = c.write(m)
 
+	if e == nil && dwa.ResultCode != msg.DiameterSuccess {
+		e = FailureAnswer{m}
+	}
+	if e == nil {
+		c.sysTimer.Reset(c.peer.WDInterval)
+	}
+
 	Notify(WatchdogEvent{tx: true, req: false, conn: c, Err: e})
 	if e != nil {
 		c.con.Close()
-	} else {
-		c.wdCounter = 0
-		c.sysTimer.Reset(c.peer.WDInterval)
 	}
 	return e
 }
@@ -172,8 +176,8 @@ func (v eventRcvDWA) exec(c *Conn) error {
 	if _, ok := c.sndstack[v.m.HbHID]; !ok {
 		return UnknownIDAnswer{v.m}
 	}
+	c.sndstack[v.m.HbHID] <- v.m
 	delete(c.sndstack, v.m.HbHID)
-	c.sysTimer.Stop()
 
 	dwa := msg.DWA{}
 	e := dwa.Decode(v.m)
@@ -181,15 +185,13 @@ func (v eventRcvDWA) exec(c *Conn) error {
 		HandleDWA(dwa, c)
 		if dwa.ResultCode == msg.DiameterSuccess {
 			c.wdCounter = 0
+			c.sysTimer.Reset(c.peer.WDInterval)
 		} else {
 			e = FailureAnswer{v.m}
 		}
 	}
 
 	Notify(WatchdogEvent{tx: false, req: false, conn: c, Err: e})
-	c.sysTimer = time.AfterFunc(c.peer.WDInterval, func() {
-		c.notify <- eventWatchdog{}
-	})
 	return e
 }
 
@@ -225,6 +227,9 @@ func (v eventRcvDPR) exec(c *Conn) error {
 	} else {
 		c.state = closing
 		c.sysTimer.Stop()
+		c.sysTimer = time.AfterFunc(c.peer.SndTimeout, func() {
+			c.con.Close()
+		})
 	}
 	e = c.write(m)
 
@@ -279,21 +284,14 @@ func (v eventRcvMsg) exec(c *Conn) (e error) {
 	if c.state != open {
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
-	c.sysTimer.Stop()
 
 	if v.m.FlgR {
 		HandleMSG(v.m, c)
-		c.wdCounter = 0
-		c.sysTimer = time.AfterFunc(c.peer.WDInterval, func() {
-			c.notify <- eventWatchdog{}
-		})
+		c.sysTimer.Reset(c.peer.WDInterval)
 	} else if ch, ok := c.sndstack[v.m.HbHID]; ok {
 		delete(c.sndstack, v.m.HbHID)
 		ch <- v.m
-		c.wdCounter = 0
-		c.sysTimer = time.AfterFunc(c.peer.WDInterval, func() {
-			c.notify <- eventWatchdog{}
-		})
+		c.sysTimer.Reset(c.peer.WDInterval)
 	} else {
 		return UnknownIDAnswer{v.m}
 	}

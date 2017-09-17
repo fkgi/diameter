@@ -4,32 +4,49 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/fkgi/diameter/connection"
-	"github.com/fkgi/diameter/example/common"
+	"github.com/fkgi/diameter/msg"
+	"github.com/fkgi/diameter/sock"
 )
 
 func main() {
-	logger := log.New(os.Stderr, "", log.Ltime|log.Lmicroseconds)
-	connection.Notificator = func(e connection.Notice) { e.Log(logger) }
-	common.Log = logger
+	log.Println("initiator sample booting ...")
 
-	logger.Println("initiator sample booting ...")
+	ln := sock.Local{
+		Host:  "init.test.com",
+		Realm: "test.com",
+		AuthApps: map[msg.VendorID][]msg.ApplicationID{
+			0: []msg.ApplicationID{msg.AuthApplicationID(0xffffffff)}}}
+	pn := sock.Peer{
+		Host:       "hub.test.com",
+		Realm:      "test.com",
+		WDInterval: time.Second * 30,
+		WDExpired:  3,
+		SndTimeout: time.Second * 10,
+		Handler:    handler,
+		AuthApps: map[msg.VendorID][]msg.ApplicationID{
+			0: []msg.ApplicationID{msg.AuthApplicationID(0xffffffff)}}}
 
-	isock, osock, conf := common.GeneratePath("initiator")
-	ln := connection.LocalNode{}
-	pn := connection.PeerNode{}
-	_, pa := common.LoadConfig(conf, &ln, &pn)
-
-	il, ol := common.ListenUnixSock(isock, osock)
-
-	logger.Println("connecting ...")
-	c, e := net.Dial(pa.Network(), pa.String())
+	log.Println("connecting ...")
+	c, e := net.Dial("tcp", "localhost:3868")
 	if e != nil {
-		logger.Fatalln(e)
+		log.Fatalln(" | invalid address:", e)
 	}
-	con := ln.Dial(&pn, c)
-	common.RunUnixsockRelay(con, il, ol)
+	con, _ := ln.Dial(&pn, c)
 
-	common.CloseUnixSock(isock, osock)
+	sigc := make(chan os.Signal)
+	signal.Notify(sigc, os.Interrupt, os.Kill, syscall.SIGTERM)
+	<-sigc
+	log.Println("shutdown ...")
+	con.Close(time.Millisecond * 100)
+	for con.State() != "close" {
+		time.Sleep(time.Millisecond * 100)
+	}
+}
+
+func handler(m msg.Message) msg.Message {
+	return msg.Message{}
 }

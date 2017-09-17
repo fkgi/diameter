@@ -41,7 +41,8 @@ var MakeCER = func(c *Conn) msg.CER {
 		s = s[:strings.LastIndex(s, ":")]
 		r.HostIPAddress = []msg.HostIPAddress{}
 		for _, i := range strings.Split(s, "/") {
-			r.HostIPAddress = append(r.HostIPAddress, msg.HostIPAddress(net.ParseIP(i)))
+			r.HostIPAddress = append(r.HostIPAddress,
+				msg.HostIPAddress(net.ParseIP(i)))
 		}
 	}
 	if c.local.StateID != 0 {

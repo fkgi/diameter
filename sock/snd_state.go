@@ -2,6 +2,7 @@ package sock
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/fkgi/diameter/msg"
 )
@@ -126,17 +127,34 @@ func (v eventWatchdog) exec(c *Conn) error {
 		return WatchdogExpired{}
 	}
 
-	req := MakeDWR(c)
-	nak := msg.DWA{
-		ResultCode:    msg.DiameterUnableToDeliver,
-		OriginHost:    req.OriginHost,
-		OriginRealm:   req.OriginRealm,
-		ErrorMessage:  &timeoutMsg,
-		OriginStateID: req.OriginStateID}
-	e := c.sendSysMsg(req.Encode(), nak.Encode())
+	dwr := MakeDWR(c)
+	req := dwr.Encode()
+	req.HbHID = c.local.NextHbH()
+	req.EtEID = c.local.NextEtE()
+	ch := make(chan msg.Message)
+	c.sndstack[req.HbHID] = ch
+
+	e := c.write(req)
 
 	Notify(WatchdogEvent{tx: true, req: true, conn: c, Err: e})
-	if e != nil {
+	if e == nil {
+		go func() {
+			t := time.AfterFunc(c.peer.SndTimeout, func() {
+				dwa := msg.DWA{
+					ResultCode:    msg.DiameterUnableToDeliver,
+					OriginHost:    dwr.OriginHost,
+					OriginRealm:   dwr.OriginRealm,
+					ErrorMessage:  &timeoutMsg,
+					OriginStateID: dwr.OriginStateID}
+				nak := dwa.Encode()
+				nak.HbHID = req.HbHID
+				nak.EtEID = req.EtEID
+				c.notify <- eventRcvDWA{nak}
+			})
+			<-ch
+			t.Stop()
+		}()
+	} else {
 		c.con.Close()
 	}
 	return e

@@ -100,5 +100,5 @@ type PurgeEvent struct {
 }
 
 func (e PurgeEvent) String() string {
-	return msgHandleLog(e.tx, e.req, e.conn, e.Err, "PUR", "PUA")
+	return msgHandleLog(e.tx, e.req, e.conn, e.Err, "DPR", "DPA")
 }

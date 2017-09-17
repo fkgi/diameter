@@ -17,6 +17,19 @@ var (
 	Indent = " | "
 )
 
+// Request is Diameter request
+type Request interface {
+	Encode() (Message, error)
+	Decode(Message) error
+	TimeoutMsg() Answer
+}
+
+// Answer is Diameter answer
+type Answer interface {
+	Encode() (Message, error)
+	Decode(Message) error
+}
+
 // Message is Diameter message
 type Message struct {
 	Ver   uint8  // Version = 1
@@ -33,10 +46,12 @@ type Message struct {
 }
 
 // PrintStack show message parameter
+/*
 func (m Message) PrintStack(w io.Writer) {
 	fmt.Fprintf(w, "Version       =%d\n", m.Ver)
 	fmt.Fprintf(w, "Message Length=%d\n", m.leng)
-	fmt.Fprintf(w, "Flags        R=%t, P=%t, E=%t, T=%t\n", m.FlgR, m.FlgP, m.FlgE, m.FlgT)
+	fmt.Fprintf(w, "Flags        R=%t, P=%t, E=%t, T=%t\n",
+		m.FlgR, m.FlgP, m.FlgE, m.FlgT)
 	fmt.Fprintf(w, "Command-Code  =%d\n", m.Code)
 	fmt.Fprintf(w, "Application-ID=%d\n", m.AppID)
 	fmt.Fprintf(w, "Hop-by-Hop ID =%d\n", m.HbHID)
@@ -49,7 +64,7 @@ func (m Message) PrintStack(w io.Writer) {
 		}
 	}
 }
-
+*/
 func (m Message) String() string {
 	w := new(bytes.Buffer)
 	fmt.Fprintf(w, "%sVersion       =%d\n", Indent, m.Ver)

@@ -30,16 +30,7 @@ type Conn struct {
 }
 
 // Dial make new Conn that use specified peernode and connection
-func Dial(l *Local, p *Peer, c net.Conn) (*Conn, error) {
-	/*
-		dialer := net.Dialer{
-			Timeout:   TransportTimeout,
-			LocalAddr: l.Addr}
-		c, e := dialer.Dial(p.Addr.Network(), p.Addr.String())
-		if e != nil {
-			return nil, e
-		}
-	*/
+func (l *Local) Dial(p *Peer, c net.Conn) (*Conn, error) {
 	con := &Conn{
 		local:    l,
 		peer:     p,
@@ -55,18 +46,7 @@ func Dial(l *Local, p *Peer, c net.Conn) (*Conn, error) {
 }
 
 // Accept new transport connection and return Conn
-func Accept(l *Local, p *Peer, c net.Conn) (*Conn, error) {
-	/*
-		lnr, e := net.Listen(l.Addr.Network(), l.Addr.String())
-		if e != nil {
-			return nil, e
-		}
-		c, e := lnr.Accept()
-		lnr.Close()
-		if e != nil {
-			return nil, e
-		}
-	*/
+func (l *Local) Accept(p *Peer, c net.Conn) (*Conn, error) {
 	con := &Conn{
 		local:    l,
 		peer:     p,
@@ -79,8 +59,13 @@ func Accept(l *Local, p *Peer, c net.Conn) (*Conn, error) {
 	return con, nil
 }
 
+// State return status of connection
+func (c *Conn) State() string {
+	return c.state.String()
+}
+
 // Close stop state machine
-func (c *Conn) Close(timeout int) {
+func (c *Conn) Close(timeout time.Duration) {
 	if c.state != open {
 		return
 	}
@@ -224,8 +209,6 @@ func (c *Conn) sendSysMsg(req, nak msg.Message) error {
 			c.notify <- eventRcvCEA{nak}
 		case 282:
 			c.notify <- eventRcvDPA{nak}
-		case 280:
-			c.notify <- eventRcvDWA{nak}
 		}
 	})
 	return nil
