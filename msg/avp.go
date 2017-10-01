@@ -10,35 +10,27 @@ import (
 	"time"
 )
 
-// Avp is AVP data and header
-type Avp struct {
+// AVP value
+type AVP interface {
+	ToRaw() RawAVP
+	FromRaw(RawAVP) (AVP, error)
+}
+
+// RawAVP is AVP data and header
+type RawAVP struct {
 	Code  uint32 // AVP Code
 	FlgV  bool   // Vendor Specific AVP Flag
 	FlgM  bool   // Mandatory AVP Flag
 	FlgP  bool   // Protected AVP Flag
-	leng  uint32 // AVP Length (24bit)
 	VenID uint32 // Vendor-ID
 	data  []byte // AVP Data
 }
 
-// PrintStack print parameter of AVP
-/*
-func (a Avp) PrintStack(w io.Writer) {
-	fmt.Fprintf(w, "AVP Code      =%d\n", a.Code)
-	fmt.Fprintf(w, "Flags        V=%t, M=%t, P=%t\n", a.FlgV, a.FlgM, a.FlgP)
-	fmt.Fprintf(w, "AVP Length    =%d\n", a.leng)
-	if a.FlgV {
-		fmt.Fprintf(w, "Vendor-ID     =%d\n", a.VenID)
-	}
-	fmt.Fprintf(w, "Data          =% x\n", a.data)
-}
-*/
-func (a Avp) String() string {
+func (a RawAVP) String() string {
 	w := new(bytes.Buffer)
 	fmt.Fprintf(w, "%s%sAVP Code      =%d\n", Indent, Indent, a.Code)
 	fmt.Fprintf(w, "%s%sFlags        V=%t, M=%t, P=%t\n",
 		Indent, Indent, a.FlgV, a.FlgM, a.FlgP)
-	fmt.Fprintf(w, "%s%sAVP Length    =%d\n", Indent, Indent, a.leng)
 	if a.FlgV {
 		fmt.Fprintf(w, "%s%sVendor-ID     =%d\n", Indent, Indent, a.VenID)
 	}
@@ -46,47 +38,43 @@ func (a Avp) String() string {
 	return w.String()
 }
 
+// Validate header value
+func (a RawAVP) Validate(i, c uint32, v, m, p bool) error {
+	if a.VenID != i || a.Code != c {
+		return InvalidAVPError{}
+	} else if a.FlgV != v || a.FlgM != m || a.FlgP != p {
+		return InvalidAVPError{}
+	}
+	return nil
+}
+
 // WriteTo wite binary data to io.Writer
-func (a Avp) WriteTo(w io.Writer) (n int64, e error) {
-	a.leng = uint32(8 + len(a.data))
+func (a RawAVP) WriteTo(w io.Writer) (n int64, e error) {
+	b := new(bytes.Buffer)
+	binary.Write(b, binary.BigEndian, a.Code)
+	b.Write(botob(a.FlgV, a.FlgM, a.FlgP))
+
+	lng := uint32(8 + len(a.data))
 	if a.FlgV {
-		a.leng += 4
+		lng += 4
 	}
-
-	i := 0
-	if e = binary.Write(w, binary.BigEndian, a.Code); e != nil {
-		return
-	}
-	n += 4
-	if i, e = w.Write(botob(a.FlgV, a.FlgM, a.FlgP)); e != nil {
-		return
-	}
-	n += int64(i)
-
 	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.BigEndian, a.leng)
-	if i, e = w.Write(buf.Bytes()[1:4]); e != nil {
-		return
-	}
-	n += int64(i)
-	if a.FlgV {
-		if e = binary.Write(w, binary.BigEndian, a.VenID); e != nil {
-			return
-		}
-		n += 4
-	}
-	if i, e = w.Write(a.data); e != nil {
-		return
-	}
-	n += int64(i)
+	binary.Write(buf, binary.BigEndian, lng)
+	b.Write(buf.Bytes()[1:4])
 
-	i, e = w.Write(make([]byte, (4-len(a.data)%4)%4))
-	n += int64(i)
-	return
+	if a.FlgV {
+		binary.Write(b, binary.BigEndian, a.VenID)
+	}
+	b.Write(a.data)
+
+	b.Write(make([]byte, (4-len(a.data)%4)%4))
+
+	i, e := w.Write(b.Bytes())
+	return int64(i), e
 }
 
 // ReadFrom read binary data from io.Reader
-func (a *Avp) ReadFrom(r io.Reader) (n int64, e error) {
+func (a *RawAVP) ReadFrom(r io.Reader) (n int64, e error) {
 	buf, i, e := subread(r, 8)
 	n += int64(i)
 	if e != nil {
@@ -101,8 +89,9 @@ func (a *Avp) ReadFrom(r io.Reader) (n int64, e error) {
 	a.FlgP = flgs[2]
 
 	buf[4] = 0x00
-	binary.Read(bytes.NewBuffer(buf[4:8]), binary.BigEndian, &a.leng)
-	l := a.leng - 8
+	var lng uint32
+	binary.Read(bytes.NewBuffer(buf[4:8]), binary.BigEndian, &lng)
+	l := lng - 8
 
 	if a.FlgV {
 		buf, i, e = subread(r, 4)
@@ -120,14 +109,14 @@ func (a *Avp) ReadFrom(r io.Reader) (n int64, e error) {
 		return
 	}
 
-	_, i, e = subread(r, (4-int(a.leng%4))%4)
+	_, i, e = subread(r, (4-int(lng%4))%4)
 	n += int64(i)
 
 	return
 }
 
 // Encode make AVP from primitive go value
-func (a *Avp) Encode(d interface{}) (e error) {
+func (a *RawAVP) Encode(d interface{}) (e error) {
 	switch d := d.(type) {
 	case nil:
 		a.data = []byte{}
@@ -164,18 +153,11 @@ func (a *Avp) Encode(d interface{}) (e error) {
 	default:
 		e = &UnknownAVPTypeError{}
 	}
-
-	if e != nil {
-		a.leng = uint32(8 + len(a.data))
-		if a.FlgV {
-			a.leng += 4
-		}
-	}
 	return
 }
 
 // Decode make primitive go value from AVP
-func (a Avp) Decode(d interface{}) (e error) {
+func (a RawAVP) Decode(d interface{}) (e error) {
 	if a.data == nil {
 		d = nil
 		return
@@ -219,88 +201,88 @@ func (a Avp) Decode(d interface{}) (e error) {
 
 // Basic Data Format AVP
 // OctetString
-func (a *Avp) setOctetStringData(d []byte) (e error) {
+func (a *RawAVP) setOctetStringData(d []byte) (e error) {
 	a.data = make([]byte, len(d))
 	copy(a.data, d)
 	return
 }
 
-func (a Avp) getOctetStringData(d *[]byte) (e error) {
+func (a RawAVP) getOctetStringData(d *[]byte) (e error) {
 	*d = a.data
 	return
 }
 
 // Integer32
-func (a *Avp) setInteger32Data(d int32) (e error) {
+func (a *RawAVP) setInteger32Data(d int32) (e error) {
 	a.data, e = numConv(d)
 	return
 }
 
-func (a Avp) getInteger32Data(d interface{}) (e error) {
+func (a RawAVP) getInteger32Data(d interface{}) (e error) {
 	e = numRConv(a.data, 4, d)
 	return
 }
 
 // Integer64
-func (a *Avp) setInteger64Data(d int64) (e error) {
+func (a *RawAVP) setInteger64Data(d int64) (e error) {
 	a.data, e = numConv(d)
 	return
 }
 
-func (a Avp) getInteger64Data(d *int64) (e error) {
+func (a RawAVP) getInteger64Data(d *int64) (e error) {
 	e = numRConv(a.data, 8, d)
 	return
 }
 
 // Unsigned32
-func (a *Avp) setUnsigned32Data(d uint32) (e error) {
+func (a *RawAVP) setUnsigned32Data(d uint32) (e error) {
 	a.data, e = numConv(d)
 	return
 }
 
-func (a Avp) getUnsigned32Data(d *uint32) (e error) {
+func (a RawAVP) getUnsigned32Data(d *uint32) (e error) {
 	e = numRConv(a.data, 4, d)
 	return
 }
 
 // Unsigned64
-func (a *Avp) setUnsigned64Data(d uint64) (e error) {
+func (a *RawAVP) setUnsigned64Data(d uint64) (e error) {
 	a.data, e = numConv(d)
 	return
 }
 
-func (a Avp) getUnsigned64Data(d *uint64) (e error) {
+func (a RawAVP) getUnsigned64Data(d *uint64) (e error) {
 	e = numRConv(a.data, 8, d)
 	return
 }
 
 // Float32
-func (a *Avp) setFloat32Data(d float32) (e error) {
+func (a *RawAVP) setFloat32Data(d float32) (e error) {
 	a.data, e = numConv(d)
 	return
 }
 
-func (a Avp) getFloat32Data(d *float32) (e error) {
+func (a RawAVP) getFloat32Data(d *float32) (e error) {
 	e = numRConv(a.data, 4, d)
 	return
 }
 
 // Float64
-func (a *Avp) setFloat64Data(d float64) (e error) {
+func (a *RawAVP) setFloat64Data(d float64) (e error) {
 	a.data, e = numConv(d)
 	return
 }
 
-func (a Avp) getFloat64Data(d *float64) (e error) {
+func (a RawAVP) getFloat64Data(d *float64) (e error) {
 	e = numRConv(a.data, 8, d)
 	return
 }
 
 // GroupedAVP is Grouped format AVP value
-type GroupedAVP []Avp
+type GroupedAVP []RawAVP
 
 // Grouped
-func (a *Avp) setGroupedData(d GroupedAVP) (e error) {
+func (a *RawAVP) setGroupedData(d GroupedAVP) (e error) {
 	buf := new(bytes.Buffer)
 	for _, avp := range d {
 		_, e = avp.WriteTo(buf)
@@ -311,10 +293,10 @@ func (a *Avp) setGroupedData(d GroupedAVP) (e error) {
 	return
 }
 
-func (a Avp) getGroupedData(d *GroupedAVP) (e error) {
-	*d = make([]Avp, 0)
+func (a RawAVP) getGroupedData(d *GroupedAVP) (e error) {
+	*d = make([]RawAVP, 0)
 	for buf := bytes.NewReader(a.data); buf.Len() != 0; {
-		avp := Avp{}
+		avp := RawAVP{}
 		if _, e = avp.ReadFrom(buf); e != nil {
 			break
 		}
@@ -325,7 +307,7 @@ func (a Avp) getGroupedData(d *GroupedAVP) (e error) {
 
 // Common Derived AVP Data Formats
 // Address
-func (a *Avp) setAddressData(ip net.IP) (e error) {
+func (a *RawAVP) setAddressData(ip net.IP) (e error) {
 	if ip.To4() != nil {
 		ip = ip.To4()
 		a.data = make([]byte, 6)
@@ -348,7 +330,7 @@ func (a *Avp) setAddressData(ip net.IP) (e error) {
 	return
 }
 
-func (a Avp) getAddressData(ip *net.IP) (e error) {
+func (a RawAVP) getAddressData(ip *net.IP) (e error) {
 	if len(a.data) == 6 && a.data[0] == 0x00 && a.data[1] == 0x01 {
 		*ip = net.IP(a.data[2:6])
 	} else if len(a.data) == 18 && a.data[0] == 0x00 && a.data[1] == 0x02 {
@@ -360,12 +342,12 @@ func (a Avp) getAddressData(ip *net.IP) (e error) {
 }
 
 // Time
-func (a *Avp) setTimeData(t time.Time) (e error) {
+func (a *RawAVP) setTimeData(t time.Time) (e error) {
 	a.data, e = numConv(int64(t.Unix() + 2208988800))
 	return
 }
 
-func (a Avp) getTimeData(t *time.Time) (e error) {
+func (a RawAVP) getTimeData(t *time.Time) (e error) {
 	var d uint64
 	if e = numRConv(a.data, 8, &d); e != nil {
 		*t = time.Unix(int64(d-2208988800), int64(0))
@@ -374,34 +356,34 @@ func (a Avp) getTimeData(t *time.Time) (e error) {
 }
 
 // UTF8String
-func (a *Avp) setUTF8StringData(s string) (e error) {
+func (a *RawAVP) setUTF8StringData(s string) (e error) {
 	a.data = []byte(strings.TrimSpace(s))
 	return
 }
 
-func (a Avp) getUTF8StringData(s *string) (e error) {
+func (a RawAVP) getUTF8StringData(s *string) (e error) {
 	*s = string(a.data)
 	return
 }
 
 // DiameterIdentity
-func (a *Avp) setDiameterIdentityData(u DiameterIdentity) (e error) {
+func (a *RawAVP) setDiameterIdentityData(u DiameterIdentity) (e error) {
 	a.data = []byte(u)
 	return
 }
 
-func (a Avp) getDiameterIdentityData(u *DiameterIdentity) (e error) {
+func (a RawAVP) getDiameterIdentityData(u *DiameterIdentity) (e error) {
 	*u, e = ParseDiameterIdentity(string(a.data))
 	return
 }
 
 // DiameterURI
-func (a *Avp) setDiameterURIData(u DiameterURI) (e error) {
+func (a *RawAVP) setDiameterURIData(u DiameterURI) (e error) {
 	a.data = []byte(u.String())
 	return
 }
 
-func (a Avp) getDiameterURIData(u *DiameterURI) (e error) {
+func (a RawAVP) getDiameterURIData(u *DiameterURI) (e error) {
 	*u, e = ParseDiameterURI(string(a.data))
 	return
 }
@@ -410,12 +392,12 @@ func (a Avp) getDiameterURIData(u *DiameterURI) (e error) {
 type Enumerated int32
 
 // Enumerated
-func (a *Avp) setEnumeratedData(n Enumerated) (e error) {
+func (a *RawAVP) setEnumeratedData(n Enumerated) (e error) {
 	a.data, e = numConv(int32(n))
 	return
 }
 
-func (a Avp) getEnumeratedData(n *Enumerated) (e error) {
+func (a RawAVP) getEnumeratedData(n *Enumerated) (e error) {
 	e = numRConv(a.data, 4, n)
 	return
 }
@@ -424,12 +406,12 @@ func (a Avp) getEnumeratedData(n *Enumerated) (e error) {
 type IPFilterRule string
 
 // IPFilterRule
-func (a *Avp) setIPFilterRuleData(s IPFilterRule) (e error) {
+func (a *RawAVP) setIPFilterRuleData(s IPFilterRule) (e error) {
 	a.data = []byte(s)
 	return
 }
 
-func (a Avp) getIPFilterRuleData(s *IPFilterRule) (e error) {
+func (a RawAVP) getIPFilterRuleData(s *IPFilterRule) (e error) {
 	*s = IPFilterRule(a.data)
 	return
 }

@@ -17,8 +17,7 @@ var (
 
 // Conn is state machine of Diameter
 type Conn struct {
-	local *Local
-	peer  *Peer
+	peer *Peer
 
 	sysTimer  *time.Timer // system message timer
 	wdCounter int         // watchdog expired counter
@@ -26,18 +25,17 @@ type Conn struct {
 	notify chan stateEvent
 	state
 	con      net.Conn
-	sndstack map[uint32]chan msg.Message
+	sndstack map[uint32]chan msg.Answer
 }
 
 // Dial make new Conn that use specified peernode and connection
-func (l *Local) Dial(p *Peer, c net.Conn) (*Conn, error) {
+func Dial(p *Peer, c net.Conn) (*Conn, error) {
 	con := &Conn{
-		local:    l,
 		peer:     p,
 		notify:   make(chan stateEvent),
 		state:    closed,
 		con:      c,
-		sndstack: make(map[uint32]chan msg.Message)}
+		sndstack: make(map[uint32]chan msg.Answer)}
 	con.run()
 
 	con.notify <- eventConnect{}
@@ -46,14 +44,13 @@ func (l *Local) Dial(p *Peer, c net.Conn) (*Conn, error) {
 }
 
 // Accept new transport connection and return Conn
-func (l *Local) Accept(p *Peer, c net.Conn) (*Conn, error) {
+func Accept(p *Peer, c net.Conn) (*Conn, error) {
 	con := &Conn{
-		local:    l,
 		peer:     p,
 		notify:   make(chan stateEvent),
 		state:    waitCER,
 		con:      c,
-		sndstack: make(map[uint32]chan msg.Message)}
+		sndstack: make(map[uint32]chan msg.Answer)}
 	con.run()
 
 	return con, nil
@@ -71,16 +68,6 @@ func (c *Conn) Close(timeout time.Duration) {
 	}
 
 	c.notify <- eventStop{}
-}
-
-// LocalHost returns local host name
-func (c *Conn) LocalHost() msg.DiameterIdentity {
-	return c.local.Host
-}
-
-// LocalRealm returns local realm name
-func (c *Conn) LocalRealm() msg.DiameterIdentity {
-	return c.local.Realm
 }
 
 // LocalAddr returns transport connection of state machine
@@ -104,41 +91,28 @@ func (c *Conn) PeerAddr() net.Addr {
 }
 
 // AuthApplication returns application ID of this connection
-func (c *Conn) AuthApplication() map[msg.VendorID][]msg.ApplicationID {
+func (c *Conn) AuthApplication() map[msg.VendorID][]msg.AuthApplicationID {
 	return c.peer.AuthApps
 }
 
 // Send send Diameter request
-func (c *Conn) Send(r msg.Message) msg.Message {
-	ch := make(chan msg.Message)
-	r.HbHID = c.local.NextHbH()
-	c.sndstack[r.HbHID] = ch
+func (c *Conn) Send(m msg.Request) msg.Answer {
+	req := m.ToRaw()
+	req.HbHID = NextHbH()
+	ch := make(chan msg.Answer)
+	c.sndstack[req.HbHID] = ch
 
-	c.notify <- eventSndMsg{r}
+	c.notify <- eventSndMsg{req}
 
-	t := time.AfterFunc(c.peer.SndTimeout,
-		func() {
-			nack := msg.Message{
-				Ver:  r.Ver,
-				FlgR: false, FlgP: r.FlgP, FlgE: true, FlgT: false,
-				HbHID: r.HbHID, EtEID: r.EtEID,
-				Code: r.Code, AppID: r.AppID}
-			host := msg.OriginHost(c.local.Host)
-			realm := msg.OriginRealm(c.local.Realm)
-			state := msg.AuthSessionState(msg.StateNotMaintained)
-			avps := []msg.Avp{
-				msg.DiameterUnableToDeliver.Encode(),
-				state.Encode(),
-				host.Encode(),
-				realm.Encode()}
-			nack.Encode(avps)
-
-			ch <- nack
-		})
-
+	t := time.AfterFunc(c.peer.SndTimeout, func() {
+		ans := m.TimeoutMsg()
+		nak := ans.ToRaw()
+		nak.HbHID = req.HbHID
+		nak.EtEID = req.EtEID
+		c.notify <- eventRcvMsg{nak}
+	})
 	a := <-ch
 	t.Stop()
-	delete(c.sndstack, r.HbHID)
 
 	return a
 }
@@ -166,7 +140,7 @@ func (c *Conn) run() {
 	}()
 	go func() {
 		for {
-			m := msg.Message{}
+			m := msg.RawMsg{}
 			c.con.SetReadDeadline(time.Time{})
 			if _, e := m.ReadFrom(c.con); e != nil {
 				break
@@ -192,29 +166,7 @@ func (c *Conn) run() {
 	}()
 }
 
-func (c *Conn) sendSysMsg(req, nak msg.Message) error {
-	req.HbHID = c.local.NextHbH()
-	nak.HbHID = req.HbHID
-	req.EtEID = c.local.NextEtE()
-	nak.EtEID = req.EtEID
-	c.sndstack[req.HbHID] = nil //make(chan msg.Message)
-
-	if e := c.write(req); e != nil {
-		return e
-	}
-
-	c.sysTimer = time.AfterFunc(c.peer.SndTimeout, func() {
-		switch nak.Code {
-		case 257:
-			c.notify <- eventRcvCEA{nak}
-		case 282:
-			c.notify <- eventRcvDPA{nak}
-		}
-	})
-	return nil
-}
-
-func (c *Conn) write(m msg.Message) error {
+func (c *Conn) write(m msg.RawMsg) error {
 	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
 	_, e := m.WriteTo(c.con)
 	return e

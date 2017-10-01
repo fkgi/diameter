@@ -86,27 +86,48 @@ func (v eventConnect) exec(c *Conn) error {
 
 	c.state = waitCEA
 
-	req := MakeCER(c)
-	nak := msg.CEA{
-		ResultCode:                  msg.DiameterUnableToDeliver,
-		OriginHost:                  req.OriginHost,
-		OriginRealm:                 req.OriginRealm,
-		HostIPAddress:               req.HostIPAddress,
-		VendorID:                    req.VendorID,
-		ProductName:                 req.ProductName,
-		OriginStateID:               req.OriginStateID,
-		ErrorMessage:                &timeoutMsg,
-		SupportedVendorID:           req.SupportedVendorID,
-		ApplicationID:               req.ApplicationID,
-		VendorSpecificApplicationID: req.VendorSpecificApplicationID,
-		FirmwareRevision:            req.FirmwareRevision}
-	e := c.sendSysMsg(req.Encode(), nak.Encode())
+	cer := MakeCER(c)
+	req := cer.ToRaw()
+	req.HbHID = NextHbH()
+	req.EtEID = NextEtE()
+	c.sndstack[req.HbHID] = nil //make(chan msg.Message)
 
+	e := c.write(req)
 	Notify(CapabilityExchangeEvent{tx: true, req: true, conn: c, Err: e})
-	if e != nil {
+	if e == nil {
+		c.sysTimer = time.AfterFunc(c.peer.SndTimeout, func() {
+			cea := cer.TimeoutMsg()
+			nak := cea.ToRaw()
+			nak.HbHID = req.HbHID
+			nak.EtEID = req.EtEID
+			c.notify <- eventRcvCEA{nak}
+		})
+	} else {
 		c.con.Close()
 	}
 	return e
+}
+
+func watchdog(c *Conn) {
+	dwr := MakeDWR(c)
+	req := dwr.ToRaw()
+	req.HbHID = NextHbH()
+	req.EtEID = NextEtE()
+
+	ch := make(chan msg.Answer)
+	c.sndstack[req.HbHID] = ch
+
+	c.notify <- eventWatchdog{}
+
+	t := time.AfterFunc(c.peer.SndTimeout, func() {
+		dwa := dwr.TimeoutMsg()
+		nak := dwa.ToRaw()
+		nak.HbHID = req.HbHID
+		nak.EtEID = req.EtEID
+		c.notify <- eventRcvDWA{nak}
+	})
+	<-ch
+	t.Stop()
 }
 
 // Watchdog
@@ -128,10 +149,10 @@ func (v eventWatchdog) exec(c *Conn) error {
 	}
 
 	dwr := MakeDWR(c)
-	req := dwr.Encode()
-	req.HbHID = c.local.NextHbH()
-	req.EtEID = c.local.NextEtE()
-	ch := make(chan msg.Message)
+	req := dwr.ToRaw()
+	req.HbHID = NextHbH()
+	req.EtEID = NextEtE()
+	ch := make(chan msg.Answer)
 	c.sndstack[req.HbHID] = ch
 
 	e := c.write(req)
@@ -140,13 +161,8 @@ func (v eventWatchdog) exec(c *Conn) error {
 	if e == nil {
 		go func() {
 			t := time.AfterFunc(c.peer.SndTimeout, func() {
-				dwa := msg.DWA{
-					ResultCode:    msg.DiameterUnableToDeliver,
-					OriginHost:    dwr.OriginHost,
-					OriginRealm:   dwr.OriginRealm,
-					ErrorMessage:  &timeoutMsg,
-					OriginStateID: dwr.OriginStateID}
-				nak := dwa.Encode()
+				dwa := dwr.TimeoutMsg()
+				nak := dwa.ToRaw()
 				nak.HbHID = req.HbHID
 				nak.EtEID = req.EtEID
 				c.notify <- eventRcvDWA{nak}
@@ -175,16 +191,23 @@ func (v eventStop) exec(c *Conn) error {
 	c.state = closing
 	c.sysTimer.Stop()
 
-	req := MakeDPR(c)
-	nak := msg.DPA{
-		ResultCode:   msg.DiameterUnableToDeliver,
-		OriginHost:   req.OriginHost,
-		OriginRealm:  req.OriginRealm,
-		ErrorMessage: &timeoutMsg}
-	e := c.sendSysMsg(req.Encode(), nak.Encode())
+	dpr := MakeDPR(c)
+	req := dpr.ToRaw()
+	req.HbHID = NextHbH()
+	req.EtEID = NextEtE()
+	c.sndstack[req.HbHID] = nil //make(chan msg.Message)
 
+	e := c.write(req)
 	Notify(PurgeEvent{tx: true, req: true, conn: c, Err: e})
-	if e != nil {
+	if e == nil {
+		c.sysTimer = time.AfterFunc(c.peer.SndTimeout, func() {
+			dpa := dpr.TimeoutMsg()
+			nak := dpa.ToRaw()
+			nak.HbHID = req.HbHID
+			nak.EtEID = req.EtEID
+			c.notify <- eventRcvDPA{nak}
+		})
+	} else {
 		c.con.Close()
 	}
 	return e
@@ -208,7 +231,7 @@ func (v eventPeerDisc) exec(c *Conn) error {
 
 // Snd MSG
 type eventSndMsg struct {
-	m msg.Message
+	m msg.RawMsg
 }
 
 func (eventSndMsg) String() string {

@@ -29,7 +29,7 @@ func (e StateUpdate) String() string {
 	w := new(bytes.Buffer)
 	fmt.Fprintf(w,
 		"state change %s -> %s with event %s on connection %s - %s",
-		e.oldStat, e.newStat, e.stateEvent, e.conn.local, e.conn.peer)
+		e.oldStat, e.newStat, e.stateEvent, Host, e.conn.peer)
 	if e.Err != nil {
 		fmt.Fprintf(w, " failed: %s", e.Err)
 	}
@@ -48,7 +48,7 @@ func msgHandleLog(x, r bool, c *Conn, e error, req, ans string) string {
 	} else {
 		fmt.Fprintf(w, ans)
 	}
-	fmt.Fprintf(w, "(%s -> %s)", c.local, c.peer)
+	fmt.Fprintf(w, "(%s -> %s)", Host, c.peer)
 	if e != nil {
 		fmt.Fprintf(w, " failed: %s", e)
 	}

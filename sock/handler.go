@@ -7,27 +7,51 @@ import (
 	"github.com/fkgi/diameter/msg"
 )
 
+var (
+	msgHandleFailure = msg.DiameterApplicationUnsupported
+)
+
 // HandleMSG is diameter request handler
-var HandleMSG = func(r msg.Message, c *Conn) {
-	go func() {
-		a := c.peer.Handler(r)
-		a.HbHID = r.HbHID
-		a.EtEID = r.EtEID
-		c.notify <- eventSndMsg{a}
-	}()
+var HandleMSG = func(m msg.Request, hi, ei uint32, c *Conn) {
+	ans := c.peer.Handler(m)
+	if ans == nil {
+		return
+	}
+	a := ans.ToRaw()
+	a.HbHID = hi
+	a.EtEID = ei
+	c.notify <- eventSndMsg{a}
+}
+
+var SendUnsupportedErrorAnswer = func(m msg.RawMsg, c *Conn) {
+	a := msg.RawMsg{}
+	a.Ver = m.Ver
+	a.FlgP = m.FlgP
+	a.Code = m.Code
+	a.AppID = m.AppID
+	a.HbHID = m.HbHID
+	a.EtEID = m.EtEID
+
+	host := msg.OriginHost(Host)
+	realm := msg.OriginRealm(Realm)
+	a.AVP = []msg.RawAVP{
+		msgHandleFailure.ToRaw(),
+		host.ToRaw(),
+		realm.ToRaw()}
+	c.notify <- eventSndMsg{a}
 }
 
 // MakeCER returns new CER
 var MakeCER = func(c *Conn) msg.CER {
 	r := msg.CER{
-		OriginHost:  msg.OriginHost(c.local.Host),
-		OriginRealm: msg.OriginRealm(c.local.Realm),
+		OriginHost:  msg.OriginHost(Host),
+		OriginRealm: msg.OriginRealm(Realm),
 		//HostIPAddress: make([]msg.HostIPAddress, 0),
-		VendorID:    VendorID,
-		ProductName: ProductName,
-		// *OriginStateID:
+		VendorID:                    VendorID,
+		ProductName:                 ProductName,
+		OriginStateID:               StateID,
 		SupportedVendorID:           make([]msg.SupportedVendorID, 0),
-		ApplicationID:               make([]msg.ApplicationID, 0),
+		AuthApplicationID:           make([]msg.AuthApplicationID, 0),
 		VendorSpecificApplicationID: make([]msg.VendorSpecificApplicationID, 0),
 		FirmwareRevision:            &FirmwareRevision}
 
@@ -45,10 +69,7 @@ var MakeCER = func(c *Conn) msg.CER {
 				msg.HostIPAddress(net.ParseIP(i)))
 		}
 	}
-	if c.local.StateID != 0 {
-		r.OriginStateID = &c.local.StateID
-	}
-	for v, a := range c.local.AuthApps {
+	for v, a := range getSupportedApps() {
 		if v != 0 {
 			r.SupportedVendorID = append(
 				r.SupportedVendorID, msg.SupportedVendorID(v))
@@ -56,12 +77,12 @@ var MakeCER = func(c *Conn) msg.CER {
 				r.VendorSpecificApplicationID = append(
 					r.VendorSpecificApplicationID,
 					msg.VendorSpecificApplicationID{
-						VendorID: v,
-						App:      i})
+						VendorID:          v,
+						AuthApplicationID: i})
 			}
 		} else {
 			for _, i := range a {
-				r.ApplicationID = append(r.ApplicationID, i)
+				r.AuthApplicationID = append(r.AuthApplicationID, i)
 			}
 		}
 	}
@@ -72,12 +93,13 @@ var MakeCER = func(c *Conn) msg.CER {
 var HandleCER = func(r msg.CER, c *Conn) msg.CEA {
 	cea := msg.CEA{
 		ResultCode:                  msg.DiameterSuccess,
-		OriginHost:                  msg.OriginHost(c.local.Host),
-		OriginRealm:                 msg.OriginRealm(c.local.Realm),
+		OriginHost:                  msg.OriginHost(Host),
+		OriginRealm:                 msg.OriginRealm(Realm),
 		VendorID:                    VendorID,
 		ProductName:                 ProductName,
+		OriginStateID:               StateID,
 		SupportedVendorID:           make([]msg.SupportedVendorID, 0),
-		ApplicationID:               make([]msg.ApplicationID, 0),
+		AuthApplicationID:           make([]msg.AuthApplicationID, 0),
 		VendorSpecificApplicationID: make([]msg.VendorSpecificApplicationID, 0),
 		FirmwareRevision:            &FirmwareRevision}
 	switch c.con.LocalAddr().Network() {
@@ -93,9 +115,6 @@ var HandleCER = func(r msg.CER, c *Conn) msg.CEA {
 			cea.HostIPAddress = append(cea.HostIPAddress, msg.HostIPAddress(net.ParseIP(i)))
 		}
 	}
-	if c.local.StateID != 0 {
-		cea.OriginStateID = &c.local.StateID
-	}
 
 	if c.peer == nil {
 		c.peer = &Peer{
@@ -106,44 +125,44 @@ var HandleCER = func(r msg.CER, c *Conn) msg.CEA {
 		cea.ResultCode = msg.DiameterUnknownPeer
 	}
 	if cea.ResultCode == msg.DiameterSuccess {
-		app := map[msg.VendorID][]msg.ApplicationID{}
+		app := map[msg.VendorID][]msg.AuthApplicationID{}
 		for _, i := range r.SupportedVendorID {
-			app[msg.VendorID(i)] = []msg.ApplicationID{}
+			app[msg.VendorID(i)] = []msg.AuthApplicationID{}
 		}
 		for _, a := range r.VendorSpecificApplicationID {
 			if _, ok := app[a.VendorID]; !ok {
-				app[a.VendorID] = []msg.ApplicationID{}
+				app[a.VendorID] = []msg.AuthApplicationID{}
 			}
-			app[a.VendorID] = append(app[a.VendorID], a.App)
+			app[a.VendorID] = append(app[a.VendorID], a.AuthApplicationID)
 		}
-		if len(r.ApplicationID) != 0 {
+		if len(r.AuthApplicationID) != 0 {
 			if _, ok := app[0]; !ok {
-				app[0] = []msg.ApplicationID{}
+				app[0] = []msg.AuthApplicationID{}
 			}
-			for _, i := range r.ApplicationID {
+			for _, i := range r.AuthApplicationID {
 				app[0] = append(app[0], i)
 			}
 		}
 
 		if c.peer.AuthApps == nil {
 			relay := msg.AuthApplicationID(0xffffffff)
-			for _, id := range c.local.AuthApps[0] {
-				if relay.Equals(id) {
+			for _, id := range getSupportedApps()[0] {
+				if relay == id {
 					c.peer.AuthApps = app
 					break
 				}
 			}
 			if c.peer.AuthApps == nil {
-				c.peer.AuthApps = map[msg.VendorID][]msg.ApplicationID{}
+				c.peer.AuthApps = map[msg.VendorID][]msg.AuthApplicationID{}
 				for key, ids := range app {
 					for _, rid := range ids {
-						if _, ok := c.local.AuthApps[key]; !ok {
+						if _, ok := getSupportedApps()[key]; !ok {
 							continue
 						}
-						for _, lid := range c.local.AuthApps[key] {
-							if rid.Equals(lid) {
+						for _, lid := range getSupportedApps()[key] {
+							if rid == lid {
 								if _, ok := c.peer.AuthApps[key]; !ok {
-									c.peer.AuthApps[key] = []msg.ApplicationID{}
+									c.peer.AuthApps[key] = []msg.AuthApplicationID{}
 								}
 								c.peer.AuthApps[key] = append(c.peer.AuthApps[key], rid)
 							}
@@ -155,16 +174,16 @@ var HandleCER = func(r msg.CER, c *Conn) msg.CEA {
 				}
 			}
 		} else {
-			a := map[msg.VendorID][]msg.ApplicationID{}
+			a := map[msg.VendorID][]msg.AuthApplicationID{}
 			for key, ids := range app {
 				for _, rid := range ids {
 					if _, ok := c.peer.AuthApps[key]; !ok {
 						continue
 					}
 					for _, lid := range c.peer.AuthApps[key] {
-						if rid.Equals(lid) {
+						if rid == lid {
 							if _, ok := a[key]; !ok {
-								a[key] = []msg.ApplicationID{}
+								a[key] = []msg.AuthApplicationID{}
 							}
 							a[key] = append(a[key], rid)
 						}
@@ -197,12 +216,12 @@ var HandleCER = func(r msg.CER, c *Conn) msg.CEA {
 				cea.VendorSpecificApplicationID = append(
 					cea.VendorSpecificApplicationID,
 					msg.VendorSpecificApplicationID{
-						VendorID: v,
-						App:      i})
+						VendorID:          v,
+						AuthApplicationID: i})
 			}
 		} else {
 			for _, i := range a {
-				cea.ApplicationID = append(cea.ApplicationID, i)
+				cea.AuthApplicationID = append(cea.AuthApplicationID, i)
 			}
 		}
 	}
@@ -211,21 +230,21 @@ var HandleCER = func(r msg.CER, c *Conn) msg.CEA {
 
 // HandleCEA is CEA handler function
 var HandleCEA = func(m msg.CEA, c *Conn) {
-	app := map[msg.VendorID][]msg.ApplicationID{}
+	app := map[msg.VendorID][]msg.AuthApplicationID{}
 	for _, i := range m.SupportedVendorID {
-		app[msg.VendorID(i)] = []msg.ApplicationID{}
+		app[msg.VendorID(i)] = []msg.AuthApplicationID{}
 	}
 	for _, a := range m.VendorSpecificApplicationID {
 		if _, ok := app[a.VendorID]; !ok {
-			app[a.VendorID] = []msg.ApplicationID{}
+			app[a.VendorID] = []msg.AuthApplicationID{}
 		}
-		app[a.VendorID] = append(app[a.VendorID], a.App)
+		app[a.VendorID] = append(app[a.VendorID], a.AuthApplicationID)
 	}
-	if len(m.ApplicationID) != 0 {
+	if len(m.AuthApplicationID) != 0 {
 		if _, ok := app[0]; !ok {
-			app[0] = []msg.ApplicationID{}
+			app[0] = []msg.AuthApplicationID{}
 		}
-		for _, i := range m.ApplicationID {
+		for _, i := range m.AuthApplicationID {
 			app[0] = append(app[0], i)
 		}
 	}
@@ -235,11 +254,9 @@ var HandleCEA = func(m msg.CEA, c *Conn) {
 // MakeDWR returns new DWR
 var MakeDWR = func(c *Conn) msg.DWR {
 	dwr := msg.DWR{
-		OriginHost:  msg.OriginHost(c.local.Host),
-		OriginRealm: msg.OriginRealm(c.local.Realm)}
-	if c.local.StateID != 0 {
-		dwr.OriginStateID = &c.local.StateID
-	}
+		OriginHost:    msg.OriginHost(Host),
+		OriginRealm:   msg.OriginRealm(Realm),
+		OriginStateID: StateID}
 	return dwr
 }
 
@@ -247,20 +264,16 @@ var MakeDWR = func(c *Conn) msg.DWR {
 var HandleDWR = func(r msg.DWR, c *Conn) msg.DWA {
 	dwa := msg.DWA{
 		ResultCode:  msg.DiameterSuccess,
-		OriginHost:  msg.OriginHost(c.local.Host),
-		OriginRealm: msg.OriginRealm(c.local.Realm),
+		OriginHost:  msg.OriginHost(Host),
+		OriginRealm: msg.OriginRealm(Realm),
 		//		*ErrorMessage
 		//		*FailedAVP
-		//		*OriginStateID
-	}
+		OriginStateID: StateID}
 	if c.peer.Host != msg.DiameterIdentity(r.OriginHost) {
 		dwa.ResultCode = msg.DiameterUnknownPeer
 	}
 	if c.peer.Realm != msg.DiameterIdentity(r.OriginRealm) {
 		dwa.ResultCode = msg.DiameterUnknownPeer
-	}
-	if c.local.StateID != 0 {
-		dwa.OriginStateID = &c.local.StateID
 	}
 
 	return dwa
@@ -273,8 +286,8 @@ var HandleDWA = func(r msg.DWA, c *Conn) {
 // MakeDPR returns new DWR
 var MakeDPR = func(c *Conn) msg.DPR {
 	r := msg.DPR{
-		OriginHost:      msg.OriginHost(c.local.Host),
-		OriginRealm:     msg.OriginRealm(c.local.Realm),
+		OriginHost:      msg.OriginHost(Host),
+		OriginRealm:     msg.OriginRealm(Realm),
 		DisconnectCause: msg.DisconnectCause(msg.Rebooting)}
 	return r
 }
@@ -283,8 +296,8 @@ var MakeDPR = func(c *Conn) msg.DPR {
 var HandleDPR = func(r msg.DPR, c *Conn) msg.DPA {
 	dpa := msg.DPA{
 		ResultCode:  msg.DiameterSuccess,
-		OriginHost:  msg.OriginHost(c.local.Host),
-		OriginRealm: msg.OriginRealm(c.local.Realm),
+		OriginHost:  msg.OriginHost(Host),
+		OriginRealm: msg.OriginRealm(Realm),
 		//		*ErrorMessage
 		//		*FailedAVP
 	}

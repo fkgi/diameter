@@ -23,91 +23,121 @@ type CER struct {
 	HostIPAddress []HostIPAddress
 	VendorID
 	ProductName
-	*OriginStateID
+	OriginStateID
 	SupportedVendorID []SupportedVendorID
-	ApplicationID     []ApplicationID
+	AuthApplicationID []AuthApplicationID
 	// []InbandSecurityID
 	VendorSpecificApplicationID []VendorSpecificApplicationID
 	*FirmwareRevision
 }
 
-// Encode return Message struct of this value
-func (v *CER) Encode() Message {
-	m := Message{
+// ToRaw return RawMsg struct of this value
+func (v CER) ToRaw() RawMsg {
+	m := RawMsg{
 		Ver:  DiaVer,
 		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
-		Code: 257, AppID: 0}
+		Code: 257, AppID: 0,
+		AVP: make([]RawAVP, 0, 20)}
 
-	var avps []Avp
-	avps = append(avps, v.OriginHost.Encode())
-	avps = append(avps, v.OriginRealm.Encode())
+	m.AVP = append(m.AVP, v.OriginHost.ToRaw())
+	m.AVP = append(m.AVP, v.OriginRealm.ToRaw())
 	for _, ip := range v.HostIPAddress {
-		avps = append(avps, ip.Encode())
+		m.AVP = append(m.AVP, ip.ToRaw())
 	}
-	avps = append(avps, v.VendorID.Encode())
-	avps = append(avps, v.ProductName.Encode())
-	if v.OriginStateID != nil {
-		avps = append(avps, v.OriginStateID.Encode())
+	m.AVP = append(m.AVP, v.VendorID.ToRaw())
+	m.AVP = append(m.AVP, v.ProductName.ToRaw())
+	if v.OriginStateID != 0 {
+		m.AVP = append(m.AVP, v.OriginStateID.ToRaw())
 	}
 	for _, id := range v.SupportedVendorID {
-		avps = append(avps, id.Encode())
+		m.AVP = append(m.AVP, id.ToRaw())
 	}
-	for _, id := range v.ApplicationID {
-		avps = append(avps, id.Encode())
+	for _, id := range v.AuthApplicationID {
+		m.AVP = append(m.AVP, id.ToRaw())
 	}
 	for _, id := range v.VendorSpecificApplicationID {
-		avps = append(avps, id.Encode())
+		m.AVP = append(m.AVP, id.ToRaw())
 	}
 	if v.FirmwareRevision != nil {
-		avps = append(avps, v.FirmwareRevision.Encode())
+		m.AVP = append(m.AVP, v.FirmwareRevision.ToRaw())
 	}
-
-	m.Encode(avps)
 	return m
 }
 
-// Decode make this value from Message struct
-func (v *CER) Decode(m Message) error {
-	if m.AppID != 0 || m.Code != 257 || !m.FlgR {
-		return InvalidMessageError{}
-	}
-	avp, e := m.Decode()
+// FromRaw make this value from RawMsg struct
+func (CER) FromRaw(m RawMsg) (Request, error) {
+	e := m.Validate(0, 257, true, false, false, false)
 	if e != nil {
-		return e
+		return nil, e
 	}
-	var ok bool
-	if v.OriginHost, ok = GetOriginHost(avp); !ok {
-		return NoMandatoryAVPError{}
+
+	v := CER{}
+	v.HostIPAddress = make([]HostIPAddress, 0, 2)
+	v.SupportedVendorID = make([]SupportedVendorID, 0, 5)
+	v.AuthApplicationID = make([]AuthApplicationID, 0, 5)
+	v.VendorSpecificApplicationID = make([]VendorSpecificApplicationID, 0, 5)
+
+	for _, a := range m.AVP {
+		if a.VenID == 0 && a.Code == 264 {
+			e = v.OriginHost.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 296 {
+			e = v.OriginRealm.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 257 {
+			t := HostIPAddress{}
+			e = t.FromRaw(a)
+			v.HostIPAddress = append(v.HostIPAddress, t)
+		} else if a.VenID == 0 && a.Code == 266 {
+			e = v.VendorID.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 269 {
+			e = v.ProductName.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 278 {
+			e = v.OriginStateID.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 265 {
+			t := SupportedVendorID(0)
+			e = t.FromRaw(a)
+			v.SupportedVendorID = append(v.SupportedVendorID, t)
+		} else if a.VenID == 0 && a.Code == 258 {
+			t := AuthApplicationID(0)
+			e = t.FromRaw(a)
+			v.AuthApplicationID = append(v.AuthApplicationID, t)
+		} else if a.VenID == 0 && a.Code == 260 {
+			t := VendorSpecificApplicationID{}
+			e = t.FromRaw(a)
+			v.VendorSpecificApplicationID = append(v.VendorSpecificApplicationID, t)
+		} else if a.VenID == 0 && a.Code == 267 {
+			e = v.FirmwareRevision.FromRaw(a)
+		}
+
+		if e != nil {
+			return nil, e
+		}
 	}
-	if v.OriginRealm, ok = GetOriginRealm(avp); !ok {
-		return NoMandatoryAVPError{}
+
+	if len(v.OriginHost) == 0 ||
+		len(v.OriginRealm) == 0 ||
+		len(v.HostIPAddress) == 0 ||
+		v.VendorID == 0 ||
+		len(v.ProductName) == 0 {
+		e = NoMandatoryAVPError{}
 	}
-	v.HostIPAddress = GetHostIPAddresses(avp)
-	if v.VendorID, ok = GetVendorID(avp); !ok {
-		return NoMandatoryAVPError{}
-	}
-	if v.ProductName, ok = GetProductName(avp); !ok {
-		return NoMandatoryAVPError{}
-	}
-	if tmp, ok := GetOriginStateID(avp); ok {
-		v.OriginStateID = &tmp
-	} else {
-		v.OriginStateID = nil
-	}
-	v.SupportedVendorID = GetSupportedVendorIDs(avp)
-	for _, a := range GetAuthApplicationIDs(avp) {
-		v.ApplicationID = append(v.ApplicationID, a)
-	}
-	for _, a := range GetAcctApplicationIDs(avp) {
-		v.ApplicationID = append(v.ApplicationID, a)
-	}
-	v.VendorSpecificApplicationID = GetVendorSpecificApplicationIDs(avp)
-	if tmp, ok := GetFirmwareRevision(avp); ok {
-		v.FirmwareRevision = &tmp
-	} else {
-		v.FirmwareRevision = nil
-	}
-	return nil
+	return v, e
+}
+
+// TimeoutMsg make error message for timeout
+func (v CER) TimeoutMsg() Answer {
+	return CEA{
+		ResultCode:                  DiameterUnableToDeliver,
+		OriginHost:                  v.OriginHost,
+		OriginRealm:                 v.OriginRealm,
+		HostIPAddress:               v.HostIPAddress,
+		VendorID:                    v.VendorID,
+		ProductName:                 v.ProductName,
+		OriginStateID:               v.OriginStateID,
+		ErrorMessage:                "no response from peer node",
+		SupportedVendorID:           v.SupportedVendorID,
+		AuthApplicationID:           v.AuthApplicationID,
+		VendorSpecificApplicationID: v.VendorSpecificApplicationID,
+		FirmwareRevision:            v.FirmwareRevision}
 }
 
 /*
@@ -120,7 +150,7 @@ CEA is Capabilities-Exchange-Answer message
 		   { Vendor-Id }
 		   { Product-Name }
 		   [ Origin-State-Id ]
-		   [ Error-Message ]
+		   [ Error-RawMsg ]
 		   [ Failed-AVP ]
 		 * [ Supported-Vendor-Id ]
 		 * [ Auth-Application-Id ]
@@ -137,115 +167,126 @@ type CEA struct {
 	HostIPAddress []HostIPAddress
 	VendorID
 	ProductName
-	*OriginStateID
-	*ErrorMessage
-	*FailedAVP
+	OriginStateID
+	ErrorMessage
+	FailedAVP
 	SupportedVendorID []SupportedVendorID
-	ApplicationID     []ApplicationID
+	AuthApplicationID []AuthApplicationID
 	// []InbandSecurityID
-	// []AcctApplicationId
 	VendorSpecificApplicationID []VendorSpecificApplicationID
 	*FirmwareRevision
 }
 
-// Encode return Message struct of this value
-func (v *CEA) Encode() Message {
-	m := Message{
+// ToRaw return RawMsg struct of this value
+func (v CEA) ToRaw() RawMsg {
+	m := RawMsg{
 		Ver:  DiaVer,
 		FlgR: false, FlgP: false, FlgE: false, FlgT: false,
-		Code: 257, AppID: 0}
+		Code: 257, AppID: 0,
+		AVP: make([]RawAVP, 0, 20)}
 	m.FlgE = v.ResultCode != DiameterSuccess
 
-	var avps []Avp
-	avps = append(avps, v.ResultCode.Encode())
-	avps = append(avps, v.OriginHost.Encode())
-	avps = append(avps, v.OriginRealm.Encode())
+	m.AVP = append(m.AVP, v.ResultCode.ToRaw())
+	m.AVP = append(m.AVP, v.OriginHost.ToRaw())
+	m.AVP = append(m.AVP, v.OriginRealm.ToRaw())
 	for _, ip := range v.HostIPAddress {
-		avps = append(avps, ip.Encode())
+		m.AVP = append(m.AVP, ip.ToRaw())
 	}
-	avps = append(avps, v.VendorID.Encode())
-	avps = append(avps, v.ProductName.Encode())
-	if v.OriginStateID != nil {
-		avps = append(avps, v.OriginStateID.Encode())
+	m.AVP = append(m.AVP, v.VendorID.ToRaw())
+	m.AVP = append(m.AVP, v.ProductName.ToRaw())
+	if v.OriginStateID != 0 {
+		m.AVP = append(m.AVP, v.OriginStateID.ToRaw())
 	}
-	if v.ErrorMessage != nil {
-		avps = append(avps, v.ErrorMessage.Encode())
+	if len(v.ErrorMessage) != 0 {
+		m.AVP = append(m.AVP, v.ErrorMessage.ToRaw())
 	}
-	if v.FailedAVP != nil {
-		avps = append(avps, v.FailedAVP.Encode())
+	if len(v.FailedAVP) != 0 {
+		m.AVP = append(m.AVP, v.FailedAVP.ToRaw())
 	}
 	for _, id := range v.SupportedVendorID {
-		avps = append(avps, id.Encode())
+		m.AVP = append(m.AVP, id.ToRaw())
 	}
-	for _, id := range v.ApplicationID {
-		avps = append(avps, id.Encode())
+	for _, id := range v.AuthApplicationID {
+		m.AVP = append(m.AVP, id.ToRaw())
 	}
 	for _, id := range v.VendorSpecificApplicationID {
-		avps = append(avps, id.Encode())
+		m.AVP = append(m.AVP, id.ToRaw())
 	}
 	if v.FirmwareRevision != nil {
-		avps = append(avps, v.FirmwareRevision.Encode())
+		m.AVP = append(m.AVP, v.FirmwareRevision.ToRaw())
 	}
-
-	m.Encode(avps)
 	return m
 }
 
-// Decode make this value from Message struct
-func (v *CEA) Decode(m Message) error {
-	if m.AppID != 0 || m.Code != 257 || m.FlgR {
-		return InvalidMessageError{}
-	}
-	avp, e := m.Decode()
+// FromRaw make this value from RawMsg struct
+func (CEA) FromRaw(m RawMsg) (Answer, error) {
+	e := m.Validate(0, 257, false, false, false, false)
 	if e != nil {
-		return e
+		return nil, e
 	}
-	var ok bool
-	if v.ResultCode, ok = GetResultCode(avp); !ok {
-		return NoMandatoryAVPError{}
+
+	v := CEA{}
+	v.HostIPAddress = make([]HostIPAddress, 0, 2)
+	v.SupportedVendorID = make([]SupportedVendorID, 0, 5)
+	v.AuthApplicationID = make([]AuthApplicationID, 0, 5)
+	v.VendorSpecificApplicationID = make([]VendorSpecificApplicationID, 0, 5)
+
+	for _, a := range m.AVP {
+		if a.VenID == 0 && a.Code == 268 {
+			e = v.ResultCode.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 264 {
+			e = v.OriginHost.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 296 {
+			e = v.OriginRealm.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 257 {
+			t := HostIPAddress{}
+			e = t.FromRaw(a)
+			v.HostIPAddress = append(v.HostIPAddress, t)
+		} else if a.VenID == 0 && a.Code == 266 {
+			e = v.VendorID.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 269 {
+			e = v.ProductName.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 278 {
+			e = v.OriginStateID.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 281 {
+			e = v.ErrorMessage.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 279 {
+			e = v.FailedAVP.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 265 {
+			t := SupportedVendorID(0)
+			e = t.FromRaw(a)
+			v.SupportedVendorID = append(v.SupportedVendorID, t)
+		} else if a.VenID == 0 && a.Code == 258 {
+			t := AuthApplicationID(0)
+			e = t.FromRaw(a)
+			v.AuthApplicationID = append(v.AuthApplicationID, t)
+		} else if a.VenID == 0 && a.Code == 260 {
+			t := VendorSpecificApplicationID{}
+			e = t.FromRaw(a)
+			v.VendorSpecificApplicationID = append(v.VendorSpecificApplicationID, t)
+		} else if a.VenID == 0 && a.Code == 267 {
+			e = v.FirmwareRevision.FromRaw(a)
+		}
+
+		if e != nil {
+			return nil, e
+		}
 	}
-	if v.OriginHost, ok = GetOriginHost(avp); !ok {
-		return NoMandatoryAVPError{}
+	if v.ResultCode == 0 ||
+		len(v.OriginHost) == 0 ||
+		len(v.OriginRealm) == 0 ||
+		len(v.HostIPAddress) == 0 ||
+		v.VendorID == 0 ||
+		len(v.ProductName) == 0 {
+		e = NoMandatoryAVPError{}
 	}
-	if v.OriginRealm, ok = GetOriginRealm(avp); !ok {
-		return NoMandatoryAVPError{}
-	}
-	v.HostIPAddress = GetHostIPAddresses(avp)
-	if v.VendorID, ok = GetVendorID(avp); !ok {
-		return NoMandatoryAVPError{}
-	}
-	if v.ProductName, ok = GetProductName(avp); !ok {
-		return NoMandatoryAVPError{}
-	}
-	if tmp, ok := GetOriginStateID(avp); ok {
-		v.OriginStateID = &tmp
-	} else {
-		v.OriginStateID = nil
-	}
-	if tmp, ok := GetErrorMessage(avp); ok {
-		v.ErrorMessage = &tmp
-	} else {
-		v.ErrorMessage = nil
-	}
-	if tmp, ok := GetFailedAVP(avp); ok {
-		v.FailedAVP = &tmp
-	} else {
-		v.FailedAVP = nil
-	}
-	v.SupportedVendorID = GetSupportedVendorIDs(avp)
-	for _, a := range GetAuthApplicationIDs(avp) {
-		v.ApplicationID = append(v.ApplicationID, a)
-	}
-	for _, a := range GetAcctApplicationIDs(avp) {
-		v.ApplicationID = append(v.ApplicationID, a)
-	}
-	v.VendorSpecificApplicationID = GetVendorSpecificApplicationIDs(avp)
-	if tmp, ok := GetFirmwareRevision(avp); ok {
-		v.FirmwareRevision = &tmp
-	} else {
-		v.FirmwareRevision = nil
-	}
-	return nil
+
+	return v, e
+}
+
+// Result returns result-code
+func (v CEA) Result() ResultCode {
+	return v.ResultCode
 }
 
 /*
@@ -262,42 +303,59 @@ type DPR struct {
 	DisconnectCause
 }
 
-// Encode return Message struct of this value
-func (v *DPR) Encode() Message {
-	m := Message{
+// ToRaw return RawMsg struct of this value
+func (v DPR) ToRaw() RawMsg {
+	m := RawMsg{
 		Ver:  DiaVer,
 		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
-		Code: 282, AppID: 0}
+		Code: 282, AppID: 0,
+		AVP: make([]RawAVP, 0, 3)}
 
-	avps := []Avp{
-		v.OriginHost.Encode(),
-		v.OriginRealm.Encode(),
-		v.DisconnectCause.Encode()}
-	m.Encode(avps)
+	m.AVP = append(m.AVP, v.OriginHost.ToRaw())
+	m.AVP = append(m.AVP, v.OriginRealm.ToRaw())
+	m.AVP = append(m.AVP, v.DisconnectCause.ToRaw())
 
 	return m
 }
 
-// Decode make this value from Message struct
-func (v *DPR) Decode(m Message) error {
-	if m.AppID != 0 || m.Code != 282 || !m.FlgR {
-		return InvalidMessageError{}
-	}
-	avp, e := m.Decode()
+// FromRaw make this value from RawMsg struct
+func (DPR) FromRaw(m RawMsg) (Request, error) {
+	e := m.Validate(0, 282, true, false, false, false)
 	if e != nil {
-		return e
+		return nil, e
 	}
-	var ok bool
-	if v.OriginHost, ok = GetOriginHost(avp); !ok {
-		return NoMandatoryAVPError{}
+
+	v := DPR{}
+	v.DisconnectCause = -1
+	for _, a := range m.AVP {
+		if a.VenID == 0 && a.Code == 264 {
+			e = v.OriginHost.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 296 {
+			e = v.OriginRealm.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 273 {
+			e = v.DisconnectCause.FromRaw(a)
+		}
+
+		if e != nil {
+			return nil, e
+		}
 	}
-	if v.OriginRealm, ok = GetOriginRealm(avp); !ok {
-		return NoMandatoryAVPError{}
+
+	if len(v.OriginHost) == 0 ||
+		len(v.OriginRealm) == 0 ||
+		v.DisconnectCause < 0 {
+		e = NoMandatoryAVPError{}
 	}
-	if v.DisconnectCause, ok = GetDisconnectCause(avp); !ok {
-		return NoMandatoryAVPError{}
-	}
-	return nil
+	return v, e
+}
+
+// TimeoutMsg make error message for timeout
+func (v DPR) TimeoutMsg() Answer {
+	return DPA{
+		ResultCode:   DiameterUnableToDeliver,
+		OriginHost:   v.OriginHost,
+		OriginRealm:  v.OriginRealm,
+		ErrorMessage: "no response from peer node"}
 }
 
 /*
@@ -314,63 +372,69 @@ type DPA struct {
 	ResultCode
 	OriginHost
 	OriginRealm
-	*ErrorMessage
-	*FailedAVP
+	ErrorMessage
+	FailedAVP
 }
 
-// Encode return Message struct of this value
-func (v *DPA) Encode() Message {
-	m := Message{
+// ToRaw return RawMsg struct of this value
+func (v DPA) ToRaw() RawMsg {
+	m := RawMsg{
 		Ver:  DiaVer,
 		FlgR: false, FlgP: false, FlgE: false, FlgT: false,
-		Code: 282, AppID: 0}
+		Code: 282, AppID: 0,
+		AVP: make([]RawAVP, 0, 5)}
 	m.FlgE = v.ResultCode != DiameterSuccess
 
-	avps := []Avp{
-		v.ResultCode.Encode(),
-		v.OriginHost.Encode(),
-		v.OriginRealm.Encode()}
-	if v.ErrorMessage != nil {
-		avps = append(avps, v.ErrorMessage.Encode())
+	m.AVP = append(m.AVP, v.ResultCode.ToRaw())
+	m.AVP = append(m.AVP, v.OriginHost.ToRaw())
+	m.AVP = append(m.AVP, v.OriginRealm.ToRaw())
+
+	if len(v.ErrorMessage) != 0 {
+		m.AVP = append(m.AVP, v.ErrorMessage.ToRaw())
 	}
-	if v.FailedAVP != nil {
-		avps = append(avps, v.FailedAVP.Encode())
+	if len(v.FailedAVP) != 0 {
+		m.AVP = append(m.AVP, v.FailedAVP.ToRaw())
 	}
-	m.Encode(avps)
 
 	return m
 }
 
-// Decode make this value from Message struct
-func (v *DPA) Decode(m Message) error {
-	if m.AppID != 0 || m.Code != 282 || m.FlgR {
-		return InvalidMessageError{}
-	}
-	avp, e := m.Decode()
+// FromRaw make this value from RawMsg struct
+func (DPA) FromRaw(m RawMsg) (Answer, error) {
+	e := m.Validate(0, 282, false, false, false, false)
 	if e != nil {
-		return e
+		return nil, e
 	}
-	var ok bool
-	if v.ResultCode, ok = GetResultCode(avp); !ok {
-		return NoMandatoryAVPError{}
+
+	v := DPA{}
+	for _, a := range m.AVP {
+		if a.VenID == 0 && a.Code == 268 {
+			e = v.ResultCode.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 264 {
+			e = v.OriginHost.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 296 {
+			e = v.OriginRealm.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 281 {
+			e = v.ErrorMessage.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 279 {
+			e = v.FailedAVP.FromRaw(a)
+		}
+
+		if e != nil {
+			return nil, e
+		}
 	}
-	if v.OriginHost, ok = GetOriginHost(avp); !ok {
-		return NoMandatoryAVPError{}
+	if v.ResultCode == 0 ||
+		len(v.OriginHost) == 0 ||
+		len(v.OriginRealm) == 0 {
+		e = NoMandatoryAVPError{}
 	}
-	if v.OriginRealm, ok = GetOriginRealm(avp); !ok {
-		return NoMandatoryAVPError{}
-	}
-	if tmp, ok := GetErrorMessage(avp); ok {
-		v.ErrorMessage = &tmp
-	} else {
-		v.ErrorMessage = nil
-	}
-	if tmp, ok := GetFailedAVP(avp); ok {
-		v.FailedAVP = &tmp
-	} else {
-		v.FailedAVP = nil
-	}
-	return nil
+	return v, e
+}
+
+// Result returns result-code
+func (v DPA) Result() ResultCode {
+	return v.ResultCode
 }
 
 /*
@@ -384,49 +448,63 @@ DWR is DeviceWatchdogRequest message
 type DWR struct {
 	OriginHost
 	OriginRealm
-	*OriginStateID
+	OriginStateID
 }
 
-// Encode return Message struct of this value
-func (v *DWR) Encode() Message {
-	m := Message{
+// ToRaw return RawMsg struct of this value
+func (v DWR) ToRaw() RawMsg {
+	m := RawMsg{
 		Ver:  DiaVer,
 		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
-		Code: 280, AppID: 0}
+		Code: 280, AppID: 0,
+		AVP: make([]RawAVP, 0, 3)}
 
-	avps := []Avp{
-		v.OriginHost.Encode(),
-		v.OriginRealm.Encode()}
-	if v.OriginStateID != nil {
-		avps = append(avps, v.OriginStateID.Encode())
+	m.AVP = append(m.AVP, v.OriginHost.ToRaw())
+	m.AVP = append(m.AVP, v.OriginRealm.ToRaw())
+
+	if v.OriginStateID != 0 {
+		m.AVP = append(m.AVP, v.OriginStateID.ToRaw())
 	}
-	m.Encode(avps)
 
 	return m
 }
 
-// Decode make this value from Message struct
-func (v *DWR) Decode(m Message) error {
-	if m.AppID != 0 || m.Code != 280 || !m.FlgR {
-		return InvalidMessageError{}
-	}
-	avp, e := m.Decode()
+// FromRaw make this value from RawMsg struct
+func (DWR) FromRaw(m RawMsg) (Request, error) {
+	e := m.Validate(0, 280, true, false, false, false)
 	if e != nil {
-		return e
+		return nil, e
 	}
-	var ok bool
-	if v.OriginHost, ok = GetOriginHost(avp); !ok {
-		return NoMandatoryAVPError{}
+
+	v := DWR{}
+	for _, a := range m.AVP {
+		if a.VenID == 0 && a.Code == 264 {
+			e = v.OriginHost.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 296 {
+			e = v.OriginRealm.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 278 {
+			e = v.OriginStateID.FromRaw(a)
+		}
+
+		if e != nil {
+			return nil, e
+		}
 	}
-	if v.OriginRealm, ok = GetOriginRealm(avp); !ok {
-		return NoMandatoryAVPError{}
+	if len(v.OriginHost) == 0 ||
+		len(v.OriginRealm) == 0 {
+		e = NoMandatoryAVPError{}
 	}
-	if tmp, ok := GetOriginStateID(avp); ok {
-		v.OriginStateID = &tmp
-	} else {
-		v.OriginStateID = nil
-	}
-	return nil
+	return v, e
+}
+
+// TimeoutMsg make error message for timeout
+func (v DWR) TimeoutMsg() Answer {
+	return DWA{
+		ResultCode:    DiameterUnableToDeliver,
+		OriginHost:    v.OriginHost,
+		OriginRealm:   v.OriginRealm,
+		ErrorMessage:  "no response from peer node",
+		OriginStateID: v.OriginStateID}
 }
 
 /*
@@ -444,70 +522,73 @@ type DWA struct {
 	ResultCode
 	OriginHost
 	OriginRealm
-	*ErrorMessage
-	*FailedAVP
-	*OriginStateID
+	ErrorMessage
+	FailedAVP
+	OriginStateID
 }
 
-// Encode return Message struct of this value
-func (v *DWA) Encode() Message {
-	m := Message{
+// ToRaw return RawMsg struct of this value
+func (v DWA) ToRaw() RawMsg {
+	m := RawMsg{
 		Ver:  DiaVer,
 		FlgR: false, FlgP: false, FlgE: false, FlgT: false,
-		Code: 280, AppID: 0}
+		Code: 280, AppID: 0,
+		AVP: make([]RawAVP, 0, 6)}
 	m.FlgE = v.ResultCode != DiameterSuccess
 
-	avps := []Avp{
-		v.ResultCode.Encode(),
-		v.OriginHost.Encode(),
-		v.OriginRealm.Encode()}
-	if v.ErrorMessage != nil {
-		avps = append(avps, v.ErrorMessage.Encode())
+	m.AVP = append(m.AVP, v.ResultCode.ToRaw())
+	m.AVP = append(m.AVP, v.OriginHost.ToRaw())
+	m.AVP = append(m.AVP, v.OriginRealm.ToRaw())
+
+	if len(v.ErrorMessage) != 0 {
+		m.AVP = append(m.AVP, v.ErrorMessage.ToRaw())
 	}
-	if v.FailedAVP != nil {
-		avps = append(avps, v.FailedAVP.Encode())
+	if len(v.FailedAVP) != 0 {
+		m.AVP = append(m.AVP, v.FailedAVP.ToRaw())
 	}
-	if v.OriginStateID != nil {
-		avps = append(avps, v.OriginStateID.Encode())
+	if v.OriginStateID != 0 {
+		m.AVP = append(m.AVP, v.OriginStateID.ToRaw())
 	}
-	m.Encode(avps)
 
 	return m
 }
 
-// Decode make this value from Message struct
-func (v *DWA) Decode(m Message) error {
-	if m.AppID != 0 || m.Code != 280 || m.FlgR {
-		return InvalidMessageError{}
-	}
-	avp, e := m.Decode()
+// FromRaw make this value from RawMsg struct
+func (DWA) FromRaw(m RawMsg) (Answer, error) {
+	e := m.Validate(0, 280, false, false, false, false)
 	if e != nil {
-		return e
+		return nil, e
 	}
-	var ok bool
-	if v.ResultCode, ok = GetResultCode(avp); !ok {
-		return NoMandatoryAVPError{}
+
+	v := DWA{}
+	for _, a := range m.AVP {
+		if a.VenID == 0 && a.Code == 268 {
+			e = v.ResultCode.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 264 {
+			e = v.OriginHost.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 296 {
+			e = v.OriginRealm.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 281 {
+			e = v.ErrorMessage.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 279 {
+			e = v.FailedAVP.FromRaw(a)
+		} else if a.VenID == 0 && a.Code == 278 {
+			e = v.OriginStateID.FromRaw(a)
+		}
+
+		if e != nil {
+			return nil, e
+		}
 	}
-	if v.OriginHost, ok = GetOriginHost(avp); !ok {
-		return NoMandatoryAVPError{}
+	if v.ResultCode == 0 ||
+		len(v.OriginHost) == 0 ||
+		len(v.OriginRealm) == 0 {
+		e = NoMandatoryAVPError{}
 	}
-	if v.OriginRealm, ok = GetOriginRealm(avp); !ok {
-		return NoMandatoryAVPError{}
-	}
-	if tmp, ok := GetErrorMessage(avp); ok {
-		v.ErrorMessage = &tmp
-	} else {
-		v.ErrorMessage = nil
-	}
-	if tmp, ok := GetFailedAVP(avp); ok {
-		v.FailedAVP = &tmp
-	} else {
-		v.FailedAVP = nil
-	}
-	if tmp, ok := GetOriginStateID(avp); ok {
-		v.OriginStateID = &tmp
-	} else {
-		v.OriginStateID = nil
-	}
-	return nil
+	return v, e
+}
+
+// Result returns result-code
+func (v DWA) Result() ResultCode {
+	return v.ResultCode
 }

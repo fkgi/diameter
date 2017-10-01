@@ -8,7 +8,7 @@ import (
 
 // UnknownIDAnswer is error
 type UnknownIDAnswer struct {
-	msg.Message
+	msg.RawMsg
 }
 
 func (e UnknownIDAnswer) Error() string {
@@ -17,7 +17,7 @@ func (e UnknownIDAnswer) Error() string {
 
 // FailureAnswer is error
 type FailureAnswer struct {
-	msg.Message
+	msg.RawMsg
 }
 
 func (e FailureAnswer) Error() string {
@@ -26,7 +26,7 @@ func (e FailureAnswer) Error() string {
 
 // RcvCER
 type eventRcvCER struct {
-	m msg.Message
+	m msg.RawMsg
 }
 
 func (eventRcvCER) String() string {
@@ -38,8 +38,7 @@ func (v eventRcvCER) exec(c *Conn) error {
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
-	cer := msg.CER{}
-	e := cer.Decode(v.m)
+	cer, e := msg.CER{}.FromRaw(v.m)
 	Notify(CapabilityExchangeEvent{tx: false, req: true, conn: c, Err: e})
 
 	if e != nil {
@@ -48,8 +47,8 @@ func (v eventRcvCER) exec(c *Conn) error {
 		return e
 	}
 
-	cea := HandleCER(cer, c)
-	m := cea.Encode()
+	cea := HandleCER(cer.(msg.CER), c)
+	m := cea.ToRaw()
 	m.HbHID = v.m.HbHID
 	m.EtEID = v.m.EtEID
 	if cea.ResultCode != msg.DiameterSuccess {
@@ -76,7 +75,7 @@ func (v eventRcvCER) exec(c *Conn) error {
 
 // RcvCEA
 type eventRcvCEA struct {
-	m msg.Message
+	m msg.RawMsg
 }
 
 func (eventRcvCEA) String() string {
@@ -93,11 +92,10 @@ func (v eventRcvCEA) exec(c *Conn) error {
 	delete(c.sndstack, v.m.HbHID)
 	c.sysTimer.Stop()
 
-	cea := msg.CEA{}
-	e := cea.Decode(v.m)
+	cea, e := msg.CEA{}.FromRaw(v.m)
 	if e == nil {
-		HandleCEA(cea, c)
-		if cea.ResultCode == msg.DiameterSuccess {
+		HandleCEA(cea.(msg.CEA), c)
+		if cea.Result() == msg.DiameterSuccess {
 			c.state = open
 			c.sysTimer = time.AfterFunc(c.peer.WDInterval, func() {
 				c.notify <- eventWatchdog{}
@@ -115,7 +113,7 @@ func (v eventRcvCEA) exec(c *Conn) error {
 }
 
 type eventRcvDWR struct {
-	m msg.Message
+	m msg.RawMsg
 }
 
 func (eventRcvDWR) String() string {
@@ -127,8 +125,7 @@ func (v eventRcvDWR) exec(c *Conn) error {
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
-	dwr := msg.DWR{}
-	e := dwr.Decode(v.m)
+	dwr, e := msg.DWR{}.FromRaw(v.m)
 	Notify(WatchdogEvent{tx: false, req: true, conn: c, Err: e})
 
 	if e != nil {
@@ -137,8 +134,8 @@ func (v eventRcvDWR) exec(c *Conn) error {
 		return e
 	}
 
-	dwa := HandleDWR(dwr, c)
-	m := dwa.Encode()
+	dwa := HandleDWR(dwr.(msg.DWR), c)
+	m := dwa.ToRaw()
 	m.HbHID = v.m.HbHID
 	m.EtEID = v.m.EtEID
 	if dwa.ResultCode != msg.DiameterSuccess {
@@ -162,7 +159,7 @@ func (v eventRcvDWR) exec(c *Conn) error {
 
 // RcvDWA
 type eventRcvDWA struct {
-	m msg.Message
+	m msg.RawMsg
 }
 
 func (eventRcvDWA) String() string {
@@ -176,14 +173,14 @@ func (v eventRcvDWA) exec(c *Conn) error {
 	if _, ok := c.sndstack[v.m.HbHID]; !ok {
 		return UnknownIDAnswer{v.m}
 	}
-	c.sndstack[v.m.HbHID] <- v.m
+
+	dwa, e := msg.DWA{}.FromRaw(v.m)
+	c.sndstack[v.m.HbHID] <- dwa
 	delete(c.sndstack, v.m.HbHID)
 
-	dwa := msg.DWA{}
-	e := dwa.Decode(v.m)
 	if e == nil {
-		HandleDWA(dwa, c)
-		if dwa.ResultCode == msg.DiameterSuccess {
+		HandleDWA(dwa.(msg.DWA), c)
+		if dwa.Result() == msg.DiameterSuccess {
 			c.wdCounter = 0
 			c.sysTimer.Reset(c.peer.WDInterval)
 		} else {
@@ -196,7 +193,7 @@ func (v eventRcvDWA) exec(c *Conn) error {
 }
 
 type eventRcvDPR struct {
-	m msg.Message
+	m msg.RawMsg
 }
 
 func (eventRcvDPR) String() string {
@@ -208,8 +205,7 @@ func (v eventRcvDPR) exec(c *Conn) error {
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
-	dpr := msg.DPR{}
-	e := dpr.Decode(v.m)
+	dpr, e := msg.DPR{}.FromRaw(v.m)
 	Notify(PurgeEvent{tx: false, req: true, conn: c, Err: e})
 
 	if e != nil {
@@ -218,8 +214,8 @@ func (v eventRcvDPR) exec(c *Conn) error {
 		return e
 	}
 
-	dpa := HandleDPR(dpr, c)
-	m := dpa.Encode()
+	dpa := HandleDPR(dpr.(msg.DPR), c)
+	m := dpa.ToRaw()
 	m.HbHID = v.m.HbHID
 	m.EtEID = v.m.EtEID
 	if dpa.ResultCode != msg.DiameterSuccess {
@@ -241,7 +237,7 @@ func (v eventRcvDPR) exec(c *Conn) error {
 }
 
 type eventRcvDPA struct {
-	m msg.Message
+	m msg.RawMsg
 }
 
 func (eventRcvDPA) String() string {
@@ -258,11 +254,10 @@ func (v eventRcvDPA) exec(c *Conn) error {
 	delete(c.sndstack, v.m.HbHID)
 	c.sysTimer.Stop()
 
-	dpa := msg.DPA{}
-	e := dpa.Decode(v.m)
+	dpa, e := msg.DPA{}.FromRaw(v.m)
 	if e == nil {
-		HandleDPA(dpa, c)
-		if dpa.ResultCode != msg.DiameterSuccess {
+		HandleDPA(dpa.(msg.DPA), c)
+		if dpa.Result() != msg.DiameterSuccess {
 			e = FailureAnswer{v.m}
 		}
 	}
@@ -273,7 +268,7 @@ func (v eventRcvDPA) exec(c *Conn) error {
 }
 
 type eventRcvMsg struct {
-	m msg.Message
+	m msg.RawMsg
 }
 
 func (eventRcvMsg) String() string {
@@ -286,11 +281,32 @@ func (v eventRcvMsg) exec(c *Conn) (e error) {
 	}
 
 	if v.m.FlgR {
-		HandleMSG(v.m, c)
+		if app, ok := supportedApps[msg.AuthApplicationID(v.m.AppID)]; !ok {
+			SendUnsupportedErrorAnswer(v.m, c)
+		} else if req, ok := app.req[v.m.Code]; !ok {
+			SendUnsupportedErrorAnswer(v.m, c)
+		} else if m, e := req.FromRaw(v.m); e != nil {
+			// ToDo
+			// invalid message handling
+		} else {
+			HandleMSG(m, v.m.HbHID, v.m.EtEID, c)
+		}
 		c.sysTimer.Reset(c.peer.WDInterval)
 	} else if ch, ok := c.sndstack[v.m.HbHID]; ok {
 		delete(c.sndstack, v.m.HbHID)
-		ch <- v.m
+
+		if app, ok := supportedApps[msg.AuthApplicationID(v.m.AppID)]; !ok {
+			// ToDo
+			// invalid message handling
+		} else if ans, ok := app.ans[v.m.Code]; !ok {
+			// ToDo
+			// invalid message handling
+		} else if m, e := ans.FromRaw(v.m); e != nil {
+			// ToDo
+			// invalid message handling
+		} else {
+			ch <- m
+		}
 		c.sysTimer.Reset(c.peer.WDInterval)
 	} else {
 		return UnknownIDAnswer{v.m}
