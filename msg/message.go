@@ -65,13 +65,13 @@ func (m RawMsg) String() string {
 // Validate header value
 func (m RawMsg) Validate(i, c uint32, r, p, e, t bool) error {
 	if m.AppID != i || m.Code != c {
-		return InvalidMessageError{}
+		return InvalidMessage{}
 	} else if m.FlgR != r {
-		return InvalidMessageError{}
+		return InvalidMessage{}
 	} else if r == true && m.FlgE == true {
-		return InvalidMessageError{}
+		return InvalidMessage{}
 	} else if r == false && m.FlgT == true {
-		return InvalidMessageError{}
+		return InvalidMessage{}
 	}
 	return nil
 }

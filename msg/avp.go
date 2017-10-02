@@ -41,9 +41,9 @@ func (a RawAVP) String() string {
 // Validate header value
 func (a RawAVP) Validate(i, c uint32, v, m, p bool) error {
 	if a.VenID != i || a.Code != c {
-		return InvalidAVPError{}
+		return InvalidAVP{}
 	} else if a.FlgV != v || a.FlgM != m || a.FlgP != p {
-		return InvalidAVPError{}
+		return InvalidAVP{}
 	}
 	return nil
 }
@@ -151,7 +151,7 @@ func (a *RawAVP) Encode(d interface{}) (e error) {
 	case float64:
 		e = a.setFloat64Data(d)
 	default:
-		e = &UnknownAVPTypeError{}
+		e = &UnknownAVPType{}
 	}
 	return
 }
@@ -194,7 +194,7 @@ func (a RawAVP) Decode(d interface{}) (e error) {
 	case *float64:
 		e = a.getFloat64Data(d)
 	default:
-		e = &UnknownAVPTypeError{}
+		e = &UnknownAVPType{}
 	}
 	return
 }

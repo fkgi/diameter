@@ -9,7 +9,6 @@ import (
 
 // constant values
 var (
-	MsgStackLen                           = 10000
 	VendorID         msg.VendorID         = 41102
 	ProductName      msg.ProductName      = "yatagarasu"
 	FirmwareRevision msg.FirmwareRevision = 170819001
@@ -38,7 +37,20 @@ func Dial(p *Peer, c net.Conn) (*Conn, error) {
 		sndstack: make(map[uint32]chan msg.Answer)}
 	con.run()
 
-	con.notify <- eventConnect{}
+	cer := MakeCER(con)
+	req := cer.ToRaw()
+	req.HbHID = NextHbH()
+	req.EtEID = NextEtE()
+
+	ch := make(chan msg.Answer)
+	con.sndstack[req.HbHID] = ch
+
+	con.notify <- eventConnect{m: req}
+
+	ack := <-ch
+	if ack.Result() != msg.DiameterSuccess {
+		return nil, ConnectionRefused{}
+	}
 
 	return con, nil
 }
@@ -99,17 +111,18 @@ func (c *Conn) AuthApplication() map[msg.VendorID][]msg.AuthApplicationID {
 func (c *Conn) Send(m msg.Request) msg.Answer {
 	req := m.ToRaw()
 	req.HbHID = NextHbH()
+	req.EtEID = NextEtE()
 	ch := make(chan msg.Answer)
 	c.sndstack[req.HbHID] = ch
 
-	c.notify <- eventSndMsg{req}
+	c.notify <- eventSndRequest{req}
 
 	t := time.AfterFunc(c.peer.SndTimeout, func() {
 		ans := m.TimeoutMsg()
 		nak := ans.ToRaw()
 		nak.HbHID = req.HbHID
 		nak.EtEID = req.EtEID
-		c.notify <- eventRcvMsg{nak}
+		c.notify <- eventRcvAnswer{nak}
 	})
 	a := <-ch
 	t.Stop()
@@ -158,8 +171,10 @@ func (c *Conn) run() {
 				c.notify <- eventRcvDPR{m}
 			} else if m.AppID == 0 && m.Code == 282 && !m.FlgR {
 				c.notify <- eventRcvDPA{m}
+			} else if m.FlgR {
+				c.notify <- eventRcvRequest{m}
 			} else {
-				c.notify <- eventRcvMsg{m}
+				c.notify <- eventRcvAnswer{m}
 			}
 		}
 		c.notify <- eventPeerDisc{}

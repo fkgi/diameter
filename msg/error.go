@@ -1,33 +1,41 @@
 package msg
 
-// UnknownAVPTypeError is error of invalid AVP type
-type UnknownAVPTypeError struct {
+// UnknownAVPType is error of invalid AVP type
+type UnknownAVPType struct {
 }
 
-func (e UnknownAVPTypeError) Error() string {
+func (e UnknownAVPType) Error() string {
 	return "unknow AVP data type"
 }
 
-// InvalidMessageError is error of invalid message
-type InvalidMessageError struct {
+// UnknownApplicationID is error of invalid AVP type
+type UnknownApplicationID struct {
 }
 
-func (e InvalidMessageError) Error() string {
+func (e UnknownApplicationID) Error() string {
+	return "unknow application id"
+}
+
+// InvalidMessage is error of invalid message
+type InvalidMessage struct {
+}
+
+func (e InvalidMessage) Error() string {
 	return "invalid message data"
 }
 
-// NoMandatoryAVPError is error of invalid avp
-type NoMandatoryAVPError struct {
+// NoMandatoryAVP is error of invalid avp
+type NoMandatoryAVP struct {
 }
 
-func (e NoMandatoryAVPError) Error() string {
+func (e NoMandatoryAVP) Error() string {
 	return "mandatory AVP not found"
 }
 
-// InvalidAVPError is error of invalid AVP value
-type InvalidAVPError struct {
+// InvalidAVP is error of invalid AVP value
+type InvalidAVP struct {
 }
 
-func (e InvalidAVPError) Error() string {
+func (e InvalidAVP) Error() string {
 	return "invalid AVP data"
 }

@@ -67,7 +67,7 @@ func (v *AuthSessionState) FromRaw(a RawAVP) (e error) {
 	case 1:
 		*v = StateNotMaintained
 	default:
-		e = InvalidAVPError{}
+		e = InvalidAVP{}
 	}
 	return
 }
@@ -315,7 +315,7 @@ func (v *DisconnectCause) FromRaw(a RawAVP) (e error) {
 	case 0, 1, 2:
 		*v = DisconnectCause(*s)
 	default:
-		e = InvalidAVPError{}
+		e = InvalidAVP{}
 	}
 	return
 }
@@ -487,7 +487,7 @@ func (v *VendorSpecificApplicationID) FromRaw(a RawAVP) (e error) {
 		case 258:
 			e = v.AuthApplicationID.FromRaw(a)
 		case 259:
-			e = InvalidAVPError{}
+			e = InvalidAVP{}
 		}
 	}
 	return

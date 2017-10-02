@@ -7,23 +7,13 @@ import (
 	"github.com/fkgi/diameter/msg"
 )
 
-var (
-	msgHandleFailure = msg.DiameterApplicationUnsupported
-)
-
 // HandleMSG is diameter request handler
-var HandleMSG = func(m msg.Request, hi, ei uint32, c *Conn) {
-	ans := c.peer.Handler(m)
-	if ans == nil {
-		return
-	}
-	a := ans.ToRaw()
-	a.HbHID = hi
-	a.EtEID = ei
-	c.notify <- eventSndMsg{a}
+var HandleMSG = func(m msg.Request) msg.Answer {
+	return nil
 }
 
-var SendUnsupportedErrorAnswer = func(m msg.RawMsg, c *Conn) {
+// MakeUnsupportedAnswer make answer for unsupported message
+var MakeUnsupportedAnswer = func(m msg.RawMsg) msg.RawMsg {
 	a := msg.RawMsg{}
 	a.Ver = m.Ver
 	a.FlgP = m.FlgP
@@ -34,11 +24,13 @@ var SendUnsupportedErrorAnswer = func(m msg.RawMsg, c *Conn) {
 
 	host := msg.OriginHost(Host)
 	realm := msg.OriginRealm(Realm)
+	result := msg.DiameterApplicationUnsupported
 	a.AVP = []msg.RawAVP{
-		msgHandleFailure.ToRaw(),
+		result.ToRaw(),
 		host.ToRaw(),
 		realm.ToRaw()}
-	c.notify <- eventSndMsg{a}
+
+	return a
 }
 
 // MakeCER returns new CER

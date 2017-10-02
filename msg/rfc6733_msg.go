@@ -118,7 +118,7 @@ func (CER) FromRaw(m RawMsg) (Request, error) {
 		len(v.HostIPAddress) == 0 ||
 		v.VendorID == 0 ||
 		len(v.ProductName) == 0 {
-		e = NoMandatoryAVPError{}
+		e = NoMandatoryAVP{}
 	}
 	return v, e
 }
@@ -278,7 +278,7 @@ func (CEA) FromRaw(m RawMsg) (Answer, error) {
 		len(v.HostIPAddress) == 0 ||
 		v.VendorID == 0 ||
 		len(v.ProductName) == 0 {
-		e = NoMandatoryAVPError{}
+		e = NoMandatoryAVP{}
 	}
 
 	return v, e
@@ -344,7 +344,7 @@ func (DPR) FromRaw(m RawMsg) (Request, error) {
 	if len(v.OriginHost) == 0 ||
 		len(v.OriginRealm) == 0 ||
 		v.DisconnectCause < 0 {
-		e = NoMandatoryAVPError{}
+		e = NoMandatoryAVP{}
 	}
 	return v, e
 }
@@ -427,7 +427,7 @@ func (DPA) FromRaw(m RawMsg) (Answer, error) {
 	if v.ResultCode == 0 ||
 		len(v.OriginHost) == 0 ||
 		len(v.OriginRealm) == 0 {
-		e = NoMandatoryAVPError{}
+		e = NoMandatoryAVP{}
 	}
 	return v, e
 }
@@ -492,7 +492,7 @@ func (DWR) FromRaw(m RawMsg) (Request, error) {
 	}
 	if len(v.OriginHost) == 0 ||
 		len(v.OriginRealm) == 0 {
-		e = NoMandatoryAVPError{}
+		e = NoMandatoryAVP{}
 	}
 	return v, e
 }
@@ -583,7 +583,7 @@ func (DWA) FromRaw(m RawMsg) (Answer, error) {
 	if v.ResultCode == 0 ||
 		len(v.OriginHost) == 0 ||
 		len(v.OriginRealm) == 0 {
-		e = NoMandatoryAVPError{}
+		e = NoMandatoryAVP{}
 	}
 	return v, e
 }

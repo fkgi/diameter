@@ -267,51 +267,87 @@ func (v eventRcvDPA) exec(c *Conn) error {
 	return e
 }
 
-type eventRcvMsg struct {
+type eventRcvRequest struct {
 	m msg.RawMsg
 }
 
-func (eventRcvMsg) String() string {
-	return "Rcv-MSG"
+func (eventRcvRequest) String() string {
+	return "Rcv-REQ"
 }
 
-func (v eventRcvMsg) exec(c *Conn) (e error) {
+func (v eventRcvRequest) exec(c *Conn) (e error) {
 	if c.state != open {
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
-	if v.m.FlgR {
-		if app, ok := supportedApps[msg.AuthApplicationID(v.m.AppID)]; !ok {
-			SendUnsupportedErrorAnswer(v.m, c)
-		} else if req, ok := app.req[v.m.Code]; !ok {
-			SendUnsupportedErrorAnswer(v.m, c)
-		} else if m, e := req.FromRaw(v.m); e != nil {
-			// ToDo
-			// invalid message handling
-		} else {
-			HandleMSG(m, v.m.HbHID, v.m.EtEID, c)
-		}
-		c.sysTimer.Reset(c.peer.WDInterval)
-	} else if ch, ok := c.sndstack[v.m.HbHID]; ok {
+	if app, ok := supportedApps[msg.AuthApplicationID(v.m.AppID)]; !ok {
+		go func() {
+			c.notify <- eventSndAnswer{MakeUnsupportedAnswer(v.m)}
+		}()
+		e = msg.UnknownApplicationID{}
+	} else if req, ok := app.req[v.m.Code]; !ok {
+		go func() {
+			c.notify <- eventSndAnswer{MakeUnsupportedAnswer(v.m)}
+		}()
+		e = msg.InvalidMessage{}
+	} else {
+		go func() {
+			if m, e := req.FromRaw(v.m); e != nil {
+				// ToDo
+				// invalid message handling
+			} else if ans := HandleMSG(m); ans == nil {
+				// ToDo
+				// message handling failure handling
+			} else {
+				a := ans.ToRaw()
+				a.HbHID = v.m.HbHID
+				a.EtEID = v.m.EtEID
+				c.notify <- eventSndAnswer{a}
+			}
+		}()
+	}
+	c.sysTimer.Reset(c.peer.WDInterval)
+
+	Notify(MessageEvent{tx: false, req: true, conn: c, Err: e})
+	return
+}
+
+type eventRcvAnswer struct {
+	m msg.RawMsg
+}
+
+func (eventRcvAnswer) String() string {
+	return "Rcv-ANS"
+}
+
+func (v eventRcvAnswer) exec(c *Conn) (e error) {
+	if c.state != open {
+		return NotAcceptableEvent{stateEvent: v, state: c.state}
+	}
+
+	if ch, ok := c.sndstack[v.m.HbHID]; ok {
 		delete(c.sndstack, v.m.HbHID)
 
 		if app, ok := supportedApps[msg.AuthApplicationID(v.m.AppID)]; !ok {
 			// ToDo
 			// invalid message handling
+			e = msg.UnknownApplicationID{}
 		} else if ans, ok := app.ans[v.m.Code]; !ok {
 			// ToDo
 			// invalid message handling
-		} else if m, e := ans.FromRaw(v.m); e != nil {
+			e = msg.InvalidMessage{}
+		} else if m, e2 := ans.FromRaw(v.m); e2 != nil {
 			// ToDo
 			// invalid message handling
+			e = e2
 		} else {
 			ch <- m
 		}
 		c.sysTimer.Reset(c.peer.WDInterval)
 	} else {
-		return UnknownIDAnswer{v.m}
+		e = UnknownIDAnswer{v.m}
 	}
 
-	Notify(MessageEvent{tx: false, req: v.m.FlgR, conn: c, Err: e})
+	Notify(MessageEvent{tx: false, req: false, conn: c, Err: e})
 	return
 }

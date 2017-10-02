@@ -36,8 +36,6 @@ const (
 	closing  state = iota
 )
 
-var timeoutMsg msg.ErrorMessage = "no response from peer node"
-
 // NotAcceptableEvent is error
 type NotAcceptableEvent struct {
 	stateEvent
@@ -54,6 +52,13 @@ type WatchdogExpired struct{}
 
 func (e WatchdogExpired) Error() string {
 	return "watchdog is expired"
+}
+
+// ConnectionRefused is error
+type ConnectionRefused struct{}
+
+func (e ConnectionRefused) Error() string {
+	return "connection is refused"
 }
 
 type stateEvent interface {
@@ -73,7 +78,9 @@ func (v eventInit) exec(c *Conn) error {
 }
 
 // Connect
-type eventConnect struct{}
+type eventConnect struct {
+	m msg.RawMsg
+}
 
 func (eventConnect) String() string {
 	return "Connect"
@@ -86,20 +93,14 @@ func (v eventConnect) exec(c *Conn) error {
 
 	c.state = waitCEA
 
-	cer := MakeCER(c)
-	req := cer.ToRaw()
-	req.HbHID = NextHbH()
-	req.EtEID = NextEtE()
-	c.sndstack[req.HbHID] = nil //make(chan msg.Message)
-
-	e := c.write(req)
+	e := c.write(v.m)
 	Notify(CapabilityExchangeEvent{tx: true, req: true, conn: c, Err: e})
 	if e == nil {
 		c.sysTimer = time.AfterFunc(c.peer.SndTimeout, func() {
-			cea := cer.TimeoutMsg()
-			nak := cea.ToRaw()
-			nak.HbHID = req.HbHID
-			nak.EtEID = req.EtEID
+			cea, _ := msg.CER{}.FromRaw(v.m)
+			nak := cea.(msg.CER).TimeoutMsg().ToRaw()
+			nak.HbHID = v.m.HbHID
+			nak.EtEID = v.m.EtEID
 			c.notify <- eventRcvCEA{nak}
 		})
 	} else {
@@ -229,22 +230,44 @@ func (v eventPeerDisc) exec(c *Conn) error {
 	return nil
 }
 
-// Snd MSG
-type eventSndMsg struct {
+// Snd Request MSG
+type eventSndRequest struct {
 	m msg.RawMsg
 }
 
-func (eventSndMsg) String() string {
-	return "Snd-MSG"
+func (eventSndRequest) String() string {
+	return "Snd-REQ"
 }
 
-func (v eventSndMsg) exec(c *Conn) error {
+func (v eventSndRequest) exec(c *Conn) error {
 	if c.state != open {
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
 	e := c.write(v.m)
-	Notify(MessageEvent{tx: true, req: v.m.FlgR, conn: c, Err: e})
+	Notify(MessageEvent{tx: true, req: true, conn: c, Err: e})
+	if e != nil {
+		c.con.Close()
+	}
+	return e
+}
+
+// Snd Answer MSG
+type eventSndAnswer struct {
+	m msg.RawMsg
+}
+
+func (eventSndAnswer) String() string {
+	return "Snd-ANS"
+}
+
+func (v eventSndAnswer) exec(c *Conn) error {
+	if c.state != open {
+		return NotAcceptableEvent{stateEvent: v, state: c.state}
+	}
+
+	e := c.write(v.m)
+	Notify(MessageEvent{tx: true, req: false, conn: c, Err: e})
 	if e != nil {
 		c.con.Close()
 	}
