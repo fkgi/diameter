@@ -21,7 +21,8 @@ var (
 type Request interface {
 	ToRaw() RawMsg
 	FromRaw(RawMsg) (Request, error)
-	TimeoutMsg() Answer
+	Timeout() Answer
+	Failed() Answer
 }
 
 // Answer is Diameter answer

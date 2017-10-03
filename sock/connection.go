@@ -37,17 +37,16 @@ func Dial(p *Peer, c net.Conn) (*Conn, error) {
 		sndstack: make(map[uint32]chan msg.Answer)}
 	con.run()
 
-	cer := MakeCER(con)
-	req := cer.ToRaw()
-	req.HbHID = NextHbH()
-	req.EtEID = NextEtE()
-
 	ch := make(chan msg.Answer)
-	con.sndstack[req.HbHID] = ch
-
-	con.notify <- eventConnect{m: req}
+	cer := MakeCER(con)
+	t := new(time.Timer)
+	con.notify <- eventConnect{
+		m: cer,
+		c: ch}
 
 	ack := <-ch
+	t.Stop()
+
 	if ack.Result() != msg.DiameterSuccess {
 		return nil, ConnectionRefused{}
 	}
@@ -109,21 +108,11 @@ func (c *Conn) AuthApplication() map[msg.VendorID][]msg.AuthApplicationID {
 
 // Send send Diameter request
 func (c *Conn) Send(m msg.Request) msg.Answer {
-	req := m.ToRaw()
-	req.HbHID = NextHbH()
-	req.EtEID = NextEtE()
 	ch := make(chan msg.Answer)
-	c.sndstack[req.HbHID] = ch
+	t := new(time.Timer)
 
-	c.notify <- eventSndRequest{req}
+	c.notify <- eventSndRequest{m: m, c: ch, t: t}
 
-	t := time.AfterFunc(c.peer.SndTimeout, func() {
-		ans := m.TimeoutMsg()
-		nak := ans.ToRaw()
-		nak.HbHID = req.HbHID
-		nak.EtEID = req.EtEID
-		c.notify <- eventRcvAnswer{nak}
-	})
 	a := <-ch
 	t.Stop()
 
