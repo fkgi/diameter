@@ -9,127 +9,148 @@ import (
 // SMRPMTI AVP contain the RP-Message Type Indicator of the Short Message.
 type SMRPMTI msg.Enumerated
 
-// Encode return AVP struct of this value
-func (v SMRPMTI) Encode() msg.Avp {
-	a := msg.Avp{Code: 3308, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *SMRPMTI) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3308, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	a.Encode(msg.Enumerated(v))
+	if v != nil {
+		a.Encode(msg.Enumerated(*v))
+	}
 	return a
 }
 
-// GetSMRPMTI get AVP value
-func GetSMRPMTI(o msg.GroupedAVP) (SMRPMTI, bool) {
-	s := new(msg.Enumerated)
-	if a, ok := o.Get(3308, 10415); ok {
-		a.Decode(s)
-	} else {
-		return 0, false
+// FromRaw get AVP value
+func (v *SMRPMTI) FromRaw(a msg.RawAVP) (e error) {
+	if e = a.Validate(10415, 3308, true, true, false); e != nil {
+		return
 	}
-	return SMRPMTI(*s), true
+	s := new(msg.Enumerated)
+	if e = a.Decode(s); e != nil {
+		return
+	}
+	*v = SMRPMTI(*s)
+	return
 }
 
 const (
 	// SmDeliver is Enumerated value 0
-	SmDeliver msg.Enumerated = 0
+	SmDeliver SMRPMTI = 0
 	// SmStatusReport is Enumerated value 1
-	SmStatusReport msg.Enumerated = 1
+	SmStatusReport SMRPMTI = 1
 )
 
-// SMRPSMEA AVP contain the RP-Originating SME-address of the Short Message Entity that has originated the SM.
-// It shall be formatted according to the formatting rules of the address fields described in 3GPP TS 23.040.
+// SMRPSMEA AVP contain the RP-Originating SME-address of
+// the Short Message Entity that has originated the SM.
+// It shall be formatted according to the formatting rules of
+// the address fields described in 3GPP TS 23.040.
 type SMRPSMEA []byte
 
-// Encode return AVP struct of this value
-func (v SMRPSMEA) Encode() msg.Avp {
-	a := msg.Avp{Code: 3309, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *SMRPSMEA) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3309, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	a.Encode([]byte(v))
+	if v != nil {
+		a.Encode([]byte(*v))
+	}
 	return a
 }
 
-// GetSMRPSMEA get AVP value
-func GetSMRPSMEA(o msg.GroupedAVP) (SMRPSMEA, bool) {
-	s := new([]byte)
-	if a, ok := o.Get(3309, 10415); ok {
-		a.Decode(s)
-	} else {
-		return nil, false
+// FromRaw get AVP value
+func (v *SMRPSMEA) FromRaw(a msg.RawAVP) (e error) {
+	if e = a.Validate(10415, 3309, true, true, false); e != nil {
+		return
 	}
-	return SMRPSMEA(*s), true
+	s := new([]byte)
+	if e = a.Decode(s); e != nil {
+		return
+	}
+	*v = SMRPSMEA(*s)
+	return
 }
 
 // SRRFlags AVP contain a bit mask.
-// gprsIndicator shall be ture if the SMS-GMSC supports receiving of two serving nodes addresses from the HSS.
-// smRpPri shall be true if the delivery of the short message shall be attempted when
-// a service centre address is already contained in the Message Waiting Data file.
-// singleAttempt if true indicates that only one delivery attempt shall be performed for this particular SM.
+// GprsIndicator shall be ture if the SMS-GMSC supports receiving
+// of two serving nodes addresses from the HSS.
+// SmRpPri shall be true if the delivery of the short message shall
+// be attempted when a service centre address is already contained
+// in the Message Waiting Data file.
+// SingleAttempt if true indicates that only one delivery attempt
+// shall be performed for this particular SM.
 type SRRFlags struct {
 	GprsIndicator bool
-	SmRpPri       bool
+	SMRPPRI       bool
 	SingleAttempt bool
 }
 
-// Encode return AVP struct of this value
-func (v SRRFlags) Encode() msg.Avp {
-	a := msg.Avp{Code: 3310, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *SRRFlags) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3310, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	i := uint32(0)
 
-	if v.GprsIndicator {
-		i = i | 0x00000001
+	if v != nil {
+		i := uint32(0)
+		if v.GprsIndicator {
+			i = i | 0x00000001
+		}
+		if v.SMRPPRI {
+			i = i | 0x00000002
+		}
+		if v.SingleAttempt {
+			i = i | 0x00000004
+		}
+		a.Encode(i)
 	}
-	if v.SmRpPri {
-		i = i | 0x00000002
-	}
-	if v.SingleAttempt {
-		i = i | 0x00000004
-	}
-	a.Encode(i)
 	return a
 }
 
-// GetSRRFlags get AVP value
-func GetSRRFlags(o msg.GroupedAVP) (SRRFlags, bool) {
-	s := new(uint32)
-	if a, ok := o.Get(3310, 10415); ok {
-		a.Decode(s)
-	} else {
-		return SRRFlags{}, false
+// FromRaw get AVP value
+func (v *SRRFlags) FromRaw(a msg.RawAVP) (e error) {
+	if e = a.Validate(10415, 3310, true, true, false); e != nil {
+		return
 	}
-	return SRRFlags{
+	s := new(uint32)
+	if e = a.Decode(s); e != nil {
+		return
+	}
+	*v = SRRFlags{
 		GprsIndicator: (*s)&0x00000001 == 0x00000001,
-		SmRpPri:       (*s)&0x00000002 == 0x00000002,
-		SingleAttempt: (*s)&0x00000004 == 0x00000004}, true
+		SMRPPRI:       (*s)&0x00000002 == 0x00000002,
+		SingleAttempt: (*s)&0x00000004 == 0x00000004}
+	return
 }
 
 // SMDeliveryNotIntended AVP indicate by its presence
 // that delivery of a short message is not intended.
 type SMDeliveryNotIntended msg.Enumerated
 
-// Encode return AVP struct of this value
-func (v SMDeliveryNotIntended) Encode() msg.Avp {
-	a := msg.Avp{Code: 3311, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *SMDeliveryNotIntended) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3311, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	a.Encode(msg.Enumerated(v))
+	if v != nil {
+		a.Encode(msg.Enumerated(*v))
+	}
 	return a
 }
 
-// GetSMDeliveryNotIntended get AVP value
-func GetSMDeliveryNotIntended(o msg.GroupedAVP) (SMDeliveryNotIntended, bool) {
-	s := new(msg.Enumerated)
-	if a, ok := o.Get(3311, 10415); ok {
-		a.Decode(s)
-	} else {
-		return 0, false
+// FromRaw get AVP value
+func (v *SMDeliveryNotIntended) FromRaw(a msg.RawAVP) (e error) {
+	if e = a.Validate(10415, 3311, true, true, false); e != nil {
+		return
 	}
-	return SMDeliveryNotIntended(*s), true
+	s := new(msg.Enumerated)
+	if e = a.Decode(s); e != nil {
+		return
+	}
+	*v = SMDeliveryNotIntended(*s)
+	return
 }
 
 const (
 	// OnlyImsiRequested is Enumerated value 0
-	OnlyImsiRequested msg.Enumerated = 0
-	// OnlyMccMnCRequested is Enumerated value 1
-	OnlyMccMnCRequested msg.Enumerated = 1
+	OnlyImsiRequested SMDeliveryNotIntended = 0
+	// OnlyMccMncRequested is Enumerated value 1
+	OnlyMccMncRequested SMDeliveryNotIntended = 1
 )
 
 // MWDStatus AVP
@@ -140,107 +161,123 @@ type MWDStatus struct {
 	MnrgSet           bool
 }
 
-// Encode return AVP struct of this value
-func (v MWDStatus) Encode() msg.Avp {
-	a := msg.Avp{Code: 3312, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *MWDStatus) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3312, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	i := uint32(0)
 
-	if v.ScAddrNotIncluded {
-		i = i | 0x00000001
+	if v != nil {
+		i := uint32(0)
+		if v.ScAddrNotIncluded {
+			i = i | 0x00000001
+		}
+		if v.MnrfSet {
+			i = i | 0x00000002
+		}
+		if v.McefSet {
+			i = i | 0x00000004
+		}
+		if v.MnrgSet {
+			i = i | 0x00000008
+		}
+		a.Encode(i)
 	}
-	if v.MnrfSet {
-		i = i | 0x00000002
-	}
-	if v.McefSet {
-		i = i | 0x00000004
-	}
-	if v.MnrgSet {
-		i = i | 0x00000008
-	}
-	a.Encode(i)
 	return a
 }
 
-// GetMWDStatus get AVP value
-func GetMWDStatus(o msg.GroupedAVP) (MWDStatus, bool) {
-	s := new(uint32)
-	if a, ok := o.Get(3312, 10415); ok {
-		a.Decode(s)
-	} else {
-		return MWDStatus{}, false
+// FromRaw get AVP value
+func (v *MWDStatus) FromRaw(a msg.RawAVP) (e error) {
+	if e = a.Validate(10415, 3312, true, true, false); e != nil {
+		return
 	}
-	return MWDStatus{
+	s := new(uint32)
+	if e = a.Decode(s); e != nil {
+		return
+	}
+	*v = MWDStatus{
 		ScAddrNotIncluded: (*s)&0x00000001 == 0x00000001,
 		MnrfSet:           (*s)&0x00000002 == 0x00000002,
 		McefSet:           (*s)&0x00000004 == 0x00000004,
-		MnrgSet:           (*s)&0x00000008 == 0x00000008}, true
+		MnrgSet:           (*s)&0x00000008 == 0x00000008}
+	return
 }
 
 // MMEAbsentUserDiagnosticSM AVP
 type MMEAbsentUserDiagnosticSM uint32
 
-// Encode return AVP struct of this value
-func (v MMEAbsentUserDiagnosticSM) Encode() msg.Avp {
-	a := msg.Avp{Code: 3313, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *MMEAbsentUserDiagnosticSM) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3313, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	a.Encode(uint32(v))
+	if v != nil {
+		a.Encode(uint32(*v))
+	}
 	return a
 }
 
-// GetMMEAbsentUserDiagnosticSM get AVP value
-func GetMMEAbsentUserDiagnosticSM(o msg.GroupedAVP) (MMEAbsentUserDiagnosticSM, bool) {
-	s := new(uint32)
-	if a, ok := o.Get(3313, 10415); ok {
-		a.Decode(s)
-	} else {
-		return 0, false
+// FromRaw get AVP value
+func (v *MMEAbsentUserDiagnosticSM) FromRaw(a msg.RawAVP) (e error) {
+	if e = a.Validate(10415, 3313, true, true, false); e != nil {
+		return
 	}
-	return MMEAbsentUserDiagnosticSM(*s), true
+	s := new(uint32)
+	if e = a.Decode(s); e != nil {
+		return
+	}
+	*v = MMEAbsentUserDiagnosticSM(*s)
+	return
 }
 
 // MSCAbsentUserDiagnosticSM AVP
 type MSCAbsentUserDiagnosticSM uint32
 
-// Encode return AVP struct of this value
-func (v MSCAbsentUserDiagnosticSM) Encode() msg.Avp {
-	a := msg.Avp{Code: 3314, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *MSCAbsentUserDiagnosticSM) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3314, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	a.Encode(uint32(v))
+	if v != nil {
+		a.Encode(uint32(*v))
+	}
 	return a
 }
 
-// GetMSCAbsentUserDiagnosticSM get AVP value
-func GetMSCAbsentUserDiagnosticSM(o msg.GroupedAVP) (MSCAbsentUserDiagnosticSM, bool) {
-	s := new(uint32)
-	if a, ok := o.Get(3314, 10415); ok {
-		a.Decode(s)
-	} else {
-		return 0, false
+// FromRaw get AVP value
+func (v *MSCAbsentUserDiagnosticSM) FromRaw(a msg.RawAVP) (e error) {
+	if e = a.Validate(10415, 3314, true, true, false); e != nil {
+		return
 	}
-	return MSCAbsentUserDiagnosticSM(*s), true
+	s := new(uint32)
+	if e = a.Decode(s); e != nil {
+		return
+	}
+	*v = MSCAbsentUserDiagnosticSM(*s)
+	return
 }
 
 // SGSNAbsentUserDiagnosticSM AVP
 type SGSNAbsentUserDiagnosticSM uint32
 
-// Encode return AVP struct of this value
-func (v SGSNAbsentUserDiagnosticSM) Encode() msg.Avp {
-	a := msg.Avp{Code: 3315, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *SGSNAbsentUserDiagnosticSM) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3315, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	a.Encode(uint32(v))
+	if v != nil {
+		a.Encode(uint32(*v))
+	}
 	return a
 }
 
-// GetSGSNAbsentUserDiagnosticSM get AVP value
-func GetSGSNAbsentUserDiagnosticSM(o msg.GroupedAVP) (SGSNAbsentUserDiagnosticSM, bool) {
-	s := new(uint32)
-	if a, ok := o.Get(3315, 10415); ok {
-		a.Decode(s)
-	} else {
-		return 0, false
+// FromRaw get AVP value
+func (v *SGSNAbsentUserDiagnosticSM) FromRaw(a msg.RawAVP) (e error) {
+	if e = a.Validate(10415, 3315, true, true, false); e != nil {
+		return
 	}
-	return SGSNAbsentUserDiagnosticSM(*s), true
+	s := new(uint32)
+	if e = a.Decode(s); e != nil {
+		return
+	}
+	*v = SGSNAbsentUserDiagnosticSM(*s)
+	return
 }
 
 // SMDeliveryOutcome AVP
@@ -249,9 +286,9 @@ type SMDeliveryOutcome struct {
 	I uint32
 }
 
-// Encode return AVP struct of this value
-func (v SMDeliveryOutcome) Encode() msg.Avp {
-	a := msg.Avp{Code: 3316, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *SMDeliveryOutcome) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3316, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	// a.Encode()
 	return a
@@ -263,16 +300,16 @@ type MMESMDeliveryOutcome struct {
 	AbsentUserDiagnosticSM AbsentUserDiagnosticSM
 }
 
-// Encode return AVP struct of this value
-func (v MMESMDeliveryOutcome) Encode() msg.Avp {
-	a := msg.Avp{Code: 3317, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *MMESMDeliveryOutcome) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3317, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	var t []msg.Avp
-
-	t = append(t, v.SMDeliveryCause.Encode())
-	t = append(t, v.AbsentUserDiagnosticSM.Encode())
-
-	a.Encode(msg.GroupedAVP(t))
+	if v != nil {
+		t := []msg.RawAVP{
+			v.SMDeliveryCause.ToRaw(),
+			v.AbsentUserDiagnosticSM.ToRaw()}
+		a.Encode(msg.GroupedAVP(t))
+	}
 	return a
 }
 
@@ -282,16 +319,16 @@ type MSCSMDeliveryOutcome struct {
 	AbsentUserDiagnosticSM AbsentUserDiagnosticSM
 }
 
-// Encode return AVP struct of this value
-func (v MSCSMDeliveryOutcome) Encode() msg.Avp {
-	a := msg.Avp{Code: 3318, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *MSCSMDeliveryOutcome) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3318, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	var t []msg.Avp
-
-	t = append(t, v.SMDeliveryCause.Encode())
-	t = append(t, v.AbsentUserDiagnosticSM.Encode())
-
-	a.Encode(msg.GroupedAVP(t))
+	if v != nil {
+		t := []msg.RawAVP{
+			v.SMDeliveryCause.ToRaw(),
+			v.AbsentUserDiagnosticSM.ToRaw()}
+		a.Encode(msg.GroupedAVP(t))
+	}
 	return a
 }
 
@@ -301,16 +338,16 @@ type SGSNSMDeliveryOutcome struct {
 	AbsentUserDiagnosticSM AbsentUserDiagnosticSM
 }
 
-// Encode return AVP struct of this value
-func (v SGSNSMDeliveryOutcome) Encode() msg.Avp {
-	a := msg.Avp{Code: 3319, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *SGSNSMDeliveryOutcome) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3319, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	var t []msg.Avp
-
-	t = append(t, v.SMDeliveryCause.Encode())
-	t = append(t, v.AbsentUserDiagnosticSM.Encode())
-
-	a.Encode(msg.GroupedAVP(t))
+	if v != nil {
+		t := []msg.RawAVP{
+			v.SMDeliveryCause.ToRaw(),
+			v.AbsentUserDiagnosticSM.ToRaw()}
+		a.Encode(msg.GroupedAVP(t))
+	}
 	return a
 }
 
@@ -320,70 +357,78 @@ type IPSMGWSMDeliveryOutcome struct {
 	AbsentUserDiagnosticSM AbsentUserDiagnosticSM
 }
 
-// Encode return AVP struct of this value
-func (v IPSMGWSMDeliveryOutcome) Encode() msg.Avp {
-	a := msg.Avp{Code: 3320, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *IPSMGWSMDeliveryOutcome) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3320, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	var t []msg.Avp
-
-	t = append(t, v.SMDeliveryCause.Encode())
-	t = append(t, v.AbsentUserDiagnosticSM.Encode())
-
-	a.Encode(msg.GroupedAVP(t))
+	if v != nil {
+		t := []msg.RawAVP{
+			v.SMDeliveryCause.ToRaw(),
+			v.AbsentUserDiagnosticSM.ToRaw()}
+		a.Encode(msg.GroupedAVP(t))
+	}
 	return a
 }
 
 // SMDeliveryCause AVP
 type SMDeliveryCause msg.Enumerated
 
-// Encode return AVP struct of this value
-func (v SMDeliveryCause) Encode() msg.Avp {
-	a := msg.Avp{Code: 3321, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *SMDeliveryCause) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3321, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	a.Encode(msg.Enumerated(v))
+	if v != nil {
+		a.Encode(msg.Enumerated(*v))
+	}
 	return a
 }
 
-// GetSMDeliveryCause get AVP value
-func GetSMDeliveryCause(o msg.GroupedAVP) (SMDeliveryCause, bool) {
-	s := new(msg.Enumerated)
-	if a, ok := o.Get(3321, 10415); ok {
-		a.Decode(s)
-	} else {
-		return 0, false
+// FromRaw get AVP value
+func (v *SMDeliveryCause) FromRaw(a msg.RawAVP) (e error) {
+	if e = a.Validate(10415, 3321, true, true, false); e != nil {
+		return
 	}
-	return SMDeliveryCause(*s), true
+	s := new(msg.Enumerated)
+	if e = a.Decode(s); e != nil {
+		return
+	}
+	*v = SMDeliveryCause(*s)
+	return
 }
 
 const (
 	// UeMemoryCapacityExceeded is Enumerated value 0
-	UeMemoryCapacityExceeded msg.Enumerated = 0
+	UeMemoryCapacityExceeded SMDeliveryCause = 0
 	// AbsentUser is Enumerated value 1
-	AbsentUser msg.Enumerated = 1
+	AbsentUser SMDeliveryCause = 1
 	// SuccessfulTransfer is Enumerated value 2
-	SuccessfulTransfer msg.Enumerated = 2
+	SuccessfulTransfer SMDeliveryCause = 2
 )
 
 // AbsentUserDiagnosticSM AVP
 type AbsentUserDiagnosticSM uint32
 
-// Encode return AVP struct of this value
-func (v AbsentUserDiagnosticSM) Encode() msg.Avp {
-	a := msg.Avp{Code: 3322, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *AbsentUserDiagnosticSM) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3322, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	a.Encode(uint32(v))
+	if v != nil {
+		a.Encode(uint32(*v))
+	}
 	return a
 }
 
-// GetAbsentUserDiagnosticSM get AVP value
-func GetAbsentUserDiagnosticSM(o msg.GroupedAVP) (AbsentUserDiagnosticSM, bool) {
-	s := new(uint32)
-	if a, ok := o.Get(3322, 10415); ok {
-		a.Decode(s)
-	} else {
-		return 0, false
+// FromRaw get AVP value
+func (v *AbsentUserDiagnosticSM) FromRaw(a msg.RawAVP) (e error) {
+	if e = a.Validate(10415, 3322, true, true, false); e != nil {
+		return
 	}
-	return AbsentUserDiagnosticSM(*s), true
+	s := new(uint32)
+	if e = a.Decode(s); e != nil {
+		return
+	}
+	*v = AbsentUserDiagnosticSM(*s)
+	return
 }
 
 // RDRFlags AVP
@@ -391,49 +436,56 @@ type RDRFlags struct {
 	SingleAttemptDelivery bool
 }
 
-// Encode return AVP struct of this value
-func (v RDRFlags) Encode() msg.Avp {
-	a := msg.Avp{Code: 3323, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *RDRFlags) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3323, VenID: 10415,
 		FlgV: true, FlgM: false, FlgP: false}
-	i := uint32(0)
-
-	if v.SingleAttemptDelivery {
-		i = i | 0x00000001
+	if v != nil {
+		i := uint32(0)
+		if v.SingleAttemptDelivery {
+			i = i | 0x00000001
+		}
+		a.Encode(i)
 	}
-	a.Encode(i)
 	return a
 }
 
-// GetRDRFlags get AVP value
-func GetRDRFlags(o msg.GroupedAVP) (RDRFlags, bool) {
-	s := new(uint32)
-	if a, ok := o.Get(3323, 10415); ok {
-		a.Decode(s)
-	} else {
-		return RDRFlags{}, false
+// FromRaw get AVP value
+func (v *RDRFlags) FromRaw(a msg.RawAVP) (e error) {
+	if e = a.Validate(10415, 3323, true, false, false); e != nil {
+		return
 	}
-	return RDRFlags{
-		SingleAttemptDelivery: (*s)&0x00000001 == 0x00000001}, true
+	s := new(uint32)
+	if e = a.Decode(s); e != nil {
+		return
+	}
+	*v = RDRFlags{
+		SingleAttemptDelivery: (*s)&0x00000001 == 0x00000001}
+	return
 }
 
 // MaximumUEAvailabilityTime AVP
 type MaximumUEAvailabilityTime time.Time
 
-// Encode return AVP struct of this value
-func (v MaximumUEAvailabilityTime) Encode() msg.Avp {
-	a := msg.Avp{Code: 3329, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *MaximumUEAvailabilityTime) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3329, VenID: 10415,
 		FlgV: true, FlgM: false, FlgP: false}
-	a.Encode(time.Time(v))
+	if v != nil {
+		a.Encode(time.Time(*v))
+	}
 	return a
 }
 
-// GetMaximumUEAvailabilityTime get AVP value
-func GetMaximumUEAvailabilityTime(o msg.GroupedAVP) (MaximumUEAvailabilityTime, bool) {
-	s := new(time.Time)
-	if a, ok := o.Get(3329, 10415); ok {
-		a.Decode(s)
-	} else {
-		return MaximumUEAvailabilityTime{}, false
+// FromRaw get AVP value
+func (v *MaximumUEAvailabilityTime) FromRaw(a msg.RawAVP) (e error) {
+	if e = a.Validate(10415, 3329, true, false, false); e != nil {
+		return
 	}
-	return MaximumUEAvailabilityTime(*s), true
+	s := new(time.Time)
+	if e = a.Decode(s); e != nil {
+		return
+	}
+	*v = MaximumUEAvailabilityTime(*s)
+	return
 }

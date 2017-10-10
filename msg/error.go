@@ -16,6 +16,14 @@ func (e UnknownApplicationID) Error() string {
 	return "unknow application id"
 }
 
+// UnknownCommand is error of invalid AVP type
+type UnknownCommand struct {
+}
+
+func (e UnknownCommand) Error() string {
+	return "unknow command code"
+}
+
 // InvalidMessage is error of invalid message
 type InvalidMessage struct {
 }

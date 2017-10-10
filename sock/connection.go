@@ -9,6 +9,7 @@ import (
 
 // constant values
 var (
+	ReadBuffer                            = 65535
 	VendorID         msg.VendorID         = 41102
 	ProductName      msg.ProductName      = "yatagarasu"
 	FirmwareRevision msg.FirmwareRevision = 170819001
@@ -25,6 +26,7 @@ type Conn struct {
 	state
 	con      net.Conn
 	sndstack map[uint32]chan msg.Answer
+	rcvstack chan msg.RawMsg
 }
 
 // Dial make new Conn that use specified peernode and connection
@@ -34,20 +36,34 @@ func Dial(p *Peer, c net.Conn) (*Conn, error) {
 		notify:   make(chan stateEvent),
 		state:    closed,
 		con:      c,
-		sndstack: make(map[uint32]chan msg.Answer)}
-	con.run()
+		sndstack: make(map[uint32]chan msg.Answer),
+		rcvstack: make(chan msg.RawMsg, ReadBuffer)}
+	go socketHandler(con)
+	go eventHandler(con)
+	go messageHandler(con)
+
+	cer := MakeCER(con)
+	req := cer.ToRaw()
+	req.HbHID = NextHbH()
+	req.EtEID = NextEtE()
 
 	ch := make(chan msg.Answer)
-	cer := MakeCER(con)
-	t := new(time.Timer)
-	con.notify <- eventConnect{
-		m: cer,
-		c: ch}
+	con.sndstack[req.HbHID] = ch
+	con.notify <- eventConnect{m: req}
+
+	t := time.AfterFunc(p.SndTimeout, func() {
+		m := cer.Failed(
+			msg.DiameterTooBusy,
+			"no response from peer node").ToRaw()
+		m.HbHID = req.HbHID
+		m.EtEID = req.EtEID
+		con.notify <- eventRcvCEA{m}
+	})
 
 	ack := <-ch
 	t.Stop()
 
-	if ack.Result() != msg.DiameterSuccess {
+	if ack == nil || ack.Result() != msg.DiameterSuccess {
 		return nil, ConnectionRefused{}
 	}
 
@@ -61,8 +77,11 @@ func Accept(p *Peer, c net.Conn) (*Conn, error) {
 		notify:   make(chan stateEvent),
 		state:    waitCER,
 		con:      c,
-		sndstack: make(map[uint32]chan msg.Answer)}
-	con.run()
+		sndstack: make(map[uint32]chan msg.Answer),
+		rcvstack: make(chan msg.RawMsg, ReadBuffer)}
+	go socketHandler(con)
+	go eventHandler(con)
+	go messageHandler(con)
 
 	return con, nil
 }
@@ -72,13 +91,85 @@ func (c *Conn) State() string {
 	return c.state.String()
 }
 
+// Send send Diameter request
+func (c *Conn) Send(m msg.Request) msg.Answer {
+	req := m.ToRaw()
+	req.HbHID = NextHbH()
+	req.EtEID = NextEtE()
+
+	ch := make(chan msg.Answer)
+	c.sndstack[req.HbHID] = ch
+	c.notify <- eventSndMsg{m: req}
+
+	t := time.AfterFunc(c.peer.SndTimeout, func() {
+		m := m.Failed(
+			msg.DiameterTooBusy,
+			"no response from peer node").ToRaw()
+		m.HbHID = req.HbHID
+		m.EtEID = req.EtEID
+		c.notify <- eventRcvMsg{m}
+	})
+
+	a := <-ch
+	t.Stop()
+	if a == nil {
+		a = m.Failed(
+			msg.DiameterUnableToDeliver,
+			"failed to send")
+	}
+
+	return a
+}
+
+func (c *Conn) watchdog() {
+	dwr := MakeDWR(c)
+	req := dwr.ToRaw()
+	req.HbHID = NextHbH()
+	req.EtEID = NextEtE()
+
+	ch := make(chan msg.Answer)
+	c.sndstack[req.HbHID] = ch
+	c.notify <- eventWatchdog{m: req}
+
+	t := time.AfterFunc(c.peer.SndTimeout, func() {
+		m := dwr.Failed(
+			msg.DiameterTooBusy,
+			"no response from peer node").ToRaw()
+		m.HbHID = req.HbHID
+		m.EtEID = req.EtEID
+		c.notify <- eventRcvDWA{m}
+	})
+
+	<-ch
+	t.Stop()
+}
+
 // Close stop state machine
 func (c *Conn) Close(timeout time.Duration) {
 	if c.state != open {
 		return
 	}
 
-	c.notify <- eventStop{}
+	dpr := MakeDPR(c)
+	req := dpr.ToRaw()
+	req.HbHID = NextHbH()
+	req.EtEID = NextEtE()
+
+	ch := make(chan msg.Answer)
+	c.sndstack[req.HbHID] = ch
+	c.notify <- eventStop{m: req}
+
+	t := time.AfterFunc(c.peer.SndTimeout, func() {
+		m := dpr.Failed(
+			msg.DiameterTooBusy,
+			"no response from peer node").ToRaw()
+		m.HbHID = req.HbHID
+		m.EtEID = req.EtEID
+		c.notify <- eventRcvDPA{m}
+	})
+
+	<-ch
+	t.Stop()
 }
 
 // LocalAddr returns transport connection of state machine
@@ -106,72 +197,130 @@ func (c *Conn) AuthApplication() map[msg.VendorID][]msg.AuthApplicationID {
 	return c.peer.AuthApps
 }
 
-// Send send Diameter request
-func (c *Conn) Send(m msg.Request) msg.Answer {
-	ch := make(chan msg.Answer)
-	t := new(time.Timer)
+func socketHandler(c *Conn) {
+	for {
+		m := msg.RawMsg{}
+		c.con.SetReadDeadline(time.Time{})
+		if _, e := m.ReadFrom(c.con); e != nil {
+			break
+		}
 
-	c.notify <- eventSndRequest{m: m, c: ch, t: t}
-
-	a := <-ch
-	t.Stop()
-
-	return a
+		if m.AppID == 0 && m.Code == 257 && m.FlgR {
+			c.notify <- eventRcvCER{m}
+		} else if m.AppID == 0 && m.Code == 257 && !m.FlgR {
+			c.notify <- eventRcvCEA{m}
+		} else if m.AppID == 0 && m.Code == 280 && m.FlgR {
+			c.notify <- eventRcvDWR{m}
+		} else if m.AppID == 0 && m.Code == 280 && !m.FlgR {
+			c.notify <- eventRcvDWA{m}
+		} else if m.AppID == 0 && m.Code == 282 && m.FlgR {
+			c.notify <- eventRcvDPR{m}
+		} else if m.AppID == 0 && m.Code == 282 && !m.FlgR {
+			c.notify <- eventRcvDPA{m}
+		} else {
+			c.notify <- eventRcvMsg{m}
+		}
+	}
+	c.notify <- eventPeerDisc{}
 }
 
-func (c *Conn) run() {
-	go func() {
-		old := shutdown
+func eventHandler(c *Conn) {
+	old := shutdown
+	Notify(StateUpdate{
+		oldStat: old, newStat: c.state,
+		stateEvent: eventInit{}, conn: c, Err: nil})
+
+	for {
+		event := <-c.notify
+		old = c.state
+		e := event.exec(c)
+
 		Notify(StateUpdate{
 			oldStat: old, newStat: c.state,
-			stateEvent: eventInit{}, conn: c, Err: nil})
+			stateEvent: event, conn: c, Err: e})
 
-		for {
-			event := <-c.notify
-			old = c.state
-			e := event.exec(c)
-
-			Notify(StateUpdate{
-				oldStat: old, newStat: c.state,
-				stateEvent: event, conn: c, Err: e})
-
-			if _, ok := event.(eventPeerDisc); ok {
-				break
-			}
+		if _, ok := event.(eventPeerDisc); ok {
+			break
 		}
-	}()
-	go func() {
-		for {
-			m := msg.RawMsg{}
-			c.con.SetReadDeadline(time.Time{})
-			if _, e := m.ReadFrom(c.con); e != nil {
-				break
-			}
-
-			if m.AppID == 0 && m.Code == 257 && m.FlgR {
-				c.notify <- eventRcvCER{m}
-			} else if m.AppID == 0 && m.Code == 257 && !m.FlgR {
-				c.notify <- eventRcvCEA{m}
-			} else if m.AppID == 0 && m.Code == 280 && m.FlgR {
-				c.notify <- eventRcvDWR{m}
-			} else if m.AppID == 0 && m.Code == 280 && !m.FlgR {
-				c.notify <- eventRcvDWA{m}
-			} else if m.AppID == 0 && m.Code == 282 && m.FlgR {
-				c.notify <- eventRcvDPR{m}
-			} else if m.AppID == 0 && m.Code == 282 && !m.FlgR {
-				c.notify <- eventRcvDPA{m}
-			} else if m.FlgR {
-				c.notify <- eventRcvRequest{m}
-			} else {
-				c.notify <- eventRcvAnswer{m}
-			}
-		}
-		c.notify <- eventPeerDisc{}
-	}()
+	}
 }
 
-func (c *Conn) write(m msg.RawMsg) error {
-	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
-	_, e := m.WriteTo(c.con)
-	return e
+func messageHandler(c *Conn) {
+	for {
+		m := <-c.rcvstack
+		if m.Code == 0 {
+			break
+		}
+		if m.FlgR {
+			requestHandler(c, m)
+		} else {
+			answerHandler(c, m)
+		}
+	}
+}
+
+func requestHandler(c *Conn, m msg.RawMsg) {
+	if app, ok := supportedApps[msg.AuthApplicationID(m.AppID)]; !ok {
+		c.notify <- eventSndMsg{
+			makeErrorMsg(m, msg.DiameterApplicationUnsupported)}
+	} else if req, ok := app.req[m.Code]; !ok {
+		c.notify <- eventSndMsg{
+			makeErrorMsg(m, msg.DiameterCommandUnspported)}
+	} else if r, e := req.FromRaw(m); e != nil {
+		// ToDo
+		// invalid message handling
+	} else if ans := HandleMSG(r); ans == nil {
+		// ToDo
+		// message handling failure handling
+	} else {
+		a := ans.ToRaw()
+		a.HbHID = m.HbHID
+		a.EtEID = m.EtEID
+		c.notify <- eventSndMsg{a}
+	}
+}
+
+func answerHandler(c *Conn, m msg.RawMsg) {
+	ch, ok := c.sndstack[m.HbHID]
+	if !ok {
+		return
+	}
+	delete(c.sndstack, m.HbHID)
+
+	if app, ok := supportedApps[msg.AuthApplicationID(m.AppID)]; !ok {
+		// ToDo
+		// invalid message handling
+	} else if ans, ok := app.ans[m.Code]; !ok {
+		// ToDo
+		// invalid message handling
+	} else if ack, e := ans.FromRaw(m); e != nil {
+		// ToDo
+		// invalid message handling
+	} else {
+		ch <- ack
+	}
+}
+
+func makeErrorMsg(m msg.RawMsg, c msg.ResultCode) msg.RawMsg {
+	r := msg.RawMsg{}
+	r.Ver = m.Ver
+	r.FlgP = m.FlgP
+	r.Code = m.Code
+	r.AppID = m.AppID
+	r.HbHID = m.HbHID
+	r.EtEID = m.EtEID
+
+	host := msg.OriginHost(Host)
+	realm := msg.OriginRealm(Realm)
+	r.AVP = []msg.RawAVP{
+		c.ToRaw(),
+		host.ToRaw(),
+		realm.ToRaw()}
+
+	for _, a := range m.AVP {
+		if e := a.Validate(0, 263, false, true, false); e == nil {
+			r.AVP = append(r.AVP, a)
+		}
+	}
+	return r
 }

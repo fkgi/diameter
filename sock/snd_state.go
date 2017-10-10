@@ -79,9 +79,7 @@ func (v eventInit) exec(c *Conn) error {
 
 // Connect
 type eventConnect struct {
-	m msg.CER
-	c chan msg.Answer
-	t *time.Timer
+	m msg.RawMsg
 }
 
 func (eventConnect) String() string {
@@ -94,54 +92,19 @@ func (v eventConnect) exec(c *Conn) error {
 	}
 	c.state = waitCEA
 
-	req := v.m.ToRaw()
-	req.HbHID = NextHbH()
-	req.EtEID = NextEtE()
-
-	c.sndstack[req.HbHID] = v.c
-	e := c.write(req)
-
-	if e == nil {
-		v.t = time.AfterFunc(c.peer.SndTimeout, func() {
-			nak := v.m.Timeout().ToRaw()
-			nak.HbHID = req.HbHID
-			nak.EtEID = req.EtEID
-			c.notify <- eventRcvCEA{nak}
-		})
-	} else {
-		nak := v.m.Failed().ToRaw()
-		nak.HbHID = req.HbHID
-		nak.EtEID = req.EtEID
-		c.notify <- eventRcvCEA{nak}
-	}
-
+	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
+	_, e := v.m.WriteTo(c.con)
 	Notify(CapabilityExchangeEvent{tx: true, req: true, conn: c, Err: e})
+	if e != nil {
+		c.con.Close()
+	}
 	return e
 }
 
-func watchdog(c *Conn) {
-	dwr := MakeDWR(c)
-	req := dwr.ToRaw()
-	req.HbHID = NextHbH()
-	req.EtEID = NextEtE()
-
-	ch := make(chan msg.Answer)
-	c.sndstack[req.HbHID] = ch
-
-	c.notify <- eventWatchdog{}
-
-	t := time.AfterFunc(c.peer.SndTimeout, func() {
-		nak := dwr.Timeout().ToRaw()
-		nak.HbHID = req.HbHID
-		nak.EtEID = req.EtEID
-		c.notify <- eventRcvDWA{nak}
-	})
-	<-ch
-	t.Stop()
-}
-
 // Watchdog
-type eventWatchdog struct{}
+type eventWatchdog struct {
+	m msg.RawMsg
+}
 
 func (eventWatchdog) String() string {
 	return "Watchdog"
@@ -158,35 +121,19 @@ func (v eventWatchdog) exec(c *Conn) error {
 		return WatchdogExpired{}
 	}
 
-	dwr := MakeDWR(c)
-	req := dwr.ToRaw()
-	req.HbHID = NextHbH()
-	req.EtEID = NextEtE()
-	ch := make(chan msg.Answer)
-	c.sndstack[req.HbHID] = ch
-
-	e := c.write(req)
-
+	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
+	_, e := v.m.WriteTo(c.con)
 	Notify(WatchdogEvent{tx: true, req: true, conn: c, Err: e})
-	if e == nil {
-		go func() {
-			t := time.AfterFunc(c.peer.SndTimeout, func() {
-				nak := dwr.Timeout().ToRaw()
-				nak.HbHID = req.HbHID
-				nak.EtEID = req.EtEID
-				c.notify <- eventRcvDWA{nak}
-			})
-			<-ch
-			t.Stop()
-		}()
-	} else {
+	if e != nil {
 		c.con.Close()
 	}
 	return e
 }
 
 // Stop
-type eventStop struct{}
+type eventStop struct {
+	m msg.RawMsg
+}
 
 func (eventStop) String() string {
 	return "Stop"
@@ -200,22 +147,10 @@ func (v eventStop) exec(c *Conn) error {
 	c.state = closing
 	c.sysTimer.Stop()
 
-	dpr := MakeDPR(c)
-	req := dpr.ToRaw()
-	req.HbHID = NextHbH()
-	req.EtEID = NextEtE()
-	c.sndstack[req.HbHID] = nil //make(chan msg.Message)
-
-	e := c.write(req)
+	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
+	_, e := v.m.WriteTo(c.con)
 	Notify(PurgeEvent{tx: true, req: true, conn: c, Err: e})
-	if e == nil {
-		c.sysTimer = time.AfterFunc(c.peer.SndTimeout, func() {
-			nak := dpr.Timeout().ToRaw()
-			nak.HbHID = req.HbHID
-			nak.EtEID = req.EtEID
-			c.notify <- eventRcvDPA{nak}
-		})
-	} else {
+	if e != nil {
 		c.con.Close()
 	}
 	return e
@@ -232,68 +167,31 @@ func (v eventPeerDisc) exec(c *Conn) error {
 	c.con.Close()
 	c.state = closed
 
-	// notify(&DisconnectEvent{
-	// 	Tx: true, Req: true, Local: p.local, Peer: p.peer, Err: e})
+	for _, ch := range c.sndstack {
+		ch <- nil
+	}
+	c.rcvstack <- msg.RawMsg{}
+
 	return nil
 }
 
-// Snd Request MSG
-type eventSndRequest struct {
-	m msg.Request
-	c chan msg.Answer
-	t *time.Timer
-}
-
-func (eventSndRequest) String() string {
-	return "Snd-REQ"
-}
-
-func (v eventSndRequest) exec(c *Conn) error {
-	if c.state != open {
-		return NotAcceptableEvent{stateEvent: v, state: c.state}
-	}
-
-	req := v.m.ToRaw()
-	req.HbHID = NextHbH()
-	req.EtEID = NextEtE()
-
-	c.sndstack[req.HbHID] = v.c
-	e := c.write(req)
-
-	if e == nil {
-		v.t = time.AfterFunc(c.peer.SndTimeout, func() {
-			nak := v.m.Timeout().ToRaw()
-			nak.HbHID = req.HbHID
-			nak.EtEID = req.EtEID
-			c.notify <- eventRcvAnswer{nak}
-		})
-	} else {
-		nak := v.m.Failed().ToRaw()
-		nak.HbHID = req.HbHID
-		nak.EtEID = req.EtEID
-		c.notify <- eventRcvAnswer{nak}
-		c.con.Close()
-	}
-	Notify(MessageEvent{tx: true, req: true, conn: c, Err: e})
-	return e
-}
-
-// Snd Answer MSG
-type eventSndAnswer struct {
+// Snd MSG
+type eventSndMsg struct {
 	m msg.RawMsg
 }
 
-func (eventSndAnswer) String() string {
-	return "Snd-ANS"
+func (eventSndMsg) String() string {
+	return "Snd-REQ"
 }
 
-func (v eventSndAnswer) exec(c *Conn) error {
+func (v eventSndMsg) exec(c *Conn) error {
 	if c.state != open {
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
-	e := c.write(v.m)
-	Notify(MessageEvent{tx: true, req: false, conn: c, Err: e})
+	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
+	_, e := v.m.WriteTo(c.con)
+	Notify(MessageEvent{tx: true, req: v.m.FlgR, conn: c, Err: e})
 	if e != nil {
 		c.con.Close()
 	}

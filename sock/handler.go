@@ -12,27 +12,6 @@ var HandleMSG = func(m msg.Request) msg.Answer {
 	return nil
 }
 
-// MakeUnsupportedAnswer make answer for unsupported message
-var MakeUnsupportedAnswer = func(m msg.RawMsg) msg.RawMsg {
-	a := msg.RawMsg{}
-	a.Ver = m.Ver
-	a.FlgP = m.FlgP
-	a.Code = m.Code
-	a.AppID = m.AppID
-	a.HbHID = m.HbHID
-	a.EtEID = m.EtEID
-
-	host := msg.OriginHost(Host)
-	realm := msg.OriginRealm(Realm)
-	result := msg.DiameterApplicationUnsupported
-	a.AVP = []msg.RawAVP{
-		result.ToRaw(),
-		host.ToRaw(),
-		realm.ToRaw()}
-
-	return a
-}
-
 // MakeCER returns new CER
 var MakeCER = func(c *Conn) msg.CER {
 	r := msg.CER{

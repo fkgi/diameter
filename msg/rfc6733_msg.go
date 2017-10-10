@@ -123,38 +123,16 @@ func (CER) FromRaw(m RawMsg) (Request, error) {
 	return v, e
 }
 
-// Timeout make error message for timeout
-func (v CER) Timeout() Answer {
-	return CEA{
-		ResultCode:                  DiameterTooBusy,
-		OriginHost:                  v.OriginHost,
-		OriginRealm:                 v.OriginRealm,
-		HostIPAddress:               v.HostIPAddress,
-		VendorID:                    v.VendorID,
-		ProductName:                 v.ProductName,
-		OriginStateID:               v.OriginStateID,
-		ErrorMessage:                "no response from peer node",
-		SupportedVendorID:           v.SupportedVendorID,
-		AuthApplicationID:           v.AuthApplicationID,
-		VendorSpecificApplicationID: v.VendorSpecificApplicationID,
-		FirmwareRevision:            v.FirmwareRevision}
-}
-
 // Failed make error message for timeout
-func (v CER) Failed() Answer {
+func (v CER) Failed(c ResultCode, s ErrorMessage) Answer {
 	return CEA{
-		ResultCode:                  DiameterUnableToDeliver,
-		OriginHost:                  v.OriginHost,
-		OriginRealm:                 v.OriginRealm,
-		HostIPAddress:               v.HostIPAddress,
-		VendorID:                    v.VendorID,
-		ProductName:                 v.ProductName,
-		OriginStateID:               v.OriginStateID,
-		ErrorMessage:                "failed to send",
-		SupportedVendorID:           v.SupportedVendorID,
-		AuthApplicationID:           v.AuthApplicationID,
-		VendorSpecificApplicationID: v.VendorSpecificApplicationID,
-		FirmwareRevision:            v.FirmwareRevision}
+		ResultCode:    c,
+		OriginHost:    v.OriginHost,
+		OriginRealm:   v.OriginRealm,
+		HostIPAddress: v.HostIPAddress,
+		VendorID:      v.VendorID,
+		ProductName:   v.ProductName,
+		ErrorMessage:  s}
 }
 
 /*
@@ -167,7 +145,7 @@ CEA is Capabilities-Exchange-Answer message
 		   { Vendor-Id }
 		   { Product-Name }
 		   [ Origin-State-Id ]
-		   [ Error-RawMsg ]
+		   [ Error-Message ]
 		   [ Failed-AVP ]
 		 * [ Supported-Vendor-Id ]
 		 * [ Auth-Application-Id ]
@@ -366,22 +344,13 @@ func (DPR) FromRaw(m RawMsg) (Request, error) {
 	return v, e
 }
 
-// Timeout make error message for timeout
-func (v DPR) Timeout() Answer {
-	return DPA{
-		ResultCode:   DiameterTooBusy,
-		OriginHost:   v.OriginHost,
-		OriginRealm:  v.OriginRealm,
-		ErrorMessage: "no response from peer node"}
-}
-
 // Failed make error message for timeout
-func (v DPR) Failed() Answer {
+func (v DPR) Failed(c ResultCode, s ErrorMessage) Answer {
 	return DPA{
-		ResultCode:   DiameterUnableToDeliver,
+		ResultCode:   c,
 		OriginHost:   v.OriginHost,
 		OriginRealm:  v.OriginRealm,
-		ErrorMessage: "failed to send"}
+		ErrorMessage: s}
 }
 
 /*
@@ -523,23 +492,13 @@ func (DWR) FromRaw(m RawMsg) (Request, error) {
 	return v, e
 }
 
-// Timeout make error message for timeout
-func (v DWR) Timeout() Answer {
-	return DWA{
-		ResultCode:    DiameterUnableToDeliver,
-		OriginHost:    v.OriginHost,
-		OriginRealm:   v.OriginRealm,
-		ErrorMessage:  "no response from peer node",
-		OriginStateID: v.OriginStateID}
-}
-
 // Failed make error message for timeout
-func (v DWR) Failed() Answer {
+func (v DWR) Failed(c ResultCode, s ErrorMessage) Answer {
 	return DWA{
-		ResultCode:    DiameterUnableToDeliver,
+		ResultCode:    c,
 		OriginHost:    v.OriginHost,
 		OriginRealm:   v.OriginRealm,
-		ErrorMessage:  "failed to send",
+		ErrorMessage:  s,
 		OriginStateID: v.OriginStateID}
 }
 
