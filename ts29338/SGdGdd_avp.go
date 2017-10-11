@@ -1,42 +1,43 @@
 package ts29338
 
 import (
-	"time"
-
 	"github.com/fkgi/diameter/msg"
-	"github.com/fkgi/diameter/ts29272"
-	"github.com/fkgi/diameter/ts29336"
 )
 
 // SCAddress AVP contain the E164 number of the SMS-SC or MTC-IWF.
 type SCAddress string
 
-// Encode return AVP struct of this value
-func (v SCAddress) Encode() msg.Avp {
-	a := msg.Avp{Code: 3300, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v *SCAddress) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3300, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	a.Encode(string(v))
+	if v != nil {
+		a.Encode(string(*v))
+	}
 	return a
 }
 
-// GetSCAddress get AVP value
-func GetSCAddress(o msg.GroupedAVP) (SCAddress, bool) {
-	s := new(string)
-	if a, ok := o.Get(3300, 10415); ok {
-		a.Decode(s)
-	} else {
-		return "", false
+// FromRaw get AVP value
+func (v *SCAddress) FromRaw(a msg.RawAVP) (e error) {
+	if e = a.Validate(10415, 3300, true, true, false); e != nil {
+		return
 	}
-	return SCAddress(*s), true
+	s := new(string)
+	if e = a.Decode(s); e != nil {
+		return
+	}
+	*v = SCAddress(*s)
+	return
 }
 
+/*
 // SMRPUI AVP contain a short message transfer protocol data unit (TPDU).
 // Maximum length is 200 octets.
 type SMRPUI []byte
 
-// Encode return AVP struct of this value
-func (v SMRPUI) Encode() msg.Avp {
-	a := msg.Avp{Code: 3301, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v SMRPUI) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3301, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	a.Encode([]byte(v))
 	return a
@@ -59,9 +60,9 @@ type TFRFlags struct {
 	MMS bool // More message to send
 }
 
-// Encode return AVP struct of this value
-func (v TFRFlags) Encode() msg.Avp {
-	a := msg.Avp{Code: 3302, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v TFRFlags) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3302, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	i := uint32(0)
 
@@ -92,15 +93,15 @@ type SMDeliveryFailureCause struct {
 	Diag  []byte
 }
 
-// Encode return AVP struct of this value
-func (v SMDeliveryFailureCause) Encode() msg.Avp {
-	a := msg.Avp{Code: 3303, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v SMDeliveryFailureCause) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3303, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	var t []msg.Avp
+	var t []msg.RawAVP
 
 	// SM-Enumerated-Delivery-Failure-Cause
 	{
-		a := msg.Avp{Code: 3304, VenID: 10415,
+		a := msg.RawAVP{Code: 3304, VenID: 10415,
 			FlgV: true, FlgM: true, FlgP: false}
 		a.Encode(v.Cause)
 		t = append(t, a)
@@ -108,7 +109,7 @@ func (v SMDeliveryFailureCause) Encode() msg.Avp {
 
 	// SM-Diagnostic-Info
 	if v.Diag != nil {
-		a := msg.Avp{Code: 3305, VenID: 10415,
+		a := msg.RawAVP{Code: 3305, VenID: 10415,
 			FlgV: true, FlgM: true, FlgP: false}
 		a.Encode(v.Diag)
 		t = append(t, a)
@@ -156,9 +157,9 @@ const (
 // SMDeliveryTimer AVP contain the value in seconds of the timer for SM Delivery.
 type SMDeliveryTimer uint32
 
-// Encode return AVP struct of this value
-func (v SMDeliveryTimer) Encode() msg.Avp {
-	a := msg.Avp{Code: 3306, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v SMDeliveryTimer) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3306, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	a.Encode(uint32(v))
 	return a
@@ -179,9 +180,9 @@ func GetSMDeliveryTimer(o msg.GroupedAVP) (SMDeliveryTimer, bool) {
 // the SM Delivery Supervision Timer was started.
 type SMDeliveryStartTime time.Time
 
-// Encode return AVP struct of this value
-func (v SMDeliveryStartTime) Encode() msg.Avp {
-	a := msg.Avp{Code: 3307, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v SMDeliveryStartTime) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3307, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	a.Encode(time.Time(v))
 	return a
@@ -205,9 +206,9 @@ type OFRFlags struct {
 	S6as6d bool
 }
 
-// Encode return AVP struct of this value
-func (v OFRFlags) Encode() msg.Avp {
-	a := msg.Avp{Code: 3328, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v OFRFlags) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3328, VenID: 10415,
 		FlgV: true, FlgM: false, FlgP: false}
 	i := uint32(0)
 
@@ -239,29 +240,29 @@ type SMSMICorrelationID struct {
 	DestSIPURI string
 }
 
-// Encode return AVP struct of this value
-func (v SMSMICorrelationID) Encode() msg.Avp {
-	a := msg.Avp{Code: 3324, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v SMSMICorrelationID) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3324, VenID: 10415,
 		FlgV: true, FlgM: false, FlgP: false}
-	var t []msg.Avp
+	var t []msg.RawAVP
 
 	// HSS-ID
 	if len(v.HSSID) != 0 {
-		a := msg.Avp{Code: 3325, VenID: 10415,
+		a := msg.RawAVP{Code: 3325, VenID: 10415,
 			FlgV: true, FlgM: false, FlgP: false}
 		a.Encode(v.HSSID)
 		t = append(t, a)
 	}
 	// Originating-SIP-URI
 	if len(v.OrigSIPURI) != 0 {
-		a := msg.Avp{Code: 3326, VenID: 10415,
+		a := msg.RawAVP{Code: 3326, VenID: 10415,
 			FlgV: true, FlgM: false, FlgP: false}
 		a.Encode(v.OrigSIPURI)
 		t = append(t, a)
 	}
 	// Destination-SIP-URI
 	if len(v.DestSIPURI) != 0 {
-		a := msg.Avp{Code: 3327, VenID: 10415,
+		a := msg.RawAVP{Code: 3327, VenID: 10415,
 			FlgV: true, FlgM: false, FlgP: false}
 		a.Encode(v.DestSIPURI)
 		t = append(t, a)
@@ -296,9 +297,9 @@ func GetSMSMICorrelationID(o msg.GroupedAVP) (SMSMICorrelationID, bool) {
 // the SMS-GMSC is capable to retransmit the MT Short Message.
 type MaximumRetransmissionTime time.Time
 
-// Encode return AVP struct of this value
-func (v MaximumRetransmissionTime) Encode() msg.Avp {
-	a := msg.Avp{Code: 3330, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v MaximumRetransmissionTime) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3330, VenID: 10415,
 		FlgV: true, FlgM: false, FlgP: false}
 	a.Encode(time.Time(v))
 	return a
@@ -319,9 +320,9 @@ func GetMaximumRetransmissionTime(o msg.GroupedAVP) (MaximumRetransmissionTime, 
 // the SMS-GMSC is requested to retransmit the MT Short Message.
 type RequestedRetransmissionTime time.Time
 
-// Encode return AVP struct of this value
-func (v RequestedRetransmissionTime) Encode() msg.Avp {
-	a := msg.Avp{Code: 3331, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v RequestedRetransmissionTime) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3331, VenID: 10415,
 		FlgV: true, FlgM: false, FlgP: false}
 	a.Encode(time.Time(v))
 	return a
@@ -341,9 +342,9 @@ func GetRequestedRetransmissionTime(o msg.GroupedAVP) (RequestedRetransmissionTi
 // SMSGMSCAddress AVP contain the E.164 number of the SMS-GMSC or SMS Router.
 type SMSGMSCAddress string
 
-// Encode return AVP struct of this value
-func (v SMSGMSCAddress) Encode() msg.Avp {
-	a := msg.Avp{Code: 3332, VenID: 10415,
+// ToRaw return AVP struct of this value
+func (v SMSGMSCAddress) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3332, VenID: 10415,
 		FlgV: true, FlgM: false, FlgP: false}
 	a.Encode(string(v))
 	return a
@@ -364,8 +365,8 @@ func GetSMSGMSCAddress(o msg.GroupedAVP) (SMSGMSCAddress, bool) {
 // UserName AVP from RFC6733
 type UserName msg.UserName
 
-// Encode return AVP struct of this value
-func (v UserName) Encode() msg.Avp {
+// ToRaw return AVP struct of this value
+func (v UserName) ToRaw() msg.RawAVP {
 	return msg.UserName(v).Encode()
 }
 
@@ -378,8 +379,8 @@ func GetUserName(o msg.GroupedAVP) (UserName, bool) {
 // UserIdentifier AVP from ts29.336
 type UserIdentifier ts29336.UserIdentifier
 
-// Encode return AVP struct of this value
-func (v UserIdentifier) Encode() msg.Avp {
+// ToRaw return AVP struct of this value
+func (v UserIdentifier) ToRaw() msg.RawAVP {
 	return ts29336.UserIdentifier(v).Encode()
 }
 
@@ -392,8 +393,8 @@ func GetUserIdentifier(o msg.GroupedAVP) (UserIdentifier, bool) {
 // MMENumberForMTSMS AVP from ts29.272
 type MMENumberForMTSMS ts29272.MMENumberForMTSMS
 
-// Encode return AVP struct of this value
-func (v MMENumberForMTSMS) Encode() msg.Avp {
+// ToRaw return AVP struct of this value
+func (v MMENumberForMTSMS) ToRaw() msg.RawAVP {
 	return ts29272.MMENumberForMTSMS(v).Encode()
 }
 
@@ -404,11 +405,12 @@ func GetMMENumberForMTSMS(o msg.GroupedAVP) (MMENumberForMTSMS, bool) {
 }
 */
 
+/*
 // SGSNNumber AVP from ts29.272
 type SGSNNumber ts29272.SGSNNumber
 
-// Encode return AVP struct of this value
-func (v SGSNNumber) Encode() msg.Avp {
+// ToRaw return AVP struct of this value
+func (v SGSNNumber) ToRaw() msg.RawAVP {
 	a := ts29272.SGSNNumber(v).Encode()
 	a.FlgM = false
 	return a
@@ -424,8 +426,8 @@ func GetSGSNNumber(o msg.GroupedAVP) (SGSNNumber, bool) {
 // SupportedFeatures AVP from ts29.229
 type SupportedFeatures ts29229.SupportedFeatures
 
-// Encode return AVP struct of this value
-func (v SupportedFeatures) Encode() msg.Avp {
+// ToRaw return AVP struct of this value
+func (v SupportedFeatures) ToRaw() msg.RawAVP {
 	return ts29229.SupportedFeatures(v).Encode()
 }
 
@@ -438,8 +440,8 @@ func GetSupportedFeatures(o msg.GroupedAVP) (SupportedFeatures, bool) {
 // FeatureListID AVP from ts29.229
 type FeatureListID ts29229.FeatureListID
 
-// Encode return AVP struct of this value
-func (v FeatureListID) Encode() msg.Avp {
+// ToRaw return AVP struct of this value
+func (v FeatureListID) ToRaw() msg.RawAVP {
 	return ts29229.FeatureListID(v).Encode()
 }
 
@@ -452,8 +454,8 @@ func GetFeatureListID(o msg.GroupedAVP) (FeatureListID, bool) {
 // FeatureList AVP from ts29.229
 type FeatureList ts29229.FeatureList
 
-// Encode return AVP struct of this value
-func (v FeatureList) Encode() msg.Avp {
+// ToRaw return AVP struct of this value
+func (v FeatureList) ToRaw() msg.RawAVP {
 	return ts29229.FeatureList(v).Encode()
 }
 
@@ -463,12 +465,12 @@ func GetFeatureList(o msg.GroupedAVP) (FeatureList, bool) {
 	return FeatureList(a), ok
 }
 */
-
+/*
 // ExternalIdentifier AVP from ts29.336
 type ExternalIdentifier ts29336.ExternalIdentifier
 
-// Encode return AVP struct of this value
-func (v ExternalIdentifier) Encode() msg.Avp {
+// ToRaw return AVP struct of this value
+func (v ExternalIdentifier) ToRaw() msg.RawAVP {
 	a := ts29336.ExternalIdentifier(v).Encode()
 	a.FlgM = false
 	return a
@@ -479,3 +481,4 @@ func GetExternalIdentifier(o msg.GroupedAVP) (ExternalIdentifier, bool) {
 	a, ok := ts29336.GetExternalIdentifier(o)
 	return ExternalIdentifier(a), ok
 }
+*/

@@ -9,6 +9,13 @@ import (
 // SMRPMTI AVP contain the RP-Message Type Indicator of the Short Message.
 type SMRPMTI msg.Enumerated
 
+const (
+	// SmDeliver is Enumerated value 0
+	SmDeliver SMRPMTI = 0
+	// SmStatusReport is Enumerated value 1
+	SmStatusReport SMRPMTI = 1
+)
+
 // ToRaw return AVP struct of this value
 func (v *SMRPMTI) ToRaw() msg.RawAVP {
 	a := msg.RawAVP{Code: 3308, VenID: 10415,
@@ -31,13 +38,6 @@ func (v *SMRPMTI) FromRaw(a msg.RawAVP) (e error) {
 	*v = SMRPMTI(*s)
 	return
 }
-
-const (
-	// SmDeliver is Enumerated value 0
-	SmDeliver SMRPMTI = 0
-	// SmStatusReport is Enumerated value 1
-	SmStatusReport SMRPMTI = 1
-)
 
 // SMRPSMEA AVP contain the RP-Originating SME-address of
 // the Short Message Entity that has originated the SM.
@@ -123,6 +123,13 @@ func (v *SRRFlags) FromRaw(a msg.RawAVP) (e error) {
 // that delivery of a short message is not intended.
 type SMDeliveryNotIntended msg.Enumerated
 
+const (
+	// OnlyImsiRequested is Enumerated value 0
+	OnlyImsiRequested SMDeliveryNotIntended = 0
+	// OnlyMccMncRequested is Enumerated value 1
+	OnlyMccMncRequested SMDeliveryNotIntended = 1
+)
+
 // ToRaw return AVP struct of this value
 func (v *SMDeliveryNotIntended) ToRaw() msg.RawAVP {
 	a := msg.RawAVP{Code: 3311, VenID: 10415,
@@ -145,13 +152,6 @@ func (v *SMDeliveryNotIntended) FromRaw(a msg.RawAVP) (e error) {
 	*v = SMDeliveryNotIntended(*s)
 	return
 }
-
-const (
-	// OnlyImsiRequested is Enumerated value 0
-	OnlyImsiRequested SMDeliveryNotIntended = 0
-	// OnlyMccMncRequested is Enumerated value 1
-	OnlyMccMncRequested SMDeliveryNotIntended = 1
-)
 
 // MWDStatus AVP
 type MWDStatus struct {
@@ -373,6 +373,15 @@ func (v *IPSMGWSMDeliveryOutcome) ToRaw() msg.RawAVP {
 // SMDeliveryCause AVP
 type SMDeliveryCause msg.Enumerated
 
+const (
+	// UeMemoryCapacityExceeded is Enumerated value 0
+	UeMemoryCapacityExceeded SMDeliveryCause = 0
+	// AbsentUser is Enumerated value 1
+	AbsentUser SMDeliveryCause = 1
+	// SuccessfulTransfer is Enumerated value 2
+	SuccessfulTransfer SMDeliveryCause = 2
+)
+
 // ToRaw return AVP struct of this value
 func (v *SMDeliveryCause) ToRaw() msg.RawAVP {
 	a := msg.RawAVP{Code: 3321, VenID: 10415,
@@ -395,15 +404,6 @@ func (v *SMDeliveryCause) FromRaw(a msg.RawAVP) (e error) {
 	*v = SMDeliveryCause(*s)
 	return
 }
-
-const (
-	// UeMemoryCapacityExceeded is Enumerated value 0
-	UeMemoryCapacityExceeded SMDeliveryCause = 0
-	// AbsentUser is Enumerated value 1
-	AbsentUser SMDeliveryCause = 1
-	// SuccessfulTransfer is Enumerated value 2
-	SuccessfulTransfer SMDeliveryCause = 2
-)
 
 // AbsentUserDiagnosticSM AVP
 type AbsentUserDiagnosticSM uint32
