@@ -153,12 +153,17 @@ func (v *SMDeliveryNotIntended) FromRaw(a msg.RawAVP) (e error) {
 	return
 }
 
-// MWDStatus AVP
+// MWDStatus AVP contain a bit mask.
+// SCAddrNotIncluded shall indicate the presence of
+// the SC Address in the Message Waiting Data in the HSS.
+// MNRFSet shall indicate that the MNRF flag is set in the HSS.
+// MCEFSet shall indicate that the MCEF flag is set in the HSS.
+// MNRGSet shall indicate that the MNRG flag is set in the HSS.
 type MWDStatus struct {
-	ScAddrNotIncluded bool
-	MnrfSet           bool
-	McefSet           bool
-	MnrgSet           bool
+	SCAddrNotIncluded bool
+	MNRFSet           bool
+	MCEFSet           bool
+	MNRGSet           bool
 }
 
 // ToRaw return AVP struct of this value
@@ -168,16 +173,16 @@ func (v *MWDStatus) ToRaw() msg.RawAVP {
 
 	if v != nil {
 		i := uint32(0)
-		if v.ScAddrNotIncluded {
+		if v.SCAddrNotIncluded {
 			i = i | 0x00000001
 		}
-		if v.MnrfSet {
+		if v.MNRFSet {
 			i = i | 0x00000002
 		}
-		if v.McefSet {
+		if v.MCEFSet {
 			i = i | 0x00000004
 		}
-		if v.MnrgSet {
+		if v.MNRGSet {
 			i = i | 0x00000008
 		}
 		a.Encode(i)
@@ -195,14 +200,15 @@ func (v *MWDStatus) FromRaw(a msg.RawAVP) (e error) {
 		return
 	}
 	*v = MWDStatus{
-		ScAddrNotIncluded: (*s)&0x00000001 == 0x00000001,
-		MnrfSet:           (*s)&0x00000002 == 0x00000002,
-		McefSet:           (*s)&0x00000004 == 0x00000004,
-		MnrgSet:           (*s)&0x00000008 == 0x00000008}
+		SCAddrNotIncluded: (*s)&0x00000001 == 0x00000001,
+		MNRFSet:           (*s)&0x00000002 == 0x00000002,
+		MCEFSet:           (*s)&0x00000004 == 0x00000004,
+		MNRGSet:           (*s)&0x00000008 == 0x00000008}
 	return
 }
 
-// MMEAbsentUserDiagnosticSM AVP
+// MMEAbsentUserDiagnosticSM AVP shall indicate the diagnostic
+// explaining the absence of the user given by the MME.
 type MMEAbsentUserDiagnosticSM uint32
 
 // ToRaw return AVP struct of this value
@@ -228,7 +234,8 @@ func (v *MMEAbsentUserDiagnosticSM) FromRaw(a msg.RawAVP) (e error) {
 	return
 }
 
-// MSCAbsentUserDiagnosticSM AVP
+// MSCAbsentUserDiagnosticSM AVP shall indicate the diagnostic
+// explaining the absence of the user given by the MSC.
 type MSCAbsentUserDiagnosticSM uint32
 
 // ToRaw return AVP struct of this value
@@ -254,7 +261,8 @@ func (v *MSCAbsentUserDiagnosticSM) FromRaw(a msg.RawAVP) (e error) {
 	return
 }
 
-// SGSNAbsentUserDiagnosticSM AVP
+// SGSNAbsentUserDiagnosticSM AVP shall indicate the diagnostic
+// explaining the absence of the user given by the SGSN.
 type SGSNAbsentUserDiagnosticSM uint32
 
 // ToRaw return AVP struct of this value
@@ -280,7 +288,7 @@ func (v *SGSNAbsentUserDiagnosticSM) FromRaw(a msg.RawAVP) (e error) {
 	return
 }
 
-// SMDeliveryOutcome AVP
+// SMDeliveryOutcome AVP contains the result of the SM delivery.
 type SMDeliveryOutcome struct {
 	E msg.Enumerated
 	I uint32
@@ -294,7 +302,9 @@ func (v *SMDeliveryOutcome) ToRaw() msg.RawAVP {
 	return a
 }
 
-// MMESMDeliveryOutcome AVP
+// MMESMDeliveryOutcome AVP shall indicate the outcome of
+// the SM delivery for setting the message waiting data
+// in the HSS when the SM delivery is with an MME.
 type MMESMDeliveryOutcome struct {
 	SMDeliveryCause        SMDeliveryCause
 	AbsentUserDiagnosticSM AbsentUserDiagnosticSM
@@ -313,7 +323,9 @@ func (v *MMESMDeliveryOutcome) ToRaw() msg.RawAVP {
 	return a
 }
 
-// MSCSMDeliveryOutcome AVP
+// MSCSMDeliveryOutcome AVP shall indicate the outcome of
+// the SM delivery for setting the message waiting data
+// in the HSS when the SM delivery is with an MSC.
 type MSCSMDeliveryOutcome struct {
 	SMDeliveryCause        SMDeliveryCause
 	AbsentUserDiagnosticSM AbsentUserDiagnosticSM
@@ -332,7 +344,9 @@ func (v *MSCSMDeliveryOutcome) ToRaw() msg.RawAVP {
 	return a
 }
 
-// SGSNSMDeliveryOutcome AVP
+// SGSNSMDeliveryOutcome AVP shall indicate the outcome of
+// the SM delivery for setting the message waiting data
+// in the HSS when the SM delivery is with an SGSN.
 type SGSNSMDeliveryOutcome struct {
 	SMDeliveryCause        SMDeliveryCause
 	AbsentUserDiagnosticSM AbsentUserDiagnosticSM
@@ -351,7 +365,9 @@ func (v *SGSNSMDeliveryOutcome) ToRaw() msg.RawAVP {
 	return a
 }
 
-// IPSMGWSMDeliveryOutcome AVP
+// IPSMGWSMDeliveryOutcome AVP shall indicate the outcome of
+// the SM delivery for setting the message waiting data
+// when the SM delivery is with an IP-SM-GW.
 type IPSMGWSMDeliveryOutcome struct {
 	SMDeliveryCause        SMDeliveryCause
 	AbsentUserDiagnosticSM AbsentUserDiagnosticSM
@@ -370,7 +386,8 @@ func (v *IPSMGWSMDeliveryOutcome) ToRaw() msg.RawAVP {
 	return a
 }
 
-// SMDeliveryCause AVP
+// SMDeliveryCause AVP shall indicate the cause of
+// the SMP delivery result.
 type SMDeliveryCause msg.Enumerated
 
 const (
@@ -405,7 +422,8 @@ func (v *SMDeliveryCause) FromRaw(a msg.RawAVP) (e error) {
 	return
 }
 
-// AbsentUserDiagnosticSM AVP
+// AbsentUserDiagnosticSM AVP shall indicate the diagnostic
+// explaining the absence of the subscriber.
 type AbsentUserDiagnosticSM uint32
 
 // ToRaw return AVP struct of this value
@@ -431,7 +449,9 @@ func (v *AbsentUserDiagnosticSM) FromRaw(a msg.RawAVP) (e error) {
 	return
 }
 
-// RDRFlags AVP
+// RDRFlags AVP contain a bit mask.
+// SingleAttemptDelivery indicates that only one delivery attempt
+// shall be performed for this particular SM.
 type RDRFlags struct {
 	SingleAttemptDelivery bool
 }
@@ -464,7 +484,10 @@ func (v *RDRFlags) FromRaw(a msg.RawAVP) (e error) {
 	return
 }
 
-// MaximumUEAvailabilityTime AVP
+// MaximumUEAvailabilityTime AVP shall contain the timestamp (in UTC)
+// until which a UE using a power saving mechanism
+// (such as extended idle mode DRX) is expected to be reachable
+// for SM Delivery.
 type MaximumUEAvailabilityTime time.Time
 
 // ToRaw return AVP struct of this value
@@ -487,5 +510,47 @@ func (v *MaximumUEAvailabilityTime) FromRaw(a msg.RawAVP) (e error) {
 		return
 	}
 	*v = MaximumUEAvailabilityTime(*s)
+	return
+}
+
+// SMSGMSCAlertEvent AVP shall contain a bit mask.
+// UEAvailableForMTSMS shall indicate that the UE is
+// now available for MT SMS
+// UEUnderNewServingNode shall indicate that the UE has moved
+// under the coverage of another MME or SGSN.
+type SMSGMSCAlertEvent struct {
+	UEAvailableForMTSMS   bool
+	UEUnderNewServingNode bool
+}
+
+// ToRaw return AVP struct of this value
+func (v *SMSGMSCAlertEvent) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 3333, VenID: 10415,
+		FlgV: true, FlgM: false, FlgP: false}
+	if v != nil {
+		i := uint32(0)
+		if v.UEAvailableForMTSMS {
+			i = i | 0x00000001
+		}
+		if v.UEUnderNewServingNode {
+			i = i | 0x00000002
+		}
+		a.Encode(i)
+	}
+	return a
+}
+
+// FromRaw get AVP value
+func (v *SMSGMSCAlertEvent) FromRaw(a msg.RawAVP) (e error) {
+	if e = a.Validate(10415, 3333, true, false, false); e != nil {
+		return
+	}
+	s := new(uint32)
+	if e = a.Decode(s); e != nil {
+		return
+	}
+	*v = SMSGMSCAlertEvent{
+		UEAvailableForMTSMS:   (*s)&0x00000001 == 0x00000001,
+		UEUnderNewServingNode: (*s)&0x00000002 == 0x00000002}
 	return
 }
