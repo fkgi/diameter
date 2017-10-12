@@ -1,4 +1,6 @@
-package msg
+package rfc6733
+
+import "github.com/fkgi/diameter/msg"
 
 /*
 CER is Capabilities-Exchange-Request message
@@ -31,13 +33,13 @@ type CER struct {
 	*FirmwareRevision
 }
 
-// ToRaw return RawMsg struct of this value
-func (v CER) ToRaw() RawMsg {
-	m := RawMsg{
-		Ver:  DiaVer,
+// ToRaw return msg.RawMsg struct of this value
+func (v CER) ToRaw() msg.RawMsg {
+	m := msg.RawMsg{
+		Ver:  msg.DiaVer,
 		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
 		Code: 257, AppID: 0,
-		AVP: make([]RawAVP, 0, 20)}
+		AVP: make([]msg.RawAVP, 0, 20)}
 
 	m.AVP = append(m.AVP, v.OriginHost.ToRaw())
 	m.AVP = append(m.AVP, v.OriginRealm.ToRaw())
@@ -64,8 +66,8 @@ func (v CER) ToRaw() RawMsg {
 	return m
 }
 
-// FromRaw make this value from RawMsg struct
-func (CER) FromRaw(m RawMsg) (Request, error) {
+// FromRaw make this value from msg.RawMsg struct
+func (CER) FromRaw(m msg.RawMsg) (msg.Request, error) {
 	e := m.Validate(0, 257, true, false, false, false)
 	if e != nil {
 		return nil, e
@@ -118,21 +120,21 @@ func (CER) FromRaw(m RawMsg) (Request, error) {
 		len(v.HostIPAddress) == 0 ||
 		v.VendorID == 0 ||
 		len(v.ProductName) == 0 {
-		e = NoMandatoryAVP{}
+		e = msg.NoMandatoryAVP{}
 	}
 	return v, e
 }
 
 // Failed make error message for timeout
-func (v CER) Failed(c ResultCode, s ErrorMessage) Answer {
+func (v CER) Failed(c uint32, s string) msg.Answer {
 	return CEA{
-		ResultCode:    c,
+		ResultCode:    ResultCode(c),
 		OriginHost:    v.OriginHost,
 		OriginRealm:   v.OriginRealm,
 		HostIPAddress: v.HostIPAddress,
 		VendorID:      v.VendorID,
 		ProductName:   v.ProductName,
-		ErrorMessage:  s}
+		ErrorMessage:  ErrorMessage(s)}
 }
 
 /*
@@ -172,13 +174,13 @@ type CEA struct {
 	*FirmwareRevision
 }
 
-// ToRaw return RawMsg struct of this value
-func (v CEA) ToRaw() RawMsg {
-	m := RawMsg{
-		Ver:  DiaVer,
+// ToRaw return msg.RawMsg struct of this value
+func (v CEA) ToRaw() msg.RawMsg {
+	m := msg.RawMsg{
+		Ver:  msg.DiaVer,
 		FlgR: false, FlgP: false, FlgE: false, FlgT: false,
 		Code: 257, AppID: 0,
-		AVP: make([]RawAVP, 0, 20)}
+		AVP: make([]msg.RawAVP, 0, 20)}
 	m.FlgE = v.ResultCode != DiameterSuccess
 
 	m.AVP = append(m.AVP, v.ResultCode.ToRaw())
@@ -213,8 +215,8 @@ func (v CEA) ToRaw() RawMsg {
 	return m
 }
 
-// FromRaw make this value from RawMsg struct
-func (CEA) FromRaw(m RawMsg) (Answer, error) {
+// FromRaw make this value from msg.RawMsg struct
+func (CEA) FromRaw(m msg.RawMsg) (msg.Answer, error) {
 	e := m.Validate(0, 257, false, false, false, false)
 	if e != nil {
 		return nil, e
@@ -273,15 +275,15 @@ func (CEA) FromRaw(m RawMsg) (Answer, error) {
 		len(v.HostIPAddress) == 0 ||
 		v.VendorID == 0 ||
 		len(v.ProductName) == 0 {
-		e = NoMandatoryAVP{}
+		e = msg.NoMandatoryAVP{}
 	}
 
 	return v, e
 }
 
 // Result returns result-code
-func (v CEA) Result() ResultCode {
-	return v.ResultCode
+func (v CEA) Result() uint32 {
+	return uint32(v.ResultCode)
 }
 
 /*
@@ -298,13 +300,13 @@ type DPR struct {
 	DisconnectCause
 }
 
-// ToRaw return RawMsg struct of this value
-func (v DPR) ToRaw() RawMsg {
-	m := RawMsg{
-		Ver:  DiaVer,
+// ToRaw return msg.RawMsg struct of this value
+func (v DPR) ToRaw() msg.RawMsg {
+	m := msg.RawMsg{
+		Ver:  msg.DiaVer,
 		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
 		Code: 282, AppID: 0,
-		AVP: make([]RawAVP, 0, 3)}
+		AVP: make([]msg.RawAVP, 0, 3)}
 
 	m.AVP = append(m.AVP, v.OriginHost.ToRaw())
 	m.AVP = append(m.AVP, v.OriginRealm.ToRaw())
@@ -313,8 +315,8 @@ func (v DPR) ToRaw() RawMsg {
 	return m
 }
 
-// FromRaw make this value from RawMsg struct
-func (DPR) FromRaw(m RawMsg) (Request, error) {
+// FromRaw make this value from msg.RawMsg struct
+func (DPR) FromRaw(m msg.RawMsg) (msg.Request, error) {
 	e := m.Validate(0, 282, true, false, false, false)
 	if e != nil {
 		return nil, e
@@ -339,18 +341,18 @@ func (DPR) FromRaw(m RawMsg) (Request, error) {
 	if len(v.OriginHost) == 0 ||
 		len(v.OriginRealm) == 0 ||
 		v.DisconnectCause < 0 {
-		e = NoMandatoryAVP{}
+		e = msg.NoMandatoryAVP{}
 	}
 	return v, e
 }
 
 // Failed make error message for timeout
-func (v DPR) Failed(c ResultCode, s ErrorMessage) Answer {
+func (v DPR) Failed(c uint32, s string) msg.Answer {
 	return DPA{
-		ResultCode:   c,
+		ResultCode:   ResultCode(c),
 		OriginHost:   v.OriginHost,
 		OriginRealm:  v.OriginRealm,
-		ErrorMessage: s}
+		ErrorMessage: ErrorMessage(s)}
 }
 
 /*
@@ -371,13 +373,13 @@ type DPA struct {
 	FailedAVP
 }
 
-// ToRaw return RawMsg struct of this value
-func (v DPA) ToRaw() RawMsg {
-	m := RawMsg{
-		Ver:  DiaVer,
+// ToRaw return msg.RawMsg struct of this value
+func (v DPA) ToRaw() msg.RawMsg {
+	m := msg.RawMsg{
+		Ver:  msg.DiaVer,
 		FlgR: false, FlgP: false, FlgE: false, FlgT: false,
 		Code: 282, AppID: 0,
-		AVP: make([]RawAVP, 0, 5)}
+		AVP: make([]msg.RawAVP, 0, 5)}
 	m.FlgE = v.ResultCode != DiameterSuccess
 
 	m.AVP = append(m.AVP, v.ResultCode.ToRaw())
@@ -394,8 +396,8 @@ func (v DPA) ToRaw() RawMsg {
 	return m
 }
 
-// FromRaw make this value from RawMsg struct
-func (DPA) FromRaw(m RawMsg) (Answer, error) {
+// FromRaw make this value from msg.RawMsg struct
+func (DPA) FromRaw(m msg.RawMsg) (msg.Answer, error) {
 	e := m.Validate(0, 282, false, false, false, false)
 	if e != nil {
 		return nil, e
@@ -422,14 +424,14 @@ func (DPA) FromRaw(m RawMsg) (Answer, error) {
 	if v.ResultCode == 0 ||
 		len(v.OriginHost) == 0 ||
 		len(v.OriginRealm) == 0 {
-		e = NoMandatoryAVP{}
+		e = msg.NoMandatoryAVP{}
 	}
 	return v, e
 }
 
 // Result returns result-code
-func (v DPA) Result() ResultCode {
-	return v.ResultCode
+func (v DPA) Result() uint32 {
+	return uint32(v.ResultCode)
 }
 
 /*
@@ -446,13 +448,13 @@ type DWR struct {
 	OriginStateID
 }
 
-// ToRaw return RawMsg struct of this value
-func (v DWR) ToRaw() RawMsg {
-	m := RawMsg{
-		Ver:  DiaVer,
+// ToRaw return msg.RawMsg struct of this value
+func (v DWR) ToRaw() msg.RawMsg {
+	m := msg.RawMsg{
+		Ver:  msg.DiaVer,
 		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
 		Code: 280, AppID: 0,
-		AVP: make([]RawAVP, 0, 3)}
+		AVP: make([]msg.RawAVP, 0, 3)}
 
 	m.AVP = append(m.AVP, v.OriginHost.ToRaw())
 	m.AVP = append(m.AVP, v.OriginRealm.ToRaw())
@@ -464,8 +466,8 @@ func (v DWR) ToRaw() RawMsg {
 	return m
 }
 
-// FromRaw make this value from RawMsg struct
-func (DWR) FromRaw(m RawMsg) (Request, error) {
+// FromRaw make this value from msg.RawMsg struct
+func (DWR) FromRaw(m msg.RawMsg) (msg.Request, error) {
 	e := m.Validate(0, 280, true, false, false, false)
 	if e != nil {
 		return nil, e
@@ -487,18 +489,18 @@ func (DWR) FromRaw(m RawMsg) (Request, error) {
 	}
 	if len(v.OriginHost) == 0 ||
 		len(v.OriginRealm) == 0 {
-		e = NoMandatoryAVP{}
+		e = msg.NoMandatoryAVP{}
 	}
 	return v, e
 }
 
 // Failed make error message for timeout
-func (v DWR) Failed(c ResultCode, s ErrorMessage) Answer {
+func (v DWR) Failed(c uint32, s string) msg.Answer {
 	return DWA{
-		ResultCode:    c,
+		ResultCode:    ResultCode(c),
 		OriginHost:    v.OriginHost,
 		OriginRealm:   v.OriginRealm,
-		ErrorMessage:  s,
+		ErrorMessage:  ErrorMessage(s),
 		OriginStateID: v.OriginStateID}
 }
 
@@ -522,13 +524,13 @@ type DWA struct {
 	OriginStateID
 }
 
-// ToRaw return RawMsg struct of this value
-func (v DWA) ToRaw() RawMsg {
-	m := RawMsg{
-		Ver:  DiaVer,
+// ToRaw return msg.RawMsg struct of this value
+func (v DWA) ToRaw() msg.RawMsg {
+	m := msg.RawMsg{
+		Ver:  msg.DiaVer,
 		FlgR: false, FlgP: false, FlgE: false, FlgT: false,
 		Code: 280, AppID: 0,
-		AVP: make([]RawAVP, 0, 6)}
+		AVP: make([]msg.RawAVP, 0, 6)}
 	m.FlgE = v.ResultCode != DiameterSuccess
 
 	m.AVP = append(m.AVP, v.ResultCode.ToRaw())
@@ -548,8 +550,8 @@ func (v DWA) ToRaw() RawMsg {
 	return m
 }
 
-// FromRaw make this value from RawMsg struct
-func (DWA) FromRaw(m RawMsg) (Answer, error) {
+// FromRaw make this value from msg.RawMsg struct
+func (DWA) FromRaw(m msg.RawMsg) (msg.Answer, error) {
 	e := m.Validate(0, 280, false, false, false, false)
 	if e != nil {
 		return nil, e
@@ -578,12 +580,12 @@ func (DWA) FromRaw(m RawMsg) (Answer, error) {
 	if v.ResultCode == 0 ||
 		len(v.OriginHost) == 0 ||
 		len(v.OriginRealm) == 0 {
-		e = NoMandatoryAVP{}
+		e = msg.NoMandatoryAVP{}
 	}
 	return v, e
 }
 
 // Result returns result-code
-func (v DWA) Result() ResultCode {
-	return v.ResultCode
+func (v DWA) Result() uint32 {
+	return uint32(v.ResultCode)
 }

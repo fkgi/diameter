@@ -168,7 +168,7 @@ func (v eventPeerDisc) exec(c *Conn) error {
 	c.state = closed
 
 	for _, ch := range c.sndstack {
-		ch <- nil
+		ch <- msg.RawMsg{}
 	}
 	c.rcvstack <- msg.RawMsg{}
 

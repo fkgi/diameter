@@ -4,16 +4,17 @@ import (
 	"time"
 
 	"github.com/fkgi/diameter/msg"
+	"github.com/fkgi/sms"
 )
 
 // SMRPMTI AVP contain the RP-Message Type Indicator of the Short Message.
-type SMRPMTI msg.Enumerated
+type SMRPMTI bool
 
 const (
 	// SmDeliver is Enumerated value 0
-	SmDeliver SMRPMTI = 0
+	SmDeliver SMRPMTI = true
 	// SmStatusReport is Enumerated value 1
-	SmStatusReport SMRPMTI = 1
+	SmStatusReport SMRPMTI = false
 )
 
 // ToRaw return AVP struct of this value
@@ -21,7 +22,11 @@ func (v *SMRPMTI) ToRaw() msg.RawAVP {
 	a := msg.RawAVP{Code: 3308, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	if v != nil {
-		a.Encode(msg.Enumerated(*v))
+		if *v {
+			a.Encode(msg.Enumerated(0))
+		} else {
+			a.Encode(msg.Enumerated(1))
+		}
 	}
 	return a
 }
@@ -35,7 +40,7 @@ func (v *SMRPMTI) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Decode(s); e != nil {
 		return
 	}
-	*v = SMRPMTI(*s)
+	*v = SMRPMTI(*s == msg.Enumerated(0))
 	return
 }
 
@@ -43,14 +48,15 @@ func (v *SMRPMTI) FromRaw(a msg.RawAVP) (e error) {
 // the Short Message Entity that has originated the SM.
 // It shall be formatted according to the formatting rules of
 // the address fields described in 3GPP TS 23.040.
-type SMRPSMEA []byte
+type SMRPSMEA sms.Address
 
 // ToRaw return AVP struct of this value
 func (v *SMRPSMEA) ToRaw() msg.RawAVP {
 	a := msg.RawAVP{Code: 3309, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	if v != nil {
-		a.Encode([]byte(*v))
+		_, b := sms.Address(*v).Encode()
+		a.Encode(b)
 	}
 	return a
 }
@@ -64,7 +70,9 @@ func (v *SMRPSMEA) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Decode(s); e != nil {
 		return
 	}
-	*v = SMRPSMEA(*s)
+	smea := sms.Address{}
+	smea.Decode(byte(len(*s)-3)*2, *s)
+	*v = SMRPSMEA(smea)
 	return
 }
 
@@ -156,14 +164,14 @@ func (v *SMDeliveryNotIntended) FromRaw(a msg.RawAVP) (e error) {
 // MWDStatus AVP contain a bit mask.
 // SCAddrNotIncluded shall indicate the presence of
 // the SC Address in the Message Waiting Data in the HSS.
-// MNRFSet shall indicate that the MNRF flag is set in the HSS.
-// MCEFSet shall indicate that the MCEF flag is set in the HSS.
-// MNRGSet shall indicate that the MNRG flag is set in the HSS.
+// MNRF shall indicate that the MNRF flag is set in the HSS.
+// MCEF shall indicate that the MCEF flag is set in the HSS.
+// MNRG shall indicate that the MNRG flag is set in the HSS.
 type MWDStatus struct {
 	SCAddrNotIncluded bool
-	MNRFSet           bool
-	MCEFSet           bool
-	MNRGSet           bool
+	MNRF              bool
+	MCEF              bool
+	MNRG              bool
 }
 
 // ToRaw return AVP struct of this value
@@ -176,13 +184,13 @@ func (v *MWDStatus) ToRaw() msg.RawAVP {
 		if v.SCAddrNotIncluded {
 			i = i | 0x00000001
 		}
-		if v.MNRFSet {
+		if v.MNRF {
 			i = i | 0x00000002
 		}
-		if v.MCEFSet {
+		if v.MCEF {
 			i = i | 0x00000004
 		}
-		if v.MNRGSet {
+		if v.MNRG {
 			i = i | 0x00000008
 		}
 		a.Encode(i)
@@ -201,9 +209,9 @@ func (v *MWDStatus) FromRaw(a msg.RawAVP) (e error) {
 	}
 	*v = MWDStatus{
 		SCAddrNotIncluded: (*s)&0x00000001 == 0x00000001,
-		MNRFSet:           (*s)&0x00000002 == 0x00000002,
-		MCEFSet:           (*s)&0x00000004 == 0x00000004,
-		MNRGSet:           (*s)&0x00000008 == 0x00000008}
+		MNRF:              (*s)&0x00000002 == 0x00000002,
+		MCEF:              (*s)&0x00000004 == 0x00000004,
+		MNRG:              (*s)&0x00000008 == 0x00000008}
 	return
 }
 

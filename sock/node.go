@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/fkgi/diameter/msg"
+	"github.com/fkgi/diameter/rfc6733"
 )
 
 var (
@@ -23,11 +24,11 @@ var (
 	// Realm name for local host
 	Realm msg.DiameterIdentity
 	// StateID for local host
-	StateID msg.OriginStateID
+	StateID rfc6733.OriginStateID
 
 	// Used for Vendor-Specific-Application-Id, Auth-Application-Id
 	// and Supported-Vendor-Id AVP
-	supportedApps = make(map[msg.AuthApplicationID]appSet)
+	supportedApps = make(map[rfc6733.AuthApplicationID]appSet)
 
 	hbHID     = make(chan uint32, 1)
 	etEID     = make(chan uint32, 1)
@@ -35,16 +36,16 @@ var (
 )
 
 type appSet struct {
-	id  msg.VendorID
+	id  rfc6733.VendorID
 	req map[uint32]msg.Request
 	ans map[uint32]msg.Answer
 }
 
-func getSupportedApps() map[msg.VendorID][]msg.AuthApplicationID {
-	r := make(map[msg.VendorID][]msg.AuthApplicationID)
+func getSupportedApps() map[rfc6733.VendorID][]rfc6733.AuthApplicationID {
+	r := make(map[rfc6733.VendorID][]rfc6733.AuthApplicationID)
 	for id, set := range supportedApps {
 		if _, ok := r[set.id]; !ok {
-			r[set.id] = make([]msg.AuthApplicationID, 0, 1)
+			r[set.id] = make([]rfc6733.AuthApplicationID, 0, 1)
 		}
 		r[set.id] = append(r[set.id], id)
 	}
@@ -63,11 +64,11 @@ func init() {
 
 	sessionID <- rand.Uint32()
 
-	// StateID = msg.OriginStateID(ut)
+	// StateID = rfc6733.OriginStateID(ut)
 
 	/*
-		vid := msg.VendorID(0)
-		aid := msg.AuthApplicationID(0)
+		vid := rfc6733.VendorID(0)
+		aid := rfc6733.AuthApplicationID(0)
 		AddSupportedMessage(vid, aid, 257, msg.CER{}, msg.CEA{})
 		AddSupportedMessage(vid, aid, 282, msg.DPR{}, msg.DPA{})
 		AddSupportedMessage(vid, aid, 280, msg.DWR{}, msg.DWA{})
@@ -76,7 +77,7 @@ func init() {
 
 // AddSupportedMessage add supported application message
 func AddSupportedMessage(
-	v msg.VendorID, a msg.AuthApplicationID, c uint32,
+	v rfc6733.VendorID, a rfc6733.AuthApplicationID, c uint32,
 	req msg.Request, ans msg.Answer) {
 
 	if _, ok := supportedApps[a]; !ok {
@@ -89,25 +90,23 @@ func AddSupportedMessage(
 	supportedApps[a].ans[c] = ans
 }
 
-// NextHbH make HbH ID
-func NextHbH() uint32 {
+func nextHbH() uint32 {
 	ret := <-hbHID
 	hbHID <- ret + 1
 	return ret
 }
 
-// NextEtE make EtE ID
-func NextEtE() uint32 {
+func nextEtE() uint32 {
 	ret := <-etEID
 	etEID <- ret + 1
 	return ret
 }
 
 // NextSession make session ID
-func NextSession() msg.SessionID {
+func NextSession() rfc6733.SessionID {
 	ret := <-sessionID
 	sessionID <- ret + 1
-	return msg.SessionID(fmt.Sprintf("%s;%d;%d;0",
+	return rfc6733.SessionID(fmt.Sprintf("%s;%d;%d;0",
 		Host, time.Now().Unix()+2208988800, ret))
 }
 
@@ -121,7 +120,7 @@ type Peer struct {
 
 	Handler func(msg.Request) msg.Answer
 
-	AuthApps map[msg.VendorID][]msg.AuthApplicationID
+	AuthApps map[rfc6733.VendorID][]rfc6733.AuthApplicationID
 }
 
 func (p *Peer) String() string {

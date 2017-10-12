@@ -1,7 +1,7 @@
 package ts29338
 
 import (
-	"github.com/fkgi/diameter/msg"
+	"github.com/fkgi/diameter/rfc6733"
 	"github.com/fkgi/diameter/ts29329"
 )
 
@@ -30,14 +30,14 @@ SendRoutingInfoForSMRequest is SRR message.
          * [ Route-Record ]
 */
 type SendRoutingInfoForSMRequest struct {
-	msg.SessionID
+	rfc6733.SessionID
 	// DRMP
-	msg.OriginHost
-	msg.OriginRealm
-	*msg.DestinationHost
-	msg.DestinationRealm
+	rfc6733.OriginHost
+	rfc6733.OriginRealm
+	*rfc6733.DestinationHost
+	rfc6733.DestinationRealm
 	*ts29329.MSISDN
-	*msg.UserName
+	*rfc6733.UserName
 	// SMSMICorrelationID
 	// SupportedFeatures
 	*SCAddress
@@ -46,7 +46,7 @@ type SendRoutingInfoForSMRequest struct {
 	*SRRFlags
 	*SMDeliveryNotIntended
 	// Proxy-Info
-	RouteRecord []msg.RouteRecord
+	RouteRecord []rfc6733.RouteRecord
 }
 
 /*

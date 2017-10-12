@@ -1,13 +1,17 @@
-package msg
+package rfc6733
 
-import "net"
+import (
+	"net"
+
+	"github.com/fkgi/diameter/msg"
+)
 
 // SessionID AVP
 type SessionID string
 
 // ToRaw return AVP struct of this value
-func (v *SessionID) ToRaw() RawAVP {
-	a := RawAVP{Code: 263, VenID: 0,
+func (v *SessionID) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 263, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
 		a.Encode(string(*v))
@@ -16,7 +20,7 @@ func (v *SessionID) ToRaw() RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *SessionID) FromRaw(a RawAVP) (e error) {
+func (v *SessionID) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 263, false, true, false); e != nil {
 		return
 	}
@@ -39,25 +43,25 @@ const (
 )
 
 // ToRaw return AVP struct of this value
-func (v *AuthSessionState) ToRaw() RawAVP {
-	a := RawAVP{Code: 277, VenID: 0,
+func (v *AuthSessionState) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 277, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
 		if *v {
-			a.Encode(Enumerated(0))
+			a.Encode(msg.Enumerated(0))
 		} else {
-			a.Encode(Enumerated(1))
+			a.Encode(msg.Enumerated(1))
 		}
 	}
 	return a
 }
 
 // FromRaw get AVP value
-func (v *AuthSessionState) FromRaw(a RawAVP) (e error) {
+func (v *AuthSessionState) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 277, false, true, false); e != nil {
 		return
 	}
-	s := new(Enumerated)
+	s := new(msg.Enumerated)
 	if e = a.Decode(s); e != nil {
 		return
 	}
@@ -67,30 +71,30 @@ func (v *AuthSessionState) FromRaw(a RawAVP) (e error) {
 	case 1:
 		*v = StateNotMaintained
 	default:
-		e = InvalidAVP{}
+		e = msg.InvalidAVP{}
 	}
 	return
 }
 
 // OriginHost AVP
-type OriginHost DiameterIdentity
+type OriginHost msg.DiameterIdentity
 
 // ToRaw return AVP struct of this value
-func (v *OriginHost) ToRaw() RawAVP {
-	a := RawAVP{Code: 264, VenID: 0,
+func (v *OriginHost) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 264, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
-		a.Encode(DiameterIdentity(*v))
+		a.Encode(msg.DiameterIdentity(*v))
 	}
 	return a
 }
 
 // FromRaw get AVP value
-func (v *OriginHost) FromRaw(a RawAVP) (e error) {
+func (v *OriginHost) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 264, false, true, false); e != nil {
 		return
 	}
-	s := new(DiameterIdentity)
+	s := new(msg.DiameterIdentity)
 	if e = a.Decode(s); e != nil {
 		return
 	}
@@ -99,24 +103,24 @@ func (v *OriginHost) FromRaw(a RawAVP) (e error) {
 }
 
 // OriginRealm AVP
-type OriginRealm DiameterIdentity
+type OriginRealm msg.DiameterIdentity
 
 // ToRaw return AVP struct of this value
-func (v *OriginRealm) ToRaw() RawAVP {
-	a := RawAVP{Code: 296, VenID: 0,
+func (v *OriginRealm) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 296, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
-		a.Encode(DiameterIdentity(*v))
+		a.Encode(msg.DiameterIdentity(*v))
 	}
 	return a
 }
 
 // FromRaw get AVP value
-func (v *OriginRealm) FromRaw(a RawAVP) (e error) {
+func (v *OriginRealm) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 296, false, true, false); e != nil {
 		return
 	}
-	s := new(DiameterIdentity)
+	s := new(msg.DiameterIdentity)
 	if e = a.Decode(s); e != nil {
 		return
 	}
@@ -125,24 +129,24 @@ func (v *OriginRealm) FromRaw(a RawAVP) (e error) {
 }
 
 // DestinationHost AVP
-type DestinationHost DiameterIdentity
+type DestinationHost msg.DiameterIdentity
 
 // ToRaw return AVP struct of this value
-func (v *DestinationHost) ToRaw() RawAVP {
-	a := RawAVP{Code: 293, VenID: 0,
+func (v *DestinationHost) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 293, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
-		a.Encode(DiameterIdentity(*v))
+		a.Encode(msg.DiameterIdentity(*v))
 	}
 	return a
 }
 
 // FromRaw get AVP value
-func (v *DestinationHost) FromRaw(a RawAVP) (e error) {
+func (v *DestinationHost) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 293, false, true, false); e != nil {
 		return
 	}
-	s := new(DiameterIdentity)
+	s := new(msg.DiameterIdentity)
 	if e = a.Decode(s); e != nil {
 		return
 	}
@@ -151,24 +155,24 @@ func (v *DestinationHost) FromRaw(a RawAVP) (e error) {
 }
 
 // DestinationRealm AVP
-type DestinationRealm DiameterIdentity
+type DestinationRealm msg.DiameterIdentity
 
 // ToRaw return AVP struct of this value
-func (v *DestinationRealm) ToRaw() RawAVP {
-	a := RawAVP{Code: 283, VenID: 0,
+func (v *DestinationRealm) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 283, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
-		a.Encode(DiameterIdentity(*v))
+		a.Encode(msg.DiameterIdentity(*v))
 	}
 	return a
 }
 
 // FromRaw get AVP value
-func (v *DestinationRealm) FromRaw(a RawAVP) (e error) {
+func (v *DestinationRealm) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 283, false, true, false); e != nil {
 		return
 	}
-	s := new(DiameterIdentity)
+	s := new(msg.DiameterIdentity)
 	if e = a.Decode(s); e != nil {
 		return
 	}
@@ -180,8 +184,8 @@ func (v *DestinationRealm) FromRaw(a RawAVP) (e error) {
 type HostIPAddress net.IP
 
 // ToRaw return AVP struct of this value
-func (v *HostIPAddress) ToRaw() RawAVP {
-	a := RawAVP{Code: 257, VenID: 0,
+func (v *HostIPAddress) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 257, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
 		a.Encode(net.IP(*v))
@@ -190,7 +194,7 @@ func (v *HostIPAddress) ToRaw() RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *HostIPAddress) FromRaw(a RawAVP) (e error) {
+func (v *HostIPAddress) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 257, false, true, false); e != nil {
 		return
 	}
@@ -206,8 +210,8 @@ func (v *HostIPAddress) FromRaw(a RawAVP) (e error) {
 type VendorID uint32
 
 // ToRaw return AVP struct of this value
-func (v *VendorID) ToRaw() RawAVP {
-	a := RawAVP{Code: 266, VenID: 0,
+func (v *VendorID) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 266, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
 		a.Encode(uint32(*v))
@@ -216,7 +220,7 @@ func (v *VendorID) ToRaw() RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *VendorID) FromRaw(a RawAVP) (e error) {
+func (v *VendorID) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 266, false, true, false); e != nil {
 		return
 	}
@@ -232,8 +236,8 @@ func (v *VendorID) FromRaw(a RawAVP) (e error) {
 type ProductName string
 
 // ToRaw return AVP struct of this value
-func (v *ProductName) ToRaw() RawAVP {
-	a := RawAVP{Code: 269, VenID: 0,
+func (v *ProductName) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 269, VenID: 0,
 		FlgV: false, FlgM: false, FlgP: false}
 	if v != nil {
 		a.Encode(string(*v))
@@ -242,7 +246,7 @@ func (v *ProductName) ToRaw() RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *ProductName) FromRaw(a RawAVP) (e error) {
+func (v *ProductName) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 269, false, false, false); e != nil {
 		return
 	}
@@ -258,8 +262,8 @@ func (v *ProductName) FromRaw(a RawAVP) (e error) {
 type ResultCode uint32
 
 // ToRaw return AVP struct of this value
-func (v *ResultCode) ToRaw() RawAVP {
-	a := RawAVP{Code: 268, VenID: 0,
+func (v *ResultCode) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 268, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
 		a.Encode(uint32(*v))
@@ -268,7 +272,7 @@ func (v *ResultCode) ToRaw() RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *ResultCode) FromRaw(a RawAVP) (e error) {
+func (v *ResultCode) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 268, false, true, false); e != nil {
 		return
 	}
@@ -281,33 +285,33 @@ func (v *ResultCode) FromRaw(a RawAVP) (e error) {
 }
 
 // DisconnectCause AVP
-type DisconnectCause Enumerated
+type DisconnectCause msg.Enumerated
 
 const (
-	// Rebooting is Enumerated value 0
+	// Rebooting is msg.Enumerated value 0
 	Rebooting DisconnectCause = 0
-	// Busy is Enumerated value 1
+	// Busy is msg.Enumerated value 1
 	Busy DisconnectCause = 1
-	// DoNotWantToTalkToYou is Enumerated value 2
+	// DoNotWantToTalkToYou is msg.Enumerated value 2
 	DoNotWantToTalkToYou DisconnectCause = 2
 )
 
 // ToRaw return AVP struct of this value
-func (v *DisconnectCause) ToRaw() RawAVP {
-	a := RawAVP{Code: 273, VenID: 0,
+func (v *DisconnectCause) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 273, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
-		a.Encode(Enumerated(*v))
+		a.Encode(msg.Enumerated(*v))
 	}
 	return a
 }
 
 // FromRaw get AVP value
-func (v *DisconnectCause) FromRaw(a RawAVP) (e error) {
+func (v *DisconnectCause) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 273, false, true, false); e != nil {
 		return
 	}
-	s := new(Enumerated)
+	s := new(msg.Enumerated)
 	if e = a.Decode(s); e != nil {
 		return
 	}
@@ -315,7 +319,7 @@ func (v *DisconnectCause) FromRaw(a RawAVP) (e error) {
 	case 0, 1, 2:
 		*v = DisconnectCause(*s)
 	default:
-		e = InvalidAVP{}
+		e = msg.InvalidAVP{}
 	}
 	return
 }
@@ -324,8 +328,8 @@ func (v *DisconnectCause) FromRaw(a RawAVP) (e error) {
 type UserName string
 
 // ToRaw return AVP struct of this value
-func (v *UserName) ToRaw() RawAVP {
-	a := RawAVP{Code: 1, VenID: 0,
+func (v *UserName) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 1, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
 		a.Encode(string(*v))
@@ -334,7 +338,7 @@ func (v *UserName) ToRaw() RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *UserName) FromRaw(a RawAVP) (e error) {
+func (v *UserName) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 1, false, true, false); e != nil {
 		return
 	}
@@ -350,8 +354,8 @@ func (v *UserName) FromRaw(a RawAVP) (e error) {
 type FirmwareRevision uint32
 
 // ToRaw return AVP struct of this value
-func (v *FirmwareRevision) ToRaw() RawAVP {
-	a := RawAVP{Code: 267, VenID: 0,
+func (v *FirmwareRevision) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 267, VenID: 0,
 		FlgV: false, FlgM: false, FlgP: false}
 	if v != nil {
 		a.Encode(uint32(*v))
@@ -360,7 +364,7 @@ func (v *FirmwareRevision) ToRaw() RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *FirmwareRevision) FromRaw(a RawAVP) (e error) {
+func (v *FirmwareRevision) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 267, false, false, false); e != nil {
 		return
 	}
@@ -376,8 +380,8 @@ func (v *FirmwareRevision) FromRaw(a RawAVP) (e error) {
 type OriginStateID uint32
 
 // ToRaw return AVP struct of this value
-func (v *OriginStateID) ToRaw() RawAVP {
-	a := RawAVP{Code: 278, VenID: 0,
+func (v *OriginStateID) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 278, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
 		a.Encode(uint32(*v))
@@ -386,7 +390,7 @@ func (v *OriginStateID) ToRaw() RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *OriginStateID) FromRaw(a RawAVP) (e error) {
+func (v *OriginStateID) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 278, false, true, false); e != nil {
 		return
 	}
@@ -402,8 +406,8 @@ func (v *OriginStateID) FromRaw(a RawAVP) (e error) {
 type SupportedVendorID uint32
 
 // ToRaw return AVP struct of this value
-func (v *SupportedVendorID) ToRaw() RawAVP {
-	a := RawAVP{Code: 265, VenID: 0,
+func (v *SupportedVendorID) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 265, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
 		a.Encode(uint32(*v))
@@ -412,7 +416,7 @@ func (v *SupportedVendorID) ToRaw() RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *SupportedVendorID) FromRaw(a RawAVP) (e error) {
+func (v *SupportedVendorID) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 265, false, true, false); e != nil {
 		return
 	}
@@ -428,8 +432,8 @@ func (v *SupportedVendorID) FromRaw(a RawAVP) (e error) {
 type AuthApplicationID uint32
 
 // ToRaw return AVP struct of this value
-func (v *AuthApplicationID) ToRaw() RawAVP {
-	a := RawAVP{Code: 258, VenID: 0,
+func (v *AuthApplicationID) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 258, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
 		a.Encode(uint32(*v))
@@ -438,7 +442,7 @@ func (v *AuthApplicationID) ToRaw() RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *AuthApplicationID) FromRaw(a RawAVP) (e error) {
+func (v *AuthApplicationID) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 258, false, true, false); e != nil {
 		return
 	}
@@ -457,11 +461,11 @@ type VendorSpecificApplicationID struct {
 }
 
 // ToRaw return AVP struct of this value
-func (v *VendorSpecificApplicationID) ToRaw() RawAVP {
-	a := RawAVP{Code: 260, VenID: 0,
+func (v *VendorSpecificApplicationID) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 260, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
-		a.Encode(GroupedAVP([]RawAVP{
+		a.Encode(msg.GroupedAVP([]msg.RawAVP{
 			v.VendorID.ToRaw(),
 			v.AuthApplicationID.ToRaw()}))
 	}
@@ -469,11 +473,11 @@ func (v *VendorSpecificApplicationID) ToRaw() RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *VendorSpecificApplicationID) FromRaw(a RawAVP) (e error) {
+func (v *VendorSpecificApplicationID) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 260, false, true, false); e != nil {
 		return
 	}
-	o := GroupedAVP{}
+	o := msg.GroupedAVP{}
 	if e = a.Decode(&o); e != nil {
 		return
 	}
@@ -487,7 +491,7 @@ func (v *VendorSpecificApplicationID) FromRaw(a RawAVP) (e error) {
 		case 258:
 			e = v.AuthApplicationID.FromRaw(a)
 		case 259:
-			e = InvalidAVP{}
+			e = msg.InvalidAVP{}
 		}
 	}
 	return
@@ -497,8 +501,8 @@ func (v *VendorSpecificApplicationID) FromRaw(a RawAVP) (e error) {
 type ErrorMessage string
 
 // ToRaw return AVP struct of this value
-func (v *ErrorMessage) ToRaw() RawAVP {
-	a := RawAVP{Code: 281, VenID: 0,
+func (v *ErrorMessage) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 281, VenID: 0,
 		FlgV: false, FlgM: false, FlgP: false}
 	if v != nil {
 		a.Encode(string(*v))
@@ -507,7 +511,7 @@ func (v *ErrorMessage) ToRaw() RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *ErrorMessage) FromRaw(a RawAVP) (e error) {
+func (v *ErrorMessage) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 281, false, false, false); e != nil {
 		return
 	}
@@ -520,24 +524,24 @@ func (v *ErrorMessage) FromRaw(a RawAVP) (e error) {
 }
 
 // FailedAVP AVP
-type FailedAVP GroupedAVP
+type FailedAVP msg.GroupedAVP
 
 // ToRaw return AVP struct of this value
-func (v *FailedAVP) ToRaw() RawAVP {
-	a := RawAVP{Code: 279, VenID: 0,
+func (v *FailedAVP) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 279, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
-		a.Encode(GroupedAVP(*v))
+		a.Encode(msg.GroupedAVP(*v))
 	}
 	return a
 }
 
 // FromRaw get AVP value
-func (v *FailedAVP) FromRaw(a RawAVP) (e error) {
+func (v *FailedAVP) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 279, false, true, false); e != nil {
 		return
 	}
-	s := new(GroupedAVP)
+	s := new(msg.GroupedAVP)
 	if e = a.Decode(s); e != nil {
 		return
 	}
@@ -549,8 +553,8 @@ func (v *FailedAVP) FromRaw(a RawAVP) (e error) {
 type ExperimentalResultCode uint32
 
 // ToRaw return AVP struct of this value
-func (v *ExperimentalResultCode) ToRaw() RawAVP {
-	a := RawAVP{Code: 298, VenID: 0,
+func (v *ExperimentalResultCode) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 298, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
 		a.Encode(uint32(*v))
@@ -559,7 +563,7 @@ func (v *ExperimentalResultCode) ToRaw() RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *ExperimentalResultCode) FromRaw(a RawAVP) (e error) {
+func (v *ExperimentalResultCode) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 298, false, true, false); e != nil {
 		return
 	}
@@ -578,24 +582,24 @@ type ExperimentalResult struct {
 }
 
 // ToRaw return AVP struct of this value
-func (v *ExperimentalResult) ToRaw() RawAVP {
-	a := RawAVP{Code: 297, VenID: 0,
+func (v *ExperimentalResult) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 297, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
-		t := []RawAVP{
+		t := []msg.RawAVP{
 			v.VendorID.ToRaw(),
 			v.ExperimentalResultCode.ToRaw()}
-		a.Encode(GroupedAVP(t))
+		a.Encode(msg.GroupedAVP(t))
 	}
 	return a
 }
 
 // FromRaw get AVP value
-func (v *ExperimentalResult) FromRaw(a RawAVP) (e error) {
+func (v *ExperimentalResult) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 297, false, true, false); e != nil {
 		return
 	}
-	o := GroupedAVP{}
+	o := msg.GroupedAVP{}
 	if e = a.Decode(&o); e != nil {
 		return
 	}
@@ -614,24 +618,24 @@ func (v *ExperimentalResult) FromRaw(a RawAVP) (e error) {
 }
 
 // RouteRecord AVP
-type RouteRecord DiameterIdentity
+type RouteRecord msg.DiameterIdentity
 
 // ToRaw return AVP struct of this value
-func (v *RouteRecord) ToRaw() RawAVP {
-	a := RawAVP{Code: 282, VenID: 0,
+func (v *RouteRecord) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 282, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
-		a.Encode(DiameterIdentity(*v))
+		a.Encode(msg.DiameterIdentity(*v))
 	}
 	return a
 }
 
 // FromRaw get AVP value
-func (v *RouteRecord) FromRaw(a RawAVP) (e error) {
+func (v *RouteRecord) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 282, false, true, false); e != nil {
 		return
 	}
-	s := new(DiameterIdentity)
+	s := new(msg.DiameterIdentity)
 	if e = a.Decode(s); e != nil {
 		return
 	}
@@ -640,24 +644,24 @@ func (v *RouteRecord) FromRaw(a RawAVP) (e error) {
 }
 
 // ProxyHost AVP
-type ProxyHost DiameterIdentity
+type ProxyHost msg.DiameterIdentity
 
 // ToRaw return AVP struct of this value
-func (v *ProxyHost) ToRaw() RawAVP {
-	a := RawAVP{Code: 280, VenID: 0,
+func (v *ProxyHost) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 280, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
-		a.Encode(DiameterIdentity(*v))
+		a.Encode(msg.DiameterIdentity(*v))
 	}
 	return a
 }
 
 // FromRaw get AVP value
-func (v *ProxyHost) FromRaw(a RawAVP) (e error) {
+func (v *ProxyHost) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 280, false, true, false); e != nil {
 		return
 	}
-	s := new(DiameterIdentity)
+	s := new(msg.DiameterIdentity)
 	if e = a.Decode(s); e != nil {
 		return
 	}
@@ -669,8 +673,8 @@ func (v *ProxyHost) FromRaw(a RawAVP) (e error) {
 type ProxyState []byte
 
 // ToRaw return AVP struct of this value
-func (v *ProxyState) ToRaw() RawAVP {
-	a := RawAVP{Code: 33, VenID: 0,
+func (v *ProxyState) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 33, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
 		a.Encode([]byte(*v))
@@ -679,7 +683,7 @@ func (v *ProxyState) ToRaw() RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *ProxyState) FromRaw(a RawAVP) (e error) {
+func (v *ProxyState) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 33, false, true, false); e != nil {
 		return
 	}
@@ -698,24 +702,24 @@ type ProxyInfo struct {
 }
 
 // ToRaw return AVP struct of this value
-func (v *ProxyInfo) ToRaw() RawAVP {
-	a := RawAVP{Code: 284, VenID: 0,
+func (v *ProxyInfo) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 284, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	if v != nil {
-		t := []RawAVP{
+		t := []msg.RawAVP{
 			v.ProxyHost.ToRaw(),
 			v.ProxyState.ToRaw()}
-		a.Encode(GroupedAVP(t))
+		a.Encode(msg.GroupedAVP(t))
 	}
 	return a
 }
 
 // FromRaw get AVP value
-func (v *ProxyInfo) FromRaw(a RawAVP) (e error) {
+func (v *ProxyInfo) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Validate(0, 284, false, true, false); e != nil {
 		return
 	}
-	o := GroupedAVP{}
+	o := msg.GroupedAVP{}
 	if e = a.Decode(&o); e != nil {
 		return
 	}

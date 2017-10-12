@@ -21,14 +21,14 @@ var (
 type Request interface {
 	ToRaw() RawMsg
 	FromRaw(RawMsg) (Request, error)
-	Failed(ResultCode, ErrorMessage) Answer
+	Failed(uint32, string) Answer
 }
 
 // Answer is Diameter answer
 type Answer interface {
 	ToRaw() RawMsg
 	FromRaw(RawMsg) (Answer, error)
-	Result() ResultCode
+	Result() uint32
 }
 
 // RawMsg is Diameter message

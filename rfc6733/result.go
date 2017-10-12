@@ -1,4 +1,4 @@
-package msg
+package rfc6733
 
 const (
 	// DiameterMultiRoundAuth is Result-Code 1001
