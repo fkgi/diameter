@@ -87,59 +87,12 @@ func Accept(p *Peer, c net.Conn) (*Conn, error) {
 	return con, nil
 }
 
-// State return status of connection
-func (c *Conn) State() string {
-	return c.state.String()
-}
-
-// Send send Diameter request
-func (c *Conn) Send(m msg.Request) msg.Answer {
-	req := m.ToRaw()
-	req.HbHID = nextHbH()
-	req.EtEID = nextEtE()
-
-	ch := make(chan msg.RawMsg)
-	c.sndstack[req.HbHID] = ch
-	c.notify <- eventSndMsg{m: req}
-
-	t := time.AfterFunc(c.peer.SndTimeout, func() {
-		m := m.Failed(
-			uint32(rfc6733.DiameterTooBusy),
-			"no response from peer node").ToRaw()
-		m.HbHID = req.HbHID
-		m.EtEID = req.EtEID
-		c.notify <- eventRcvMsg{m}
-	})
-
-	a := <-ch
-	t.Stop()
-	if a.Code == 0 {
-		return m.Failed(
-			uint32(rfc6733.DiameterUnableToDeliver),
-			"failed to send")
-	}
-
-	app, ok := supportedApps[rfc6733.AuthApplicationID(a.AppID)]
-	if !ok {
-		return m.Failed(
-			uint32(rfc6733.DiameterUnableToComply),
-			"invalid Application-ID answer")
-	}
-	ans, ok := app.ans[a.Code]
-	if !ok {
-		return m.Failed(
-			uint32(rfc6733.DiameterUnableToComply),
-			"invalid Command-Code answer")
-	}
-	ack, e := ans.FromRaw(a)
-	if e != nil {
-		return m.Failed(
-			uint32(rfc6733.DiameterUnableToComply),
-			"invalid data answer")
-		// ToDo
-		// invalid message handling
-	}
-	return ack
+// NewSession make new session
+func (c *Conn) NewSession() *Session {
+	s := &Session{
+		id: nextSession(),
+		c:  c}
+	return s
 }
 
 func (c *Conn) watchdog() {

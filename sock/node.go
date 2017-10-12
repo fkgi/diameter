@@ -102,8 +102,7 @@ func nextEtE() uint32 {
 	return ret
 }
 
-// NextSession make session ID
-func NextSession() rfc6733.SessionID {
+func nextSession() rfc6733.SessionID {
 	ret := <-sessionID
 	sessionID <- ret + 1
 	return rfc6733.SessionID(fmt.Sprintf("%s;%d;%d;0",
