@@ -9,7 +9,7 @@ import (
 
 // Session is diameter message session
 type Session struct {
-	id rfc6733.SessionID
+	id string
 	c  *Conn
 }
 
@@ -18,7 +18,7 @@ func (s *Session) Send(m msg.Request) msg.Answer {
 	req := m.ToRaw()
 	req.HbHID = nextHbH()
 	req.EtEID = nextEtE()
-	req.AVP = append(req.AVP, s.id.ToRaw())
+	// req.AVP = append(req.AVP, s.id.ToRaw())
 
 	ch := make(chan msg.RawMsg)
 	s.c.sndstack[req.HbHID] = ch
@@ -41,7 +41,7 @@ func (s *Session) Send(m msg.Request) msg.Answer {
 			"failed to send")
 	}
 
-	app, ok := supportedApps[rfc6733.AuthApplicationID(a.AppID)]
+	app, ok := supportedApps[a.AppID]
 	if !ok {
 		return m.Failed(
 			uint32(rfc6733.DiameterUnableToComply),

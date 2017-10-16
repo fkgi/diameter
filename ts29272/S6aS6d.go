@@ -1,11 +1,11 @@
 package ts29272
 
 import (
-	"strconv"
-
 	"github.com/fkgi/diameter/msg"
+	"github.com/fkgi/teldata"
 )
 
+/*
 const v3gpp uint32 = 10415
 
 const (
@@ -28,8 +28,8 @@ const (
 )
 
 // ULRFlags AVP
-func ULRFlags(singleReg, s6as6d, skipSubsData, gprsSubsData, nodeType, initAttach, psLcsNotSupportedByUE, smsOnly bool) msg.Avp {
-	a := msg.Avp{Code: uint32(1405), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
+func ULRFlags(singleReg, s6as6d, skipSubsData, gprsSubsData, nodeType, initAttach, psLcsNotSupportedByUE, smsOnly bool) msg.RawAVP {
+	a := msg.RawAVP{Code: uint32(1405), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
 	i := uint32(0)
 
 	if singleReg {
@@ -57,13 +57,13 @@ func ULRFlags(singleReg, s6as6d, skipSubsData, gprsSubsData, nodeType, initAttac
 		i = i | 0x00000080
 	}
 
-	a.Encode(i)
+	a.ToRaw(i)
 	return a
 }
 
 // VisitedPLMNID AVP
-func VisitedPLMNID(mcc, mnc string) msg.Avp {
-	a := msg.Avp{Code: uint32(1407), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
+func VisitedPLMNID(mcc, mnc string) msg.RawAVP {
+	a := msg.RawAVP{Code: uint32(1407), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
 	b := make([]byte, 3)
 
 	m := [3]int{0, 0, 0}
@@ -89,42 +89,42 @@ func VisitedPLMNID(mcc, mnc string) msg.Avp {
 	b[1] = (byte(m[2]) << 4) | b[1]
 	b[2] = (byte(m[1]) << 4) | byte(m[0])
 
-	a.Encode(b)
+	a.ToRaw(b)
 	return a
 }
 
 // TerminalInformation AVP
-func TerminalInformation(imei string, meid []byte, version string) msg.Avp {
-	a := msg.Avp{Code: uint32(1401), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
+func TerminalInformation(imei string, meid []byte, version string) msg.RawAVP {
+	a := msg.RawAVP{Code: uint32(1401), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
 
-	var t []msg.Avp
+	var t []msg.RawAVP
 	// IMEI
 	if len(imei) != 0 {
-		v := msg.Avp{Code: uint32(1402), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-		v.Encode(imei)
+		v := msg.RawAVP{Code: uint32(1402), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
+		v.ToRaw(imei)
 		t = append(t, v)
 	}
 	// 3GPP2-MEID
 	if meid != nil && len(meid) != 0 {
-		v := msg.Avp{Code: uint32(1471), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-		v.Encode(meid)
+		v := msg.RawAVP{Code: uint32(1471), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
+		v.ToRaw(meid)
 		t = append(t, v)
 	}
 	// Sofrware-Version
 	if len(version) != 0 {
-		v := msg.Avp{Code: uint32(1403), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-		v.Encode(version)
+		v := msg.RawAVP{Code: uint32(1403), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
+		v.ToRaw(version)
 		t = append(t, v)
 	}
 
-	a.Encode(msg.GroupedAVP(t))
+	a.ToRaw(msg.GroupedAVP(t))
 	return a
 }
 
 // UESRVCCCapability AVP
-func UESRVCCCapability(e msg.Enumerated) msg.Avp {
-	a := msg.Avp{Code: uint32(1615), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
-	a.Encode(e)
+func UESRVCCCapability(e msg.Enumerated) msg.RawAVP {
+	a := msg.RawAVP{Code: uint32(1615), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
+	a.ToRaw(e)
 	return a
 }
 
@@ -141,32 +141,41 @@ var UESRVCCCapabilityValue = struct {
 	UeSrvccSupported    msg.Enumerated
 }{0, 1}
 
-// SGSNNumber AVP
-type SGSNNumber string
+*/
 
-// Encode return AVP struct of this value
-func (v SGSNNumber) Encode() msg.Avp {
-	a := msg.Avp{Code: 1489, VenID: 10415,
+// SGSNNumber AVP
+type SGSNNumber teldata.TBCD
+
+// ToRaw return AVP struct of this value
+func (v *SGSNNumber) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 1489, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	a.Encode(string(v))
+	if v != nil {
+		a.Encode(teldata.TBCD(*v).String())
+	}
 	return a
 }
 
-// GetSGSNNumber get AVP value
-func GetSGSNNumber(o msg.GroupedAVP) (SGSNNumber, bool) {
-	s := new(string)
-	if a, ok := o.Get(1489, 10415); ok {
-		a.Decode(s)
-	} else {
-		return "", false
+// FromRaw get AVP value
+func (v *SGSNNumber) FromRaw(a msg.RawAVP) (e error) {
+	if e = a.Validate(10415, 1489, true, true, false); e != nil {
+		return
 	}
-	return SGSNNumber(*s), true
+	s := new(string)
+	if e = a.Decode(s); e != nil {
+		return
+	}
+	if t, e := teldata.ParseTBCD(*s); e != nil {
+		*v = SGSNNumber(t)
+	}
+	return
 }
 
+/*
 // HomogeneousSupportOfIMSVoiceOverPSSessions AVP
-func HomogeneousSupportOfIMSVoiceOverPSSessions(e msg.Enumerated) msg.Avp {
-	a := msg.Avp{Code: uint32(1493), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
-	a.Encode(e)
+func HomogeneousSupportOfIMSVoiceOverPSSessions(e msg.Enumerated) msg.RawAVP {
+	a := msg.RawAVP{Code: uint32(1493), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
+	a.ToRaw(e)
 	return a
 }
 
@@ -178,56 +187,69 @@ const (
 )
 
 // ContextIdentifire AVP
-func ContextIdentifire(i uint32) msg.Avp {
-	a := msg.Avp{Code: uint32(1423), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-	a.Encode(i)
+func ContextIdentifire(i uint32) msg.RawAVP {
+	a := msg.RawAVP{Code: uint32(1423), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
+	a.ToRaw(i)
 	return a
 }
 
 // ActiveAPN AVP
-func ActiveAPN(id uint32) msg.Avp {
-	a := msg.Avp{Code: uint32(1612), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-	var t []msg.Avp
+func ActiveAPN(id uint32) msg.RawAVP {
+	a := msg.RawAVP{Code: uint32(1612), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
+	var t []msg.RawAVP
 	t = append(t, ContextIdentifire(id))
 	/*
 		<!--<avp name="Service-Selection"	value=""></avp>-->
 		<!--<avp name="MIP6-Agent-Info"	value=""></avp>-->
 		<!--<avp name="Visited-Network-Identifier"	value=""></avp>-->
 		<!--<avp name="Specific-APN-Info"	value=""></avp>-->
-	*/
-	a.Encode(msg.GroupedAVP(t))
+*/
+/*
+	a.ToRaw(msg.GroupedAVP(t))
 	return a
 }
 
 // EquivalentPLMNList AVP
-func EquivalentPLMNList(plmns [][2]string) msg.Avp {
-	a := msg.Avp{Code: uint32(1637), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
-	var t []msg.Avp
+func EquivalentPLMNList(plmns [][2]string) msg.RawAVP {
+	a := msg.RawAVP{Code: uint32(1637), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
+	var t []msg.RawAVP
 	for _, p := range plmns {
 		t = append(t, VisitedPLMNID(p[0], p[1]))
 	}
-	a.Encode(msg.GroupedAVP(t))
+	a.ToRaw(msg.GroupedAVP(t))
 	return a
 }
+*/
 
 // MMENumberForMTSMS AVP
-type MMENumberForMTSMS []byte
+type MMENumberForMTSMS teldata.TBCD
 
-// Encode return AVP struct of this value
-func (v MMENumberForMTSMS) Encode() msg.Avp {
-	a := msg.Avp{Code: uint32(1645), VenID: v3gpp,
+// ToRaw return AVP struct of this value
+func (v *MMENumberForMTSMS) ToRaw() msg.RawAVP {
+	a := msg.RawAVP{Code: 1645, VenID: 10415,
 		FlgV: true, FlgM: false, FlgP: false}
-	a.Encode([]byte(v))
+	if v != nil {
+		a.Encode(teldata.TBCD(*v).String())
+	}
 	return a
 }
 
-// SMSRegisterRequest AVP
-func SMSRegisterRequest(e msg.Enumerated) msg.Avp {
-	a := msg.Avp{Code: uint32(1648), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
-	a.Encode(e)
-	return a
+// FromRaw get AVP value
+func (v *MMENumberForMTSMS) FromRaw(a msg.RawAVP) (e error) {
+	if e = a.Validate(10415, 1645, true, false, false); e != nil {
+		return
+	}
+	s := new(string)
+	if e = a.Decode(s); e != nil {
+		return
+	}
+	if t, e := teldata.ParseTBCD(*s); e != nil {
+		*v = MMENumberForMTSMS(t)
+	}
+	return
 }
 
+/*
 const (
 	// SmsRegistrationRequired is Enumerated value 0
 	SmsRegistrationRequired msg.Enumerated = 0
@@ -238,55 +260,55 @@ const (
 )
 
 // SGsMMEIdentity AVP
-func SGsMMEIdentity(s string) msg.Avp {
-	a := msg.Avp{Code: uint32(1664), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
-	a.Encode(s)
+func SGsMMEIdentity(s string) msg.RawAVP {
+	a := msg.RawAVP{Code: uint32(1664), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
+	a.ToRaw(s)
 	return a
 }
 
 // CoupledNodeDiameterID AVP
-func CoupledNodeDiameterID(i msg.DiameterIdentity) msg.Avp {
-	a := msg.Avp{Code: uint32(1666), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
-	a.Encode(i)
+func CoupledNodeDiameterID(i msg.DiameterIdentity) msg.RawAVP {
+	a := msg.RawAVP{Code: uint32(1666), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
+	a.ToRaw(i)
 	return a
 }
 
 // RequestedEUTRANAuthenticationInfo AVP
-func RequestedEUTRANAuthenticationInfo(num uint32, resyncInfo []byte, immRespPref bool) msg.Avp {
-	a := msg.Avp{Code: uint32(1408), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-	var t []msg.Avp
+func RequestedEUTRANAuthenticationInfo(num uint32, resyncInfo []byte, immRespPref bool) msg.RawAVP {
+	a := msg.RawAVP{Code: uint32(1408), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
+	var t []msg.RawAVP
 	// Number-Of-Requested-Vectors
 	if num != 0 {
-		v := msg.Avp{Code: uint32(1410), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-		v.Encode(num)
+		v := msg.RawAVP{Code: uint32(1410), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
+		v.ToRaw(num)
 		t = append(t, v)
 	}
 	// Re-Synchronization-Info
 	if resyncInfo != nil {
-		v := msg.Avp{Code: uint32(1411), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-		v.Encode(resyncInfo)
+		v := msg.RawAVP{Code: uint32(1411), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
+		v.ToRaw(resyncInfo)
 		t = append(t, v)
 	}
 	// Immediate-Response-Preferred
 	if immRespPref {
-		v := msg.Avp{Code: uint32(1412), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
-		v.Encode(uint32(1))
+		v := msg.RawAVP{Code: uint32(1412), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
+		v.ToRaw(uint32(1))
 		t = append(t, v)
 	}
-	a.Encode(msg.GroupedAVP(t))
+	a.ToRaw(msg.GroupedAVP(t))
 	return a
 }
 
 // RequestedUTRANGERANAuthenticationInfo AVP
-func RequestedUTRANGERANAuthenticationInfo(num uint32, resyncInfo []byte, immRespPref bool) msg.Avp {
+func RequestedUTRANGERANAuthenticationInfo(num uint32, resyncInfo []byte, immRespPref bool) msg.RawAVP {
 	a := RequestedEUTRANAuthenticationInfo(num, resyncInfo, immRespPref)
 	a.Code = uint32(1409)
 	return a
 }
 
 // NORFlags AVP
-func NORFlags(singleReg, sgsnRestrict, readySmSgsn, ueReachableMme, reserved, ueReachableSgsn, readySmMme, homogeneousSupportIMSVoPSSession, s6as6d, remMmeRegSm bool) msg.Avp {
-	a := msg.Avp{Code: uint32(1443), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
+func NORFlags(singleReg, sgsnRestrict, readySmSgsn, ueReachableMme, reserved, ueReachableSgsn, readySmMme, homogeneousSupportIMSVoPSSession, s6as6d, remMmeRegSm bool) msg.RawAVP {
+	a := msg.RawAVP{Code: uint32(1443), FlgV: true, FlgM: true, FlgP: false, VenID: uint32(10415)}
 	i := uint32(0)
 
 	if singleReg {
@@ -320,6 +342,7 @@ func NORFlags(singleReg, sgsnRestrict, readySmSgsn, ueReachableMme, reserved, ue
 		i = i | 0x00000200
 	}
 
-	a.Encode(i)
+	a.ToRaw(i)
 	return a
 }
+*/

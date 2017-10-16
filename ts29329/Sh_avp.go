@@ -12,7 +12,9 @@ type MSISDN teldata.TBCD
 func (v *MSISDN) ToRaw() msg.RawAVP {
 	a := msg.RawAVP{Code: 701, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	a.Encode([]byte(*v))
+	if v != nil {
+		a.Encode([]byte(*v))
+	}
 	return a
 }
 
@@ -36,7 +38,9 @@ type UserData []byte
 func (v *UserData) ToRaw() msg.RawAVP {
 	a := msg.RawAVP{Code: 702, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	a.Encode([]byte(*v))
+	if v != nil {
+		a.Encode([]byte(*v))
+	}
 	return a
 }
 

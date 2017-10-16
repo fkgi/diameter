@@ -10,11 +10,11 @@ import (
 
 // constant values
 var (
-	TxBuffer                                  = 65535
-	RxBuffer                                  = 65535
-	VendorID         rfc6733.VendorID         = 41102
-	ProductName      rfc6733.ProductName      = "yatagarasu"
-	FirmwareRevision rfc6733.FirmwareRevision = 170819001
+	TxBuffer                = 65535
+	RxBuffer                = 65535
+	VendorID         uint32 = 41102
+	ProductName             = "yatagarasu"
+	FirmwareRevision uint32 = 170819001
 )
 
 // Conn is state machine of Diameter
@@ -88,11 +88,63 @@ func Accept(p *Peer, c net.Conn) (*Conn, error) {
 }
 
 // NewSession make new session
+/*
 func (c *Conn) NewSession() *Session {
 	s := &Session{
 		id: nextSession(),
 		c:  c}
 	return s
+}
+*/
+
+// Send send Diameter request
+func (c *Conn) Send(m msg.Request) msg.Answer {
+	req := m.ToRaw()
+	req.HbHID = nextHbH()
+	req.EtEID = nextEtE()
+
+	ch := make(chan msg.RawMsg)
+	c.sndstack[req.HbHID] = ch
+	c.notify <- eventSndMsg{m: req}
+
+	t := time.AfterFunc(c.peer.SndTimeout, func() {
+		m := m.Failed(
+			uint32(rfc6733.DiameterTooBusy),
+			"no response from peer node").ToRaw()
+		m.HbHID = req.HbHID
+		m.EtEID = req.EtEID
+		c.notify <- eventRcvMsg{m}
+	})
+
+	a := <-ch
+	t.Stop()
+	if a.Code == 0 {
+		return m.Failed(
+			uint32(rfc6733.DiameterUnableToDeliver),
+			"failed to send")
+	}
+
+	app, ok := supportedApps[a.AppID]
+	if !ok {
+		return m.Failed(
+			uint32(rfc6733.DiameterUnableToComply),
+			"invalid Application-ID answer")
+	}
+	ans, ok := app.ans[a.Code]
+	if !ok {
+		return m.Failed(
+			uint32(rfc6733.DiameterUnableToComply),
+			"invalid Command-Code answer")
+	}
+	ack, e := ans.FromRaw(a)
+	if e != nil {
+		return m.Failed(
+			uint32(rfc6733.DiameterUnableToComply),
+			"invalid data answer")
+		// ToDo
+		// invalid message handling
+	}
+	return ack
 }
 
 func (c *Conn) watchdog() {
@@ -167,7 +219,7 @@ func (c *Conn) PeerAddr() net.Addr {
 }
 
 // AuthApplication returns application ID of this connection
-func (c *Conn) AuthApplication() map[rfc6733.VendorID][]rfc6733.AuthApplicationID {
+func (c *Conn) AuthApplication() map[uint32][]uint32 {
 	return c.peer.AuthApps
 }
 
@@ -225,7 +277,7 @@ func messageHandler(c *Conn) {
 		if m.Code == 0 {
 			break
 		}
-		if app, ok := supportedApps[rfc6733.AuthApplicationID(m.AppID)]; !ok {
+		if app, ok := supportedApps[m.AppID]; !ok {
 			c.notify <- eventSndMsg{
 				makeErrorMsg(m, rfc6733.DiameterApplicationUnsupported)}
 		} else if req, ok := app.req[m.Code]; !ok {
@@ -246,7 +298,7 @@ func messageHandler(c *Conn) {
 	}
 }
 
-func makeErrorMsg(m msg.RawMsg, c rfc6733.ResultCode) msg.RawMsg {
+func makeErrorMsg(m msg.RawMsg, c uint32) msg.RawMsg {
 	r := msg.RawMsg{}
 	r.Ver = m.Ver
 	r.FlgP = m.FlgP
@@ -255,12 +307,17 @@ func makeErrorMsg(m msg.RawMsg, c rfc6733.ResultCode) msg.RawMsg {
 	r.HbHID = m.HbHID
 	r.EtEID = m.EtEID
 
-	host := rfc6733.OriginHost(Host)
-	realm := rfc6733.OriginRealm(Realm)
-	r.AVP = []msg.RawAVP{
-		c.ToRaw(),
-		host.ToRaw(),
-		realm.ToRaw()}
+	host := msg.RawAVP{Code: 264, VenID: 0,
+		FlgV: false, FlgM: true, FlgP: false}
+	host.Encode(Host)
+	realm := msg.RawAVP{Code: 296, VenID: 0,
+		FlgV: false, FlgM: true, FlgP: false}
+	realm.Encode(Realm)
+	rcode := msg.RawAVP{Code: 268, VenID: 0,
+		FlgV: false, FlgM: true, FlgP: false}
+	rcode.Encode(c)
+
+	r.AVP = []msg.RawAVP{rcode, host, realm}
 
 	for _, a := range m.AVP {
 		if e := a.Validate(0, 263, false, true, false); e == nil {

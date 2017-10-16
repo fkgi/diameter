@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/fkgi/diameter/msg"
-	"github.com/fkgi/diameter/rfc6733"
 )
 
 var (
@@ -24,11 +23,11 @@ var (
 	// Realm name for local host
 	Realm msg.DiameterIdentity
 	// StateID for local host
-	StateID rfc6733.OriginStateID
+	StateID uint32
 
 	// Used for Vendor-Specific-Application-Id, Auth-Application-Id
 	// and Supported-Vendor-Id AVP
-	supportedApps = make(map[rfc6733.AuthApplicationID]appSet)
+	supportedApps = make(map[uint32]appSet)
 
 	hbHID     = make(chan uint32, 1)
 	etEID     = make(chan uint32, 1)
@@ -36,16 +35,16 @@ var (
 )
 
 type appSet struct {
-	id  rfc6733.VendorID
+	id  uint32
 	req map[uint32]msg.Request
 	ans map[uint32]msg.Answer
 }
 
-func getSupportedApps() map[rfc6733.VendorID][]rfc6733.AuthApplicationID {
-	r := make(map[rfc6733.VendorID][]rfc6733.AuthApplicationID)
+func getSupportedApps() map[uint32][]uint32 {
+	r := make(map[uint32][]uint32)
 	for id, set := range supportedApps {
 		if _, ok := r[set.id]; !ok {
-			r[set.id] = make([]rfc6733.AuthApplicationID, 0, 1)
+			r[set.id] = make([]uint32, 0, 1)
 		}
 		r[set.id] = append(r[set.id], id)
 	}
@@ -64,7 +63,7 @@ func init() {
 
 	sessionID <- rand.Uint32()
 
-	// StateID = rfc6733.OriginStateID(ut)
+	StateID = uint32(ut)
 
 	/*
 		vid := rfc6733.VendorID(0)
@@ -76,8 +75,7 @@ func init() {
 }
 
 // AddSupportedMessage add supported application message
-func AddSupportedMessage(
-	v rfc6733.VendorID, a rfc6733.AuthApplicationID, c uint32,
+func AddSupportedMessage(v, a, c uint32,
 	req msg.Request, ans msg.Answer) {
 
 	if _, ok := supportedApps[a]; !ok {
@@ -102,11 +100,12 @@ func nextEtE() uint32 {
 	return ret
 }
 
-func nextSession() rfc6733.SessionID {
+// NextSession returns new SessionID
+func NextSession() string {
 	ret := <-sessionID
 	sessionID <- ret + 1
-	return rfc6733.SessionID(fmt.Sprintf("%s;%d;%d;0",
-		Host, time.Now().Unix()+2208988800, ret))
+	return fmt.Sprintf("%s;%d;%d;0",
+		Host, time.Now().Unix()+2208988800, ret)
 }
 
 // Peer is peer node of Diameter
@@ -117,9 +116,7 @@ type Peer struct {
 	WDExpired  int
 	SndTimeout time.Duration
 
-	Handler func(msg.Request) msg.Answer
-
-	AuthApps map[rfc6733.VendorID][]rfc6733.AuthApplicationID
+	AuthApps map[uint32][]uint32
 }
 
 func (p *Peer) String() string {

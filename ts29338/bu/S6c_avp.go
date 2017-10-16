@@ -4,29 +4,28 @@ import (
 	"time"
 
 	"github.com/fkgi/diameter/msg"
+	"github.com/fkgi/diameter/ts29173"
+	"github.com/fkgi/diameter/ts29272"
+	"github.com/fkgi/diameter/ts29336"
 	"github.com/fkgi/sms"
 )
 
 // SMRPMTI AVP contain the RP-Message Type Indicator of the Short Message.
-type SMRPMTI bool
+type SMRPMTI int
 
 const (
 	// SmDeliver is Enumerated value 0
-	SmDeliver SMRPMTI = true
+	SmDeliver SMRPMTI = 1
 	// SmStatusReport is Enumerated value 1
-	SmStatusReport SMRPMTI = false
+	SmStatusReport SMRPMTI = 2
 )
 
 // ToRaw return AVP struct of this value
 func (v *SMRPMTI) ToRaw() msg.RawAVP {
 	a := msg.RawAVP{Code: 3308, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	if v != nil {
-		if *v {
-			a.Encode(msg.Enumerated(0))
-		} else {
-			a.Encode(msg.Enumerated(1))
-		}
+	if v != nil && *v > 0 {
+		a.Encode(msg.Enumerated(*v - 1))
 	}
 	return a
 }
@@ -40,7 +39,7 @@ func (v *SMRPMTI) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Decode(s); e != nil {
 		return
 	}
-	*v = SMRPMTI(*s == msg.Enumerated(0))
+	*v = SMRPMTI(int(*s) + 1)
 	return
 }
 
@@ -129,21 +128,21 @@ func (v *SRRFlags) FromRaw(a msg.RawAVP) (e error) {
 
 // SMDeliveryNotIntended AVP indicate by its presence
 // that delivery of a short message is not intended.
-type SMDeliveryNotIntended msg.Enumerated
+type SMDeliveryNotIntended int
 
 const (
 	// OnlyImsiRequested is Enumerated value 0
-	OnlyImsiRequested SMDeliveryNotIntended = 0
+	OnlyImsiRequested SMDeliveryNotIntended = 1
 	// OnlyMccMncRequested is Enumerated value 1
-	OnlyMccMncRequested SMDeliveryNotIntended = 1
+	OnlyMccMncRequested SMDeliveryNotIntended = 2
 )
 
 // ToRaw return AVP struct of this value
 func (v *SMDeliveryNotIntended) ToRaw() msg.RawAVP {
 	a := msg.RawAVP{Code: 3311, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	if v != nil {
-		a.Encode(msg.Enumerated(*v))
+	if v != nil && *v > 0 {
+		a.Encode(msg.Enumerated(*v - 1))
 	}
 	return a
 }
@@ -157,8 +156,23 @@ func (v *SMDeliveryNotIntended) FromRaw(a msg.RawAVP) (e error) {
 	if e = a.Decode(s); e != nil {
 		return
 	}
-	*v = SMDeliveryNotIntended(*s)
+	*v = SMDeliveryNotIntended(int(*s) + 1)
 	return
+}
+
+// ServingNode AVP shall contain the information about
+// the network node serving the targeted SMS user.
+type ServingNode struct {
+	ts29173.SGSNName
+	ts29173.SGSNRealm
+	ts29272.SGSNNumber
+	ts29173.MMEName
+	ts29173.MMERealm
+	ts29272.MMENumberForMTSMS
+	ts29173.MSCNumber
+	ts29336.IPSMGWNumber
+	ts29336.IPSMGWName
+	ts29336.IPSMGWRealm
 }
 
 // MWDStatus AVP contain a bit mask.
