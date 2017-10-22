@@ -9,9 +9,6 @@ import (
 	"time"
 )
 
-// GroupedAVP is Grouped format AVP value
-type GroupedAVP []RawAVP
-
 // Enumerated is Enumerated format AVP value
 type Enumerated int32
 
@@ -147,7 +144,7 @@ func (a *RawAVP) Encode(d interface{}) (e error) {
 		//		e = a.setIPFilterRuleData(d)
 	case string:
 		_, e = buf.Write([]byte(d))
-	case GroupedAVP:
+	case []RawAVP:
 		for _, avp := range d {
 			_, e = avp.WriteTo(buf)
 		}
@@ -208,7 +205,7 @@ func (a RawAVP) Decode(d interface{}) (e error) {
 		//		e = a.getIPFilterRuleData(d)
 	case *string:
 		*d = string(a.data)
-	case *GroupedAVP:
+	case *[]RawAVP:
 		*d = make([]RawAVP, 0)
 		for buf := bytes.NewReader(a.data); buf.Len() != 0; {
 			avp := RawAVP{}

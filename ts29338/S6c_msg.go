@@ -2,6 +2,7 @@ package ts29338
 
 import (
 	"github.com/fkgi/diameter/msg"
+	"github.com/fkgi/diameter/sock"
 	"github.com/fkgi/sms"
 	"github.com/fkgi/teldata"
 )
@@ -14,6 +15,11 @@ var (
 	sessionState = rfc6733.StateNotMaintained
 )
 */
+
+var (
+	// EnableSMRPMTI indicate include or not SM-RP-MTI in SRR
+	EnableSMRPMTI = true
+)
 
 /*
 SRR is Send-Routing-Info-For-SM-Request message.
@@ -37,7 +43,8 @@ SRR is Send-Routing-Info-For-SM-Request message.
            [ SM-Delivery-Not-Intended ]
          * [ AVP ]
          * [ Proxy-Info ] // not supported
-         * [ Route-Record ]
+		 * [ Route-Record ]
+IP-SM-GW and MSISDN-less SMS are not supported.
 */
 type SRR struct {
 	// DRMP
@@ -45,21 +52,22 @@ type SRR struct {
 	OriginRealm      msg.DiameterIdentity
 	DestinationHost  msg.DiameterIdentity
 	DestinationRealm msg.DiameterIdentity
-	MSISDN           teldata.TBCD
-	UserName         string
+
+	MSISDN teldata.E164
+	teldata.IMSI
 	// SMSMICorrelationID
 	// []SupportedFeatures
-	SCAddress             string
-	SMRPMTI               bool
-	SMRPSMEA              sms.Address
-	GPRSIndicator         bool
-	SMRPPRI               bool
-	SingleAttempt         bool
-	SMDeliveryNotIntended int
+	SCAddress teldata.E164
+	SMRPMTI   bool
+	SMRPSMEA  sms.Address
+	Flags     struct {
+		GPRSIndicator bool
+		SMRPPRI       bool
+		SingleAttempt bool
+	}
+	RequiredInfo int
 	// []ProxyInfo
 }
-
-/*
 
 // ToRaw return msg.RawMsg struct of this value
 func (v SRR) ToRaw() msg.RawMsg {
@@ -69,43 +77,45 @@ func (v SRR) ToRaw() msg.RawMsg {
 		Code: 8388647, AppID: 16777312,
 		AVP: make([]msg.RawAVP, 0, 15)}
 
-	session := sock.NextSession()
-	m.AVP = append(m.AVP, session.ToRaw())
-	m.AVP = append(m.AVP, s6cAppID.ToRaw())
-	m.AVP = append(m.AVP, sessionState.ToRaw())
+	m.AVP = append(m.AVP, setSessionID(sock.NextSession()))
+	m.AVP = append(m.AVP, setVendorSpecAppID(16777312))
+	m.AVP = append(m.AVP, setAuthSessionState())
 
-	m.AVP = append(m.AVP, v.OriginHost.ToRaw())
-	m.AVP = append(m.AVP, v.OriginRealm.ToRaw())
+	m.AVP = append(m.AVP, setOriginHost(v.OriginHost))
+	m.AVP = append(m.AVP, setOriginRealm(v.OriginRealm))
 	if len(v.DestinationHost) != 0 {
-		m.AVP = append(m.AVP, v.DestinationHost.ToRaw())
+		m.AVP = append(m.AVP, setDestinationHost(v.DestinationHost))
 	}
-	m.AVP = append(m.AVP, v.DestinationRealm.ToRaw())
-	if len(v.MSISDN) != 0 {
-		m.AVP = append(m.AVP, v.MSISDN.ToRaw())
+	m.AVP = append(m.AVP, setDestinationRealm(v.DestinationRealm))
+
+	if v.MSISDN.Length() != 0 {
+		m.AVP = append(m.AVP, setMSISDN(v.MSISDN))
 	}
-	if len(v.UserName) != 0 {
-		m.AVP = append(m.AVP, v.UserName.ToRaw())
+	if v.IMSI.Length() != 0 {
+		m.AVP = append(m.AVP, setUserName(v.IMSI))
 	}
-	if len(v.SCAddress) != 0 {
-		m.AVP = append(m.AVP, v.SCAddress.ToRaw())
+	if v.SCAddress.Length() != 0 {
+		m.AVP = append(m.AVP, setSCAddress(v.SCAddress))
 	}
-	if v.SMRPMTI != 0 {
-		m.AVP = append(m.AVP, v.SMRPMTI.ToRaw())
+	if EnableSMRPMTI {
+		m.AVP = append(m.AVP, setSMRPMTI(v.SMRPMTI))
 	}
 	if v.SMRPSMEA.Addr != nil {
-		m.AVP = append(m.AVP, v.SMRPSMEA.ToRaw())
+		m.AVP = append(m.AVP, setSMRPSMEA(v.SMRPSMEA))
 	}
-	if v.SRRFlags.GprsIndicator ||
-		v.SRRFlags.SingleAttempt ||
-		v.SRRFlags.SMRPPRI {
-		m.AVP = append(m.AVP, v.SRRFlags.ToRaw())
+	if v.Flags.GPRSIndicator ||
+		v.Flags.SingleAttempt ||
+		v.Flags.SMRPPRI {
+		m.AVP = append(m.AVP, setSRRFlags(
+			v.Flags.GPRSIndicator,
+			v.Flags.SingleAttempt,
+			v.Flags.SMRPPRI))
 	}
-	if v.SMDeliveryNotIntended != 0 {
-		m.AVP = append(m.AVP, v.SMDeliveryNotIntended.ToRaw())
+	if v.RequiredInfo != 0 {
+		m.AVP = append(m.AVP, setSMDeliveryNotIntended(v.RequiredInfo))
 	}
 
-	rt := rfc6733.RouteRecord(v.OriginHost)
-	m.AVP = append(m.AVP, rt.ToRaw())
+	m.AVP = append(m.AVP, setRouteRecord(v.OriginHost))
 	return m
 }
 
@@ -119,30 +129,30 @@ func (SRR) FromRaw(m msg.RawMsg) (msg.Request, error) {
 	v := SRR{}
 	for _, a := range m.AVP {
 		if a.VenID == 0 && a.Code == 264 {
-			e = v.OriginHost.FromRaw(a)
+			v.OriginHost, e = getOriginHost(a)
 		} else if a.VenID == 0 && a.Code == 296 {
-			e = v.OriginRealm.FromRaw(a)
+			v.OriginRealm, e = getOriginRealm(a)
 		} else if a.VenID == 0 && a.Code == 293 {
-			e = v.DestinationHost.FromRaw(a)
+			v.DestinationHost, e = getDestinationHost(a)
 		} else if a.VenID == 0 && a.Code == 283 {
-			e = v.DestinationRealm.FromRaw(a)
+			v.DestinationRealm, e = getDestinationRealm(a)
 
 		} else if a.VenID == 10415 && a.Code == 701 {
-			e = v.MSISDN.FromRaw(a)
+			v.MSISDN, e = getMSISDN(a)
 		} else if a.VenID == 0 && a.Code == 1 {
-			e = v.UserName.FromRaw(a)
+			v.IMSI, e = getUserName(a)
 		} else if a.VenID == 10415 && a.Code == 3300 {
-			e = v.SCAddress.FromRaw(a)
+			v.SCAddress, e = getSCAddress(a)
 		} else if a.VenID == 10415 && a.Code == 3308 {
-			e = v.SMRPMTI.FromRaw(a)
-		} else if a.VenID == 10415 && a.Code == 3308 {
-			e = v.SMRPMTI.FromRaw(a)
+			v.SMRPMTI, e = getSMRPMTI(a)
 		} else if a.VenID == 10415 && a.Code == 3309 {
-			e = v.SMRPSMEA.FromRaw(a)
+			v.SMRPSMEA, e = getSMRPSMEA(a)
 		} else if a.VenID == 10415 && a.Code == 3310 {
-			e = v.SRRFlags.FromRaw(a)
+			v.Flags.GPRSIndicator,
+				v.Flags.SingleAttempt,
+				v.Flags.SMRPPRI, e = getSRRFlags(a)
 		} else if a.VenID == 10415 && a.Code == 3311 {
-			e = v.SMDeliveryNotIntended.FromRaw(a)
+			v.RequiredInfo, e = getSMDeliveryNotIntended(a)
 		}
 
 		if e != nil {
@@ -161,13 +171,9 @@ func (SRR) FromRaw(m msg.RawMsg) (msg.Request, error) {
 // Failed make error message for timeout
 func (v SRR) Failed(c uint32, s string) msg.Answer {
 	return SRA{
-		ResultCode:    ResultCode(c),
-		OriginHost:    v.OriginHost,
-		OriginRealm:   v.OriginRealm,
-		HostIPAddress: v.HostIPAddress,
-		VendorID:      v.VendorID,
-		ProductName:   v.ProductName,
-		ErrorMessage:  ErrorMessage(s)}
+		ResultCode:  c,
+		OriginHost:  v.OriginHost,
+		OriginRealm: v.OriginRealm}
 }
 
 /*
@@ -195,25 +201,165 @@ SRA is SendRoutingInfoForSMAnswer message.
          * [ Failed-AVP ]
          * [ Proxy-Info ] // not supported
          * [ Route-Record ]
+IP-SM-GW and MSISDN-less SMS are not supported.
 */
 type SRA struct {
 	// DRMP
-	ResultCode
-	ExperimentalResult
+	ResultCode  uint32
 	OriginHost  msg.DiameterIdentity
 	OriginRealm msg.DiameterIdentity
-	UserName
+
 	// []SupportedFeatures
-	ServingNode
-	AdditionalServingNode
-	LMSI
-	UserIdentifier
-	MWDStatus
-	MMEAbsentUserDiagnosticSM
-	MSCAbsentUserDiagnosticSM
-	SGSNAbsentUserDiagnosticSM
-	FailedAVP []FailedAVP
+	ServingNode struct {
+		NodeType
+		Address teldata.E164
+		Name    msg.DiameterIdentity
+		Realm   msg.DiameterIdentity
+	}
+	AdditionalServingNode struct {
+		NodeType
+		Address teldata.E164
+		Name    msg.DiameterIdentity
+		Realm   msg.DiameterIdentity
+	}
+	User struct {
+		LMSI uint32
+		teldata.IMSI
+		MSISDN teldata.E164
+		// ExtID  string
+	}
+	MWDStat struct {
+		SCAddrNotIncluded bool
+		MNRF              bool
+		MCEF              bool
+		MNRG              bool
+	}
+
+	MMEAbsentUserDiagnosticSM  uint32
+	MSCAbsentUserDiagnosticSM  uint32
+	SGSNAbsentUserDiagnosticSM uint32
+
+	FailedAVP []msg.RawAVP
 	// []ProxyInfo
+}
+
+// ToRaw return msg.RawMsg struct of this value
+func (v SRA) ToRaw() msg.RawMsg {
+	m := msg.RawMsg{
+		Ver:  msg.DiaVer,
+		FlgR: false, FlgP: true, FlgE: false, FlgT: false,
+		Code: 8388647, AppID: 16777312,
+		AVP: make([]msg.RawAVP, 0, 20)}
+
+	m.AVP = append(m.AVP, setSessionID(sock.NextSession()))
+	m.AVP = append(m.AVP, setVendorSpecAppID(16777312))
+	if v.ResultCode >= 5550 && v.ResultCode <= 5558 {
+		m.AVP = append(m.AVP, setExperimentalResult(10415, v.ResultCode))
+	} else {
+		m.AVP = append(m.AVP, setResultCode(v.ResultCode))
+	}
+	m.AVP = append(m.AVP, setAuthSessionState())
+	m.AVP = append(m.AVP, setOriginHost(v.OriginHost))
+	m.AVP = append(m.AVP, setOriginRealm(v.OriginRealm))
+
+	if v.User.IMSI.Length() != 0 {
+		m.AVP = append(m.AVP, setUserName(v.User.IMSI))
+	}
+	if v.ServingNode.Address.Length() != 0 {
+		m.AVP = append(m.AVP, setServingNode(
+			v.ServingNode.NodeType,
+			v.ServingNode.Address,
+			v.ServingNode.Name,
+			v.ServingNode.Realm))
+	}
+	if v.AdditionalServingNode.Address.Length() != 0 {
+		m.AVP = append(m.AVP, setAdditionalServingNode(
+			v.AdditionalServingNode.NodeType,
+			v.AdditionalServingNode.Address,
+			v.AdditionalServingNode.Name,
+			v.AdditionalServingNode.Realm))
+	}
+	if v.User.LMSI != 0 {
+		m.AVP = append(m.AVP, setLMSI(v.User.LMSI))
+	}
+	if v.User.MSISDN.Length() != 0 {
+		m.AVP = append(m.AVP, setUserIdentifier(v.User.MSISDN))
+	}
+	if v.MWDStat.SCAddrNotIncluded ||
+		v.MWDStat.MNRF ||
+		v.MWDStat.MCEF ||
+		v.MWDStat.MNRG {
+		m.AVP = append(m.AVP, setMWDStatus(
+			v.MWDStat.SCAddrNotIncluded,
+			v.MWDStat.MNRF,
+			v.MWDStat.MCEF,
+			v.MWDStat.MNRG))
+	}
+	if v.MMEAbsentUserDiagnosticSM != 0 {
+		m.AVP = append(m.AVP,
+			setMMEAbsentUserDiagnosticSM(v.MMEAbsentUserDiagnosticSM))
+	}
+	if v.MSCAbsentUserDiagnosticSM != 0 {
+		m.AVP = append(m.AVP,
+			setMSCAbsentUserDiagnosticSM(v.MSCAbsentUserDiagnosticSM))
+	}
+	if v.SGSNAbsentUserDiagnosticSM != 0 {
+		m.AVP = append(m.AVP,
+			setSGSNAbsentUserDiagnosticSM(v.SGSNAbsentUserDiagnosticSM))
+	}
+	if len(v.FailedAVP) != 0 {
+		m.AVP = append(m.AVP, setFailedAVP(v.FailedAVP))
+	}
+	return m
+}
+
+// FromRaw make this value from msg.RawMsg struct
+func (SRA) FromRaw(m msg.RawMsg) (msg.Request, error) {
+	e := m.Validate(16777312, 8388647, false, true, false, false)
+	if e != nil {
+		return nil, e
+	}
+
+	v := SRA{}
+	for _, a := range m.AVP {
+		if a.VenID == 0 && a.Code == 264 {
+			v.OriginHost, e = getOriginHost(a)
+		} else if a.VenID == 0 && a.Code == 296 {
+			v.OriginRealm, e = getOriginRealm(a)
+		} else if a.VenID == 0 && a.Code == 293 {
+			v.DestinationHost, e = getDestinationHost(a)
+		} else if a.VenID == 0 && a.Code == 283 {
+			v.DestinationRealm, e = getDestinationRealm(a)
+
+		} else if a.VenID == 10415 && a.Code == 701 {
+			v.MSISDN, e = getMSISDN(a)
+		} else if a.VenID == 0 && a.Code == 1 {
+			v.IMSI, e = getUserName(a)
+		} else if a.VenID == 10415 && a.Code == 3300 {
+			v.SCAddress, e = getSCAddress(a)
+		} else if a.VenID == 10415 && a.Code == 3308 {
+			v.SMRPMTI, e = getSMRPMTI(a)
+		} else if a.VenID == 10415 && a.Code == 3309 {
+			v.SMRPSMEA, e = getSMRPSMEA(a)
+		} else if a.VenID == 10415 && a.Code == 3310 {
+			v.Flags.GPRSIndicator,
+				v.Flags.SingleAttempt,
+				v.Flags.SMRPPRI, e = getSRRFlags(a)
+		} else if a.VenID == 10415 && a.Code == 3311 {
+			v.RequiredInfo, e = getSMDeliveryNotIntended(a)
+		}
+
+		if e != nil {
+			return nil, e
+		}
+	}
+
+	if len(v.OriginHost) == 0 ||
+		len(v.OriginRealm) == 0 ||
+		len(v.DestinationRealm) == 0 {
+		e = msg.NoMandatoryAVP{}
+	}
+	return v, e
 }
 
 /*

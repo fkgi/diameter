@@ -1,181 +1,354 @@
 package ts29338
 
 import (
-	"time"
+	"bytes"
+	"encoding/binary"
 
 	"github.com/fkgi/diameter/msg"
-	"github.com/fkgi/diameter/ts29173"
-	"github.com/fkgi/diameter/ts29272"
-	"github.com/fkgi/diameter/ts29336"
 	"github.com/fkgi/sms"
+	"github.com/fkgi/teldata"
 )
 
-// SMRPMTI AVP contain the RP-Message Type Indicator of the Short Message.
-type SMRPMTI int
-
-const (
-	// SmDeliver is Enumerated value 0
-	SmDeliver SMRPMTI = 1
-	// SmStatusReport is Enumerated value 1
-	SmStatusReport SMRPMTI = 2
-)
-
-// ToRaw return AVP struct of this value
-func (v *SMRPMTI) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3308, VenID: 10415,
+func setMSISDN(v teldata.E164) (a msg.RawAVP) {
+	a = msg.RawAVP{Code: 701, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	if v != nil && *v > 0 {
-		a.Encode(msg.Enumerated(*v - 1))
-	}
-	return a
-}
-
-// FromRaw get AVP value
-func (v *SMRPMTI) FromRaw(a msg.RawAVP) (e error) {
-	if e = a.Validate(10415, 3308, true, true, false); e != nil {
-		return
-	}
-	s := new(msg.Enumerated)
-	if e = a.Decode(s); e != nil {
-		return
-	}
-	*v = SMRPMTI(int(*s) + 1)
+	a.Encode(v.Bytes())
 	return
 }
 
-// SMRPSMEA AVP contain the RP-Originating SME-address of
+func getMSISDN(a msg.RawAVP) (v teldata.E164, e error) {
+	s := new([]byte)
+	if e = a.Validate(10415, 701, true, true, false); e != nil {
+	} else if e = a.Decode(s); e == nil {
+		v, e = teldata.ToE164(*s)
+	}
+	return
+}
+
+// SM-RP-MTI AVP contain the RP-Message Type Indicator of the Short Message.
+func setSMRPMTI(v bool) (a msg.RawAVP) {
+	a = msg.RawAVP{Code: 3308, VenID: 10415,
+		FlgV: true, FlgM: true, FlgP: false}
+	if v {
+		// SM_DELIVER (0)
+		a.Encode(msg.Enumerated(0))
+	} else {
+		// SM_STATUS_REPORT (1)
+		a.Encode(msg.Enumerated(1))
+	}
+	return
+}
+
+func getSMRPMTI(a msg.RawAVP) (v bool, e error) {
+	s := new(msg.Enumerated)
+	if e = a.Validate(10415, 3308, true, true, false); e != nil {
+	} else if e = a.Decode(s); e != nil {
+	} else if *s == 0 {
+		v = true
+	} else if *s == 1 {
+		v = false
+	} else {
+		e = msg.InvalidAVP{}
+	}
+	return
+}
+
+// SM-RP-SMEA AVP contain the RP-Originating SME-address of
 // the Short Message Entity that has originated the SM.
 // It shall be formatted according to the formatting rules of
 // the address fields described in 3GPP TS 23.040.
-type SMRPSMEA sms.Address
-
-// ToRaw return AVP struct of this value
-func (v *SMRPSMEA) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3309, VenID: 10415,
+func setSMRPSMEA(v sms.Address) (a msg.RawAVP) {
+	a = msg.RawAVP{Code: 3309, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	if v != nil {
-		_, b := sms.Address(*v).Encode()
-		a.Encode(b)
-	}
-	return a
-}
-
-// FromRaw get AVP value
-func (v *SMRPSMEA) FromRaw(a msg.RawAVP) (e error) {
-	if e = a.Validate(10415, 3309, true, true, false); e != nil {
-		return
-	}
-	s := new([]byte)
-	if e = a.Decode(s); e != nil {
-		return
-	}
-	smea := sms.Address{}
-	smea.Decode(byte(len(*s)-3)*2, *s)
-	*v = SMRPSMEA(smea)
+	_, b := v.Encode()
+	a.Encode(b)
 	return
 }
 
-// SRRFlags AVP contain a bit mask.
-// GprsIndicator shall be ture if the SMS-GMSC supports receiving
+func getSMRPSMEA(a msg.RawAVP) (v sms.Address, e error) {
+	s := new([]byte)
+	if e = a.Validate(10415, 3309, true, true, false); e != nil {
+	} else if e = a.Decode(s); e == nil {
+		v.Decode(byte(len(*s)-3)*2, *s)
+	}
+	return
+}
+
+// SRR-Flags AVP contain a bit mask.
+// GPRS-Indicator shall be ture if the SMS-GMSC supports receiving
 // of two serving nodes addresses from the HSS.
-// SmRpPri shall be true if the delivery of the short message shall
+// SM-RP-PRI shall be true if the delivery of the short message shall
 // be attempted when a service centre address is already contained
 // in the Message Waiting Data file.
-// SingleAttempt if true indicates that only one delivery attempt
+// Single-Attempt if true indicates that only one delivery attempt
 // shall be performed for this particular SM.
-type SRRFlags struct {
-	GprsIndicator bool
-	SMRPPRI       bool
-	SingleAttempt bool
-}
-
-// ToRaw return AVP struct of this value
-func (v *SRRFlags) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3310, VenID: 10415,
+func setSRRFlags(g, p, s bool) (a msg.RawAVP) {
+	a = msg.RawAVP{Code: 3310, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-
-	if v != nil {
-		i := uint32(0)
-		if v.GprsIndicator {
-			i = i | 0x00000001
-		}
-		if v.SMRPPRI {
-			i = i | 0x00000002
-		}
-		if v.SingleAttempt {
-			i = i | 0x00000004
-		}
-		a.Encode(i)
+	i := uint32(0)
+	if g {
+		i = i | 0x00000001
 	}
-	return a
-}
-
-// FromRaw get AVP value
-func (v *SRRFlags) FromRaw(a msg.RawAVP) (e error) {
-	if e = a.Validate(10415, 3310, true, true, false); e != nil {
-		return
+	if p {
+		i = i | 0x00000002
 	}
-	s := new(uint32)
-	if e = a.Decode(s); e != nil {
-		return
+	if s {
+		i = i | 0x00000004
 	}
-	*v = SRRFlags{
-		GprsIndicator: (*s)&0x00000001 == 0x00000001,
-		SMRPPRI:       (*s)&0x00000002 == 0x00000002,
-		SingleAttempt: (*s)&0x00000004 == 0x00000004}
+	a.Encode(i)
 	return
 }
 
-// SMDeliveryNotIntended AVP indicate by its presence
-// that delivery of a short message is not intended.
-type SMDeliveryNotIntended int
-
-const (
-	// OnlyImsiRequested is Enumerated value 0
-	OnlyImsiRequested SMDeliveryNotIntended = 1
-	// OnlyMccMncRequested is Enumerated value 1
-	OnlyMccMncRequested SMDeliveryNotIntended = 2
-)
-
-// ToRaw return AVP struct of this value
-func (v *SMDeliveryNotIntended) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3311, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
-	if v != nil && *v > 0 {
-		a.Encode(msg.Enumerated(*v - 1))
+func getSRRFlags(a msg.RawAVP) (g, p, s bool, e error) {
+	v := new(uint32)
+	if e = a.Validate(10415, 3310, true, true, false); e != nil {
+	} else if e = a.Decode(v); e == nil {
+		g = (*v)&0x00000001 == 0x00000001
+		p = (*v)&0x00000002 == 0x00000002
+		s = (*v)&0x00000004 == 0x00000004
 	}
-	return a
+	return
 }
 
-// FromRaw get AVP value
-func (v *SMDeliveryNotIntended) FromRaw(a msg.RawAVP) (e error) {
-	if e = a.Validate(10415, 3311, true, true, false); e != nil {
-		return
-	}
+// SM-Delivery-Not-Intended AVP indicate by its presence
+// that delivery of a short message is not intended.
+const (
+	// LocationRequested is no SM-Delivery-Not-Intended
+	LocationRequested = iota
+	// OnlyImsiRequested is ONLY_IMSI_REQUESTED
+	OnlyImsiRequested
+	// OnlyMccMncRequested is ONLY_MCC_MNC_REQUESTED
+	OnlyMccMncRequested
+)
+
+func setSMDeliveryNotIntended(v int) (a msg.RawAVP) {
+	a = msg.RawAVP{Code: 3311, VenID: 10415,
+		FlgV: true, FlgM: true, FlgP: false}
+	a.Encode(msg.Enumerated(v - 1))
+	return
+}
+
+func getSMDeliveryNotIntended(a msg.RawAVP) (v int, e error) {
 	s := new(msg.Enumerated)
-	if e = a.Decode(s); e != nil {
-		return
+	if e = a.Validate(10415, 3311, true, true, false); e != nil {
+	} else if e = a.Decode(s); e != nil {
+	} else if *s == 0 {
+		v = 1
+	} else if *s == 1 {
+		v = 2
+	} else {
+		e = msg.InvalidAVP{}
 	}
-	*v = SMDeliveryNotIntended(int(*s) + 1)
 	return
 }
 
 // ServingNode AVP shall contain the information about
 // the network node serving the targeted SMS user.
-type ServingNode struct {
-	ts29173.SGSNName
-	ts29173.SGSNRealm
-	ts29272.SGSNNumber
-	ts29173.MMEName
-	ts29173.MMERealm
-	ts29272.MMENumberForMTSMS
-	ts29173.MSCNumber
-	ts29336.IPSMGWNumber
-	ts29336.IPSMGWName
-	ts29336.IPSMGWRealm
+
+// NodeType is tyoe of serving node address
+type NodeType uint8
+
+const (
+	// NodeSGSN present SGSN
+	NodeSGSN NodeType = iota
+	// NodeMME present MME
+	NodeMME
+	// NodeMSC present MSC
+	NodeMSC
+	// NodeIPSMGW present IP-SM-GW
+	// NodeIPSMGW
+)
+
+func setServingNode(
+	t NodeType, d teldata.E164, n, r msg.DiameterIdentity) msg.RawAVP {
+	return setSN(2401, t, d, n, r)
 }
 
-// MWDStatus AVP contain a bit mask.
+func setAdditionalServingNode(
+	t NodeType, d teldata.E164, n, r msg.DiameterIdentity) msg.RawAVP {
+	return setSN(2406, t, d, n, r)
+}
+
+func setSN(c uint32, t NodeType,
+	d teldata.E164, n, r msg.DiameterIdentity) (a msg.RawAVP) {
+	a = msg.RawAVP{Code: c, VenID: 10415,
+		FlgV: true, FlgM: true, FlgP: false}
+	v := make([]msg.RawAVP, 1, 3)
+	switch t {
+	case NodeSGSN:
+		v[0] = msg.RawAVP{Code: 1489, VenID: 10415,
+			FlgV: true, FlgM: true, FlgP: false}
+		v[0].Encode(d.Bytes())
+		if len(n) != 0 {
+			nv := msg.RawAVP{Code: 2409, VenID: 10415,
+				FlgV: true, FlgM: false, FlgP: false}
+			nv.Encode(n)
+			v = append(v, nv)
+		}
+		if len(r) != 0 {
+			rv := msg.RawAVP{Code: 2410, VenID: 10415,
+				FlgV: true, FlgM: false, FlgP: false}
+			rv.Encode(r)
+			v = append(v, rv)
+		}
+	case NodeMME:
+		v[0] = msg.RawAVP{Code: 1645, VenID: 10415,
+			FlgV: true, FlgM: true, FlgP: false}
+		v[0].Encode(d.Bytes())
+		if len(n) != 0 {
+			nv := msg.RawAVP{Code: 2402, VenID: 10415,
+				FlgV: true, FlgM: true, FlgP: false}
+			nv.Encode(n)
+			v = append(v, nv)
+		}
+		if len(r) != 0 {
+			rv := msg.RawAVP{Code: 2408, VenID: 10415,
+				FlgV: true, FlgM: true, FlgP: false}
+			rv.Encode(r)
+			v = append(v, rv)
+		}
+	case NodeMSC:
+		v[0] = msg.RawAVP{Code: 2403, VenID: 10415,
+			FlgV: true, FlgM: true, FlgP: false}
+		v[0].Encode(d.Bytes())
+		if len(n) != 0 {
+			nv := msg.RawAVP{Code: 2402, VenID: 10415,
+				FlgV: true, FlgM: true, FlgP: false}
+			nv.Encode(n)
+			v = append(v, nv)
+		}
+		if len(r) != 0 {
+			rv := msg.RawAVP{Code: 2408, VenID: 10415,
+				FlgV: true, FlgM: true, FlgP: false}
+			rv.Encode(r)
+			v = append(v, rv)
+		}
+	}
+
+	a.Encode(v)
+	return
+}
+
+func getServingNode(a msg.RawAVP) (
+	t NodeType, d teldata.E164, n, r msg.DiameterIdentity, e error) {
+	return getSN(2401, a)
+}
+
+func getAdditionalServingNode(a msg.RawAVP) (
+	t NodeType, d teldata.E164, n, r msg.DiameterIdentity, e error) {
+	return getSN(2406, a)
+}
+
+func getSN(c uint32, a msg.RawAVP) (
+	t NodeType, d teldata.E164, n, r msg.DiameterIdentity, e error) {
+	o := []msg.RawAVP{}
+	if e = a.Validate(10415, c, true, true, false); e == nil {
+		e = a.Decode(&o)
+	}
+	for _, a := range o {
+		if a.VenID != 10415 {
+			continue
+		}
+		switch a.Code {
+		case 1489:
+			if e = a.Validate(1489, 10415, true, true, false); e == nil {
+				e = a.Decode(&d)
+				t = NodeSGSN
+			}
+		case 1645:
+			if e = a.Validate(1645, 10415, true, true, false); e == nil {
+				e = a.Decode(&d)
+				t = NodeMME
+			}
+		case 2403:
+			if e = a.Validate(2403, 10415, true, true, false); e == nil {
+				e = a.Decode(&d)
+				t = NodeMSC
+			}
+		}
+	}
+	switch t {
+	case NodeSGSN:
+		for _, a := range o {
+			if a.VenID != 10415 {
+				continue
+			}
+			switch a.Code {
+			case 2409:
+				if e = a.Validate(2409, 10415, true, true, false); e == nil {
+					e = a.Decode(&n)
+				}
+			case 2410:
+				if e = a.Validate(2410, 10415, true, true, false); e == nil {
+					e = a.Decode(&r)
+				}
+			}
+		}
+	case NodeMME, NodeMSC:
+		for _, a := range o {
+			if a.VenID != 10415 {
+				continue
+			}
+			switch a.Code {
+			case 2402:
+				if e = a.Validate(2402, 10415, true, true, false); e == nil {
+					e = a.Decode(&n)
+				}
+			case 2408:
+				if e = a.Validate(2408, 10415, true, true, false); e == nil {
+					e = a.Decode(&r)
+				}
+			}
+		}
+	}
+	return
+}
+
+func setLMSI(v uint32) msg.RawAVP {
+	a := msg.RawAVP{Code: 2400, VenID: 10415,
+		FlgV: true, FlgM: true, FlgP: false}
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.BigEndian, v)
+	a.Encode(buf.Bytes())
+	return a
+}
+
+func getLMSI(a msg.RawAVP) (v uint32, e error) {
+	s := new([]byte)
+	if e = a.Validate(10415, 2400, true, true, false); e != nil {
+	} else if e = a.Decode(s); e == nil && len(*s) == 4 {
+		binary.Read(bytes.NewBuffer(*s), binary.BigEndian, &v)
+	}
+	return
+}
+
+func setUserIdentifier(v teldata.E164) msg.RawAVP {
+	a := msg.RawAVP{Code: 3102, VenID: 10415,
+		FlgV: true, FlgM: true, FlgP: false}
+	t := []msg.RawAVP{
+		msg.RawAVP{Code: 701, VenID: 10415,
+			FlgV: true, FlgM: true, FlgP: false}}
+	t[0].Encode(v.Bytes())
+	a.Encode(t)
+	return a
+}
+
+func getUserIdentifier(a msg.RawAVP) (v teldata.E164, e error) {
+	o := []msg.RawAVP{}
+	if e = a.Validate(10415, 3102, true, true, false); e != nil {
+	} else if e = a.Decode(&o); e == nil {
+		for _, a := range o {
+			if a.Code == 701 && a.VenID == 10415 {
+				if e = a.Validate(10415, 701, true, true, false); e == nil {
+					a.Decode(&v)
+				}
+			}
+		}
+	}
+	return
+}
+
+// MWD-Status AVP contain a bit mask.
 // SCAddrNotIncluded shall indicate the presence of
 // the SC Address in the Message Waiting Data in the HSS.
 // MNRF shall indicate that the MNRF flag is set in the HSS.
@@ -188,7 +361,6 @@ type MWDStatus struct {
 	MNRG              bool
 }
 
-// ToRaw return AVP struct of this value
 func (v *MWDStatus) ToRaw() msg.RawAVP {
 	a := msg.RawAVP{Code: 3312, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
@@ -229,6 +401,7 @@ func (v *MWDStatus) FromRaw(a msg.RawAVP) (e error) {
 	return
 }
 
+/*
 // MMEAbsentUserDiagnosticSM AVP shall indicate the diagnostic
 // explaining the absence of the user given by the MME.
 type MMEAbsentUserDiagnosticSM uint32
@@ -576,3 +749,4 @@ func (v *SMSGMSCAlertEvent) FromRaw(a msg.RawAVP) (e error) {
 		UEUnderNewServingNode: (*s)&0x00000002 == 0x00000002}
 	return
 }
+*/

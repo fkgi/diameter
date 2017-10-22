@@ -2,31 +2,22 @@ package ts29338
 
 import (
 	"github.com/fkgi/diameter/msg"
+	"github.com/fkgi/teldata"
 )
 
-// SCAddress AVP contain the E164 number of the SMS-SC or MTC-IWF.
-type SCAddress string
-
-// ToRaw return AVP struct of this value
-func (v *SCAddress) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3300, VenID: 10415,
+func setSCAddress(v teldata.E164) (a msg.RawAVP) {
+	a = msg.RawAVP{Code: 3300, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	if v != nil {
-		a.Encode(string(*v))
-	}
-	return a
+	a.Encode(v.String())
+	return
 }
 
-// FromRaw get AVP value
-func (v *SCAddress) FromRaw(a msg.RawAVP) (e error) {
-	if e = a.Validate(10415, 3300, true, true, false); e != nil {
-		return
-	}
+func getSCAddress(a msg.RawAVP) (v teldata.E164, e error) {
 	s := new(string)
-	if e = a.Decode(s); e != nil {
-		return
+	if e = a.Validate(10415, 3300, true, true, false); e != nil {
+	} else if e = a.Decode(s); e != nil {
+		v, e = teldata.ParseE164(*s)
 	}
-	*v = SCAddress(*s)
 	return
 }
 

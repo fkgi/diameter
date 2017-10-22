@@ -178,7 +178,7 @@ type CEA struct {
 	ProductName   string
 	OriginStateID uint32
 	ErrorMessage  string
-	FailedAVP     msg.GroupedAVP
+	FailedAVP     []msg.RawAVP
 	ApplicationID map[uint32][]uint32
 	// []InbandSecurityID
 	FirmwareRevision uint32
@@ -392,7 +392,7 @@ type DPA struct {
 	OriginHost   msg.DiameterIdentity
 	OriginRealm  msg.DiameterIdentity
 	ErrorMessage string
-	FailedAVP    msg.GroupedAVP
+	FailedAVP    []msg.RawAVP
 }
 
 // ToRaw return msg.RawMsg struct of this value
@@ -538,7 +538,7 @@ type DWA struct {
 	OriginHost    msg.DiameterIdentity
 	OriginRealm   msg.DiameterIdentity
 	ErrorMessage  string
-	FailedAVP     msg.GroupedAVP
+	FailedAVP     []msg.RawAVP
 	OriginStateID uint32
 }
 
