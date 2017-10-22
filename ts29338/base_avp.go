@@ -130,14 +130,14 @@ func getAuthSessionState(a msg.RawAVP) (v bool, e error) {
 }
 */
 
-func setFailedAVP(v msg.GroupedAVP) (a msg.RawAVP) {
+func setFailedAVP(v []msg.RawAVP) (a msg.RawAVP) {
 	a = msg.RawAVP{Code: 279, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	a.Encode(v)
 	return
 }
 
-func getFailedAVP(a msg.RawAVP) (v msg.GroupedAVP, e error) {
+func getFailedAVP(a msg.RawAVP) (v []msg.RawAVP, e error) {
 	if e = a.Validate(0, 279, false, true, false); e == nil {
 		e = a.Decode(&v)
 	}

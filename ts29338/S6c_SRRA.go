@@ -7,15 +7,6 @@ import (
 	"github.com/fkgi/teldata"
 )
 
-/*
-var (
-	s6cAppID = rfc6733.VendorSpecificApplicationID{
-		VendorID:          rfc6733.VendorID(10415),
-		AuthApplicationID: rfc6733.AuthApplicationID(16777312)}
-	sessionState = rfc6733.StateNotMaintained
-)
-*/
-
 var (
 	// EnableSMRPMTI indicate include or not SM-RP-MTI in SRR
 	EnableSMRPMTI = true
@@ -222,8 +213,8 @@ type SRA struct {
 		Name    msg.DiameterIdentity
 		Realm   msg.DiameterIdentity
 	}
+	LMSI uint32
 	User struct {
-		LMSI uint32
 		teldata.IMSI
 		MSISDN teldata.E164
 		// ExtID  string
@@ -279,8 +270,8 @@ func (v SRA) ToRaw() msg.RawMsg {
 			v.AdditionalServingNode.Name,
 			v.AdditionalServingNode.Realm))
 	}
-	if v.User.LMSI != 0 {
-		m.AVP = append(m.AVP, setLMSI(v.User.LMSI))
+	if v.LMSI != 0 {
+		m.AVP = append(m.AVP, setLMSI(v.LMSI))
 	}
 	if v.User.MSISDN.Length() != 0 {
 		m.AVP = append(m.AVP, setUserIdentifier(v.User.MSISDN))
@@ -314,7 +305,7 @@ func (v SRA) ToRaw() msg.RawMsg {
 }
 
 // FromRaw make this value from msg.RawMsg struct
-func (SRA) FromRaw(m msg.RawMsg) (msg.Request, error) {
+func (SRA) FromRaw(m msg.RawMsg) (msg.Answer, error) {
 	e := m.Validate(16777312, 8388647, false, true, false, false)
 	if e != nil {
 		return nil, e
@@ -322,44 +313,59 @@ func (SRA) FromRaw(m msg.RawMsg) (msg.Request, error) {
 
 	v := SRA{}
 	for _, a := range m.AVP {
-		if a.VenID == 0 && a.Code == 264 {
+		if a.VenID == 0 && a.Code == 268 {
+			v.ResultCode, e = getResultCode(a)
+		} else if a.VenID == 0 && a.Code == 297 {
+			_, v.ResultCode, e = getExperimentalResult(a)
+		} else if a.VenID == 0 && a.Code == 264 {
 			v.OriginHost, e = getOriginHost(a)
 		} else if a.VenID == 0 && a.Code == 296 {
 			v.OriginRealm, e = getOriginRealm(a)
-		} else if a.VenID == 0 && a.Code == 293 {
-			v.DestinationHost, e = getDestinationHost(a)
-		} else if a.VenID == 0 && a.Code == 283 {
-			v.DestinationRealm, e = getDestinationRealm(a)
 
-		} else if a.VenID == 10415 && a.Code == 701 {
-			v.MSISDN, e = getMSISDN(a)
 		} else if a.VenID == 0 && a.Code == 1 {
-			v.IMSI, e = getUserName(a)
-		} else if a.VenID == 10415 && a.Code == 3300 {
-			v.SCAddress, e = getSCAddress(a)
-		} else if a.VenID == 10415 && a.Code == 3308 {
-			v.SMRPMTI, e = getSMRPMTI(a)
-		} else if a.VenID == 10415 && a.Code == 3309 {
-			v.SMRPSMEA, e = getSMRPSMEA(a)
-		} else if a.VenID == 10415 && a.Code == 3310 {
-			v.Flags.GPRSIndicator,
-				v.Flags.SingleAttempt,
-				v.Flags.SMRPPRI, e = getSRRFlags(a)
-		} else if a.VenID == 10415 && a.Code == 3311 {
-			v.RequiredInfo, e = getSMDeliveryNotIntended(a)
-		}
+			v.User.IMSI, e = getUserName(a)
+		} else if a.VenID == 10415 && a.Code == 3102 {
+			v.User.MSISDN, e = getUserIdentifier(a)
+		} else if a.VenID == 10415 && a.Code == 2401 {
+			v.ServingNode.NodeType,
+				v.ServingNode.Address,
+				v.ServingNode.Name,
+				v.ServingNode.Realm, e = getServingNode(a)
+		} else if a.VenID == 10415 && a.Code == 2406 {
+			v.AdditionalServingNode.NodeType,
+				v.AdditionalServingNode.Address,
+				v.AdditionalServingNode.Name,
+				v.AdditionalServingNode.Realm, e = getAdditionalServingNode(a)
+		} else if a.VenID == 10415 && a.Code == 2400 {
+			v.LMSI, e = getLMSI(a)
+		} else if a.VenID == 10415 && a.Code == 3312 {
+			v.MWDStat.SCAddrNotIncluded,
+				v.MWDStat.MNRF,
+				v.MWDStat.MCEF,
+				v.MWDStat.MNRG, e = getMWDStatus(a)
 
+		} else if a.VenID == 10415 && a.Code == 3313 {
+			v.MMEAbsentUserDiagnosticSM, e = getMMEAbsentUserDiagnosticSM(a)
+		} else if a.VenID == 10415 && a.Code == 3314 {
+			v.MSCAbsentUserDiagnosticSM, e = getMSCAbsentUserDiagnosticSM(a)
+		} else if a.VenID == 10415 && a.Code == 3315 {
+			v.SGSNAbsentUserDiagnosticSM, e = getSGSNAbsentUserDiagnosticSM(a)
+		}
 		if e != nil {
 			return nil, e
 		}
 	}
 
 	if len(v.OriginHost) == 0 ||
-		len(v.OriginRealm) == 0 ||
-		len(v.DestinationRealm) == 0 {
+		len(v.OriginRealm) == 0 {
 		e = msg.NoMandatoryAVP{}
 	}
 	return v, e
+}
+
+// Result returns result-code
+func (v SRA) Result() uint32 {
+	return v.ResultCode
 }
 
 /*

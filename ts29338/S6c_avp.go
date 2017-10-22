@@ -354,135 +354,105 @@ func getUserIdentifier(a msg.RawAVP) (v teldata.E164, e error) {
 // MNRF shall indicate that the MNRF flag is set in the HSS.
 // MCEF shall indicate that the MCEF flag is set in the HSS.
 // MNRG shall indicate that the MNRG flag is set in the HSS.
-type MWDStatus struct {
-	SCAddrNotIncluded bool
-	MNRF              bool
-	MCEF              bool
-	MNRG              bool
-}
-
-func (v *MWDStatus) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3312, VenID: 10415,
+func setMWDStatus(sca, mnrf, mcef, mnrg bool) (a msg.RawAVP) {
+	a = msg.RawAVP{Code: 3312, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 
-	if v != nil {
-		i := uint32(0)
-		if v.SCAddrNotIncluded {
-			i = i | 0x00000001
-		}
-		if v.MNRF {
-			i = i | 0x00000002
-		}
-		if v.MCEF {
-			i = i | 0x00000004
-		}
-		if v.MNRG {
-			i = i | 0x00000008
-		}
-		a.Encode(i)
+	i := uint32(0)
+	if sca {
+		i = i | 0x00000001
 	}
-	return a
+	if mnrf {
+		i = i | 0x00000002
+	}
+	if mcef {
+		i = i | 0x00000004
+	}
+	if mnrg {
+		i = i | 0x00000008
+	}
+	a.Encode(i)
+	return
 }
 
-// FromRaw get AVP value
-func (v *MWDStatus) FromRaw(a msg.RawAVP) (e error) {
-	if e = a.Validate(10415, 3312, true, true, false); e != nil {
-		return
-	}
+func getMWDStatus(a msg.RawAVP) (sca, mnrf, mcef, mnrg bool, e error) {
 	s := new(uint32)
-	if e = a.Decode(s); e != nil {
-		return
+	if e = a.Validate(10415, 3312, true, true, false); e != nil {
+	} else if e = a.Decode(s); e == nil {
+		sca = (*s)&0x00000001 == 0x00000001
+		mnrf = (*s)&0x00000002 == 0x00000002
+		mcef = (*s)&0x00000004 == 0x00000004
+		mnrg = (*s)&0x00000008 == 0x00000008
 	}
-	*v = MWDStatus{
-		SCAddrNotIncluded: (*s)&0x00000001 == 0x00000001,
-		MNRF:              (*s)&0x00000002 == 0x00000002,
-		MCEF:              (*s)&0x00000004 == 0x00000004,
-		MNRG:              (*s)&0x00000008 == 0x00000008}
 	return
 }
 
 /*
+0	-	no paging response via the MSC
+1	-	IMSI detached
+2	-	roaming restriction
+3	-	deregistered in the HLR for non GPRS
+4	-	MS purged for non GPRS
+5	-	no paging response via the SGSN
+6	-	GPRS detached
+7	-	deregistered in the HLR for GPRS
+8	-	MS purged for GPRS
+9	-	Unidentified subscriber via the MSC
+10	-	Unidentified subscriber via the SGSN
+11	-	deregistered in the HSS/HLR for IMS
+12	-	no response via the IP-SM-GW
+13		the MS is temporarily unavailable
+*/
+
 // MMEAbsentUserDiagnosticSM AVP shall indicate the diagnostic
 // explaining the absence of the user given by the MME.
-type MMEAbsentUserDiagnosticSM uint32
-
-// ToRaw return AVP struct of this value
-func (v *MMEAbsentUserDiagnosticSM) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3313, VenID: 10415,
+func setMMEAbsentUserDiagnosticSM(v uint32) (a msg.RawAVP) {
+	a = msg.RawAVP{Code: 3313, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	if v != nil {
-		a.Encode(uint32(*v))
-	}
-	return a
+	a.Encode(v)
+	return
 }
 
-// FromRaw get AVP value
-func (v *MMEAbsentUserDiagnosticSM) FromRaw(a msg.RawAVP) (e error) {
-	if e = a.Validate(10415, 3313, true, true, false); e != nil {
-		return
+func getMMEAbsentUserDiagnosticSM(a msg.RawAVP) (v uint32, e error) {
+	if e = a.Validate(10415, 3313, true, true, false); e == nil {
+		e = a.Decode(&v)
 	}
-	s := new(uint32)
-	if e = a.Decode(s); e != nil {
-		return
-	}
-	*v = MMEAbsentUserDiagnosticSM(*s)
 	return
 }
 
 // MSCAbsentUserDiagnosticSM AVP shall indicate the diagnostic
 // explaining the absence of the user given by the MSC.
-type MSCAbsentUserDiagnosticSM uint32
-
-// ToRaw return AVP struct of this value
-func (v *MSCAbsentUserDiagnosticSM) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3314, VenID: 10415,
+func setMSCAbsentUserDiagnosticSM(v uint32) (a msg.RawAVP) {
+	a = msg.RawAVP{Code: 3314, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	if v != nil {
-		a.Encode(uint32(*v))
-	}
-	return a
+	a.Encode(v)
+	return
 }
 
-// FromRaw get AVP value
-func (v *MSCAbsentUserDiagnosticSM) FromRaw(a msg.RawAVP) (e error) {
-	if e = a.Validate(10415, 3314, true, true, false); e != nil {
-		return
+func getMSCAbsentUserDiagnosticSM(a msg.RawAVP) (v uint32, e error) {
+	if e = a.Validate(10415, 3314, true, true, false); e == nil {
+		e = a.Decode(&v)
 	}
-	s := new(uint32)
-	if e = a.Decode(s); e != nil {
-		return
-	}
-	*v = MSCAbsentUserDiagnosticSM(*s)
 	return
 }
 
 // SGSNAbsentUserDiagnosticSM AVP shall indicate the diagnostic
 // explaining the absence of the user given by the SGSN.
-type SGSNAbsentUserDiagnosticSM uint32
-
-// ToRaw return AVP struct of this value
-func (v *SGSNAbsentUserDiagnosticSM) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3315, VenID: 10415,
+func setSGSNAbsentUserDiagnosticSM(v uint32) (a msg.RawAVP) {
+	a = msg.RawAVP{Code: 3315, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	if v != nil {
-		a.Encode(uint32(*v))
-	}
-	return a
-}
-
-// FromRaw get AVP value
-func (v *SGSNAbsentUserDiagnosticSM) FromRaw(a msg.RawAVP) (e error) {
-	if e = a.Validate(10415, 3315, true, true, false); e != nil {
-		return
-	}
-	s := new(uint32)
-	if e = a.Decode(s); e != nil {
-		return
-	}
-	*v = SGSNAbsentUserDiagnosticSM(*s)
+	a.Encode(v)
 	return
 }
 
+func getSGSNAbsentUserDiagnosticSM(a msg.RawAVP) (v uint32, e error) {
+	if e = a.Validate(10415, 3315, true, true, false); e == nil {
+		e = a.Decode(&v)
+	}
+	return
+}
+
+/*
 // SMDeliveryOutcome AVP contains the result of the SM delivery.
 type SMDeliveryOutcome struct {
 	E msg.Enumerated

@@ -9,7 +9,7 @@ import (
 
 const (
 	// DiaVer is Diameter protocol Version
-	DiaVer = uint8(1)
+	DiaVer uint8 = 1
 )
 
 var (
@@ -19,15 +19,15 @@ var (
 
 // Request is Diameter request
 type Request interface {
-	ToRaw() RawMsg
-	FromRaw(RawMsg) (Request, error)
-	Failed(uint32, string) Answer
+	ToRaw(string) RawMsg
+	FromRaw(RawMsg) (Request, string, error)
+	Failed(uint32) Answer
 }
 
 // Answer is Diameter answer
 type Answer interface {
-	ToRaw() RawMsg
-	FromRaw(RawMsg) (Answer, error)
+	ToRaw(string) RawMsg
+	FromRaw(RawMsg) (Answer, string, error)
 	Result() uint32
 }
 
