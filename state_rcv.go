@@ -1,33 +1,12 @@
-package sock
+package diameter
 
 import (
 	"time"
-
-	"github.com/fkgi/diameter/msg"
-	"github.com/fkgi/diameter/rfc6733"
 )
-
-// UnknownIDAnswer is error
-type UnknownIDAnswer struct {
-	msg.RawMsg
-}
-
-func (e UnknownIDAnswer) Error() string {
-	return "Unknown message recieved"
-}
-
-// FailureAnswer is error
-type FailureAnswer struct {
-	msg.RawMsg
-}
-
-func (e FailureAnswer) Error() string {
-	return "Answer message with failure"
-}
 
 // RcvCER
 type eventRcvCER struct {
-	m msg.RawMsg
+	m RawMsg
 }
 
 func (eventRcvCER) String() string {
@@ -39,7 +18,7 @@ func (v eventRcvCER) exec(c *Conn) error {
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
-	cer, e := rfc6733.CER{}.FromRaw(v.m)
+	cer, _, e := CER{}.FromRaw(v.m)
 	Notify(CapabilityExchangeEvent{tx: false, req: true, conn: c, Err: e})
 
 	if e != nil {
@@ -49,17 +28,17 @@ func (v eventRcvCER) exec(c *Conn) error {
 		return e
 	}
 
-	cea := HandleCER(cer.(rfc6733.CER), c)
-	m := cea.ToRaw()
+	cea := HandleCER(cer.(CER), c)
+	m := cea.ToRaw("")
 	m.HbHID = v.m.HbHID
 	m.EtEID = v.m.EtEID
-	if cea.ResultCode != rfc6733.DiameterSuccess {
+	if cea.ResultCode != DiameterSuccess {
 		m.FlgE = true
 	}
 	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
 	_, e = m.WriteTo(c.con)
 
-	if e == nil && cea.ResultCode != rfc6733.DiameterSuccess {
+	if e == nil && cea.ResultCode != DiameterSuccess {
 		e = FailureAnswer{m}
 	}
 	if e == nil {
@@ -78,7 +57,7 @@ func (v eventRcvCER) exec(c *Conn) error {
 
 // RcvCEA
 type eventRcvCEA struct {
-	m msg.RawMsg
+	m RawMsg
 }
 
 func (eventRcvCEA) String() string {
@@ -95,10 +74,10 @@ func (v eventRcvCEA) exec(c *Conn) error {
 	}
 	delete(c.sndstack, v.m.HbHID)
 
-	cea, e := rfc6733.CEA{}.FromRaw(v.m)
+	cea, _, e := CEA{}.FromRaw(v.m)
 	if e == nil {
-		HandleCEA(cea.(rfc6733.CEA), c)
-		if cea.Result() == uint32(rfc6733.DiameterSuccess) {
+		HandleCEA(cea.(CEA), c)
+		if cea.Result() == uint32(DiameterSuccess) {
 			c.state = open
 			c.sysTimer = time.AfterFunc(c.peer.WDInterval, func() {
 				c.watchdog()
@@ -111,14 +90,14 @@ func (v eventRcvCEA) exec(c *Conn) error {
 	Notify(CapabilityExchangeEvent{tx: false, req: false, conn: c, Err: e})
 	if e != nil {
 		c.con.Close()
-		v.m = msg.RawMsg{}
+		v.m = RawMsg{}
 	}
 	ch <- v.m
 	return e
 }
 
 type eventRcvDWR struct {
-	m msg.RawMsg
+	m RawMsg
 }
 
 func (eventRcvDWR) String() string {
@@ -130,7 +109,7 @@ func (v eventRcvDWR) exec(c *Conn) error {
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
-	dwr, e := rfc6733.DWR{}.FromRaw(v.m)
+	dwr, _, e := DWR{}.FromRaw(v.m)
 	Notify(WatchdogEvent{tx: false, req: true, conn: c, Err: e})
 
 	if e != nil {
@@ -139,17 +118,17 @@ func (v eventRcvDWR) exec(c *Conn) error {
 		return e
 	}
 
-	dwa := HandleDWR(dwr.(rfc6733.DWR), c)
-	m := dwa.ToRaw()
+	dwa := HandleDWR(dwr.(DWR), c)
+	m := dwa.ToRaw("")
 	m.HbHID = v.m.HbHID
 	m.EtEID = v.m.EtEID
-	if dwa.ResultCode != rfc6733.DiameterSuccess {
+	if dwa.ResultCode != DiameterSuccess {
 		m.FlgE = true
 	}
 	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
 	_, e = m.WriteTo(c.con)
 
-	if e == nil && dwa.ResultCode != rfc6733.DiameterSuccess {
+	if e == nil && dwa.ResultCode != DiameterSuccess {
 		e = FailureAnswer{m}
 	}
 	if e == nil {
@@ -165,7 +144,7 @@ func (v eventRcvDWR) exec(c *Conn) error {
 
 // RcvDWA
 type eventRcvDWA struct {
-	m msg.RawMsg
+	m RawMsg
 }
 
 func (eventRcvDWA) String() string {
@@ -182,10 +161,10 @@ func (v eventRcvDWA) exec(c *Conn) error {
 	}
 	delete(c.sndstack, v.m.HbHID)
 
-	dwa, e := rfc6733.DWA{}.FromRaw(v.m)
+	dwa, _, e := DWA{}.FromRaw(v.m)
 	if e == nil {
-		HandleDWA(dwa.(rfc6733.DWA), c)
-		if dwa.Result() == uint32(rfc6733.DiameterSuccess) {
+		HandleDWA(dwa.(DWA), c)
+		if dwa.Result() == uint32(DiameterSuccess) {
 			c.wdCounter = 0
 			c.sysTimer.Reset(c.peer.WDInterval)
 		} else {
@@ -195,14 +174,14 @@ func (v eventRcvDWA) exec(c *Conn) error {
 
 	Notify(WatchdogEvent{tx: false, req: false, conn: c, Err: e})
 	if e != nil {
-		v.m = msg.RawMsg{}
+		v.m = RawMsg{}
 	}
 	ch <- v.m
 	return e
 }
 
 type eventRcvDPR struct {
-	m msg.RawMsg
+	m RawMsg
 }
 
 func (eventRcvDPR) String() string {
@@ -214,7 +193,7 @@ func (v eventRcvDPR) exec(c *Conn) error {
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
-	dpr, e := rfc6733.DPR{}.FromRaw(v.m)
+	dpr, _, e := DPR{}.FromRaw(v.m)
 	Notify(PurgeEvent{tx: false, req: true, conn: c, Err: e})
 
 	if e != nil {
@@ -223,11 +202,11 @@ func (v eventRcvDPR) exec(c *Conn) error {
 		return e
 	}
 
-	dpa := HandleDPR(dpr.(rfc6733.DPR), c)
-	m := dpa.ToRaw()
+	dpa := HandleDPR(dpr.(DPR), c)
+	m := dpa.ToRaw("")
 	m.HbHID = v.m.HbHID
 	m.EtEID = v.m.EtEID
-	if dpa.ResultCode != rfc6733.DiameterSuccess {
+	if dpa.ResultCode != DiameterSuccess {
 		m.FlgE = true
 	} else {
 		c.state = closing
@@ -247,7 +226,7 @@ func (v eventRcvDPR) exec(c *Conn) error {
 }
 
 type eventRcvDPA struct {
-	m msg.RawMsg
+	m RawMsg
 }
 
 func (eventRcvDPA) String() string {
@@ -264,10 +243,10 @@ func (v eventRcvDPA) exec(c *Conn) error {
 	}
 	delete(c.sndstack, v.m.HbHID)
 
-	dpa, e := rfc6733.DPA{}.FromRaw(v.m)
+	dpa, _, e := DPA{}.FromRaw(v.m)
 	if e == nil {
-		HandleDPA(dpa.(rfc6733.DPA), c)
-		if dpa.Result() != uint32(rfc6733.DiameterSuccess) {
+		HandleDPA(dpa.(DPA), c)
+		if dpa.Result() != uint32(DiameterSuccess) {
 			e = FailureAnswer{v.m}
 		}
 	}
@@ -275,14 +254,14 @@ func (v eventRcvDPA) exec(c *Conn) error {
 	Notify(PurgeEvent{tx: false, req: false, conn: c, Err: e})
 	c.con.Close()
 	if e != nil {
-		v.m = msg.RawMsg{}
+		v.m = RawMsg{}
 	}
 	ch <- v.m
 	return e
 }
 
 type eventRcvMsg struct {
-	m msg.RawMsg
+	m RawMsg
 }
 
 func (eventRcvMsg) String() string {

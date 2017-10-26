@@ -1,11 +1,9 @@
-package sock
+package diameter
 
 import (
 	"fmt"
 	"math/rand"
 	"time"
-
-	"github.com/fkgi/diameter/msg"
 )
 
 var (
@@ -19,9 +17,9 @@ var (
 	SndTimeout = time.Second * time.Duration(30)
 
 	// Host name for local host
-	Host msg.DiameterIdentity
+	Host Identity
 	// Realm name for local host
-	Realm msg.DiameterIdentity
+	Realm Identity
 	// StateID for local host
 	StateID uint32
 
@@ -36,8 +34,8 @@ var (
 
 type appSet struct {
 	id  uint32
-	req map[uint32]msg.Request
-	ans map[uint32]msg.Answer
+	req map[uint32]Request
+	ans map[uint32]Answer
 }
 
 func getSupportedApps() map[uint32][]uint32 {
@@ -68,21 +66,21 @@ func init() {
 	/*
 		vid := rfc6733.VendorID(0)
 		aid := rfc6733.AuthApplicationID(0)
-		AddSupportedMessage(vid, aid, 257, msg.CER{}, msg.CEA{})
-		AddSupportedMessage(vid, aid, 282, msg.DPR{}, msg.DPA{})
-		AddSupportedMessage(vid, aid, 280, msg.DWR{}, msg.DWA{})
+		AddSupportedMessage(vid, aid, 257, CER{}, CEA{})
+		AddSupportedMessage(vid, aid, 282, DPR{}, DPA{})
+		AddSupportedMessage(vid, aid, 280, DWR{}, DWA{})
 	*/
 }
 
 // AddSupportedMessage add supported application message
 func AddSupportedMessage(v, a, c uint32,
-	req msg.Request, ans msg.Answer) {
+	req Request, ans Answer) {
 
 	if _, ok := supportedApps[a]; !ok {
 		supportedApps[a] = appSet{
 			id:  v,
-			req: make(map[uint32]msg.Request),
-			ans: make(map[uint32]msg.Answer)}
+			req: make(map[uint32]Request),
+			ans: make(map[uint32]Answer)}
 	}
 	supportedApps[a].req[c] = req
 	supportedApps[a].ans[c] = ans
@@ -110,7 +108,7 @@ func NextSession() string {
 
 // Peer is peer node of Diameter
 type Peer struct {
-	Realm, Host msg.DiameterIdentity
+	Realm, Host Identity
 
 	WDInterval time.Duration
 	WDExpired  int

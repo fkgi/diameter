@@ -1,11 +1,8 @@
-package sock
+package diameter
 
 import (
 	"net"
 	"time"
-
-	"github.com/fkgi/diameter/msg"
-	"github.com/fkgi/diameter/rfc6733"
 )
 
 // constant values
@@ -27,8 +24,8 @@ type Conn struct {
 	notify chan stateEvent
 	state
 	con      net.Conn
-	sndstack map[uint32]chan msg.RawMsg
-	rcvstack chan msg.RawMsg
+	sndstack map[uint32]chan RawMsg
+	rcvstack chan RawMsg
 }
 
 // Dial make new Conn that use specified peernode and connection
@@ -38,25 +35,23 @@ func Dial(p *Peer, c net.Conn) (*Conn, error) {
 		notify:   make(chan stateEvent),
 		state:    closed,
 		con:      c,
-		sndstack: make(map[uint32]chan msg.RawMsg, TxBuffer),
-		rcvstack: make(chan msg.RawMsg, RxBuffer)}
+		sndstack: make(map[uint32]chan RawMsg, TxBuffer),
+		rcvstack: make(chan RawMsg, RxBuffer)}
 	go socketHandler(con)
 	go eventHandler(con)
 	go messageHandler(con)
 
 	cer := MakeCER(con)
-	req := cer.ToRaw()
+	req := cer.ToRaw("")
 	req.HbHID = nextHbH()
 	req.EtEID = nextEtE()
 
-	ch := make(chan msg.RawMsg)
+	ch := make(chan RawMsg)
 	con.sndstack[req.HbHID] = ch
 	con.notify <- eventConnect{m: req}
 
 	t := time.AfterFunc(p.SndTimeout, func() {
-		m := cer.Failed(
-			uint32(rfc6733.DiameterTooBusy),
-			"no response from peer node").ToRaw()
+		m := cer.Failed(DiameterTooBusy).ToRaw("")
 		m.HbHID = req.HbHID
 		m.EtEID = req.EtEID
 		con.notify <- eventRcvCEA{m}
@@ -78,8 +73,8 @@ func Accept(p *Peer, c net.Conn) (*Conn, error) {
 		notify:   make(chan stateEvent),
 		state:    waitCER,
 		con:      c,
-		sndstack: make(map[uint32]chan msg.RawMsg, TxBuffer),
-		rcvstack: make(chan msg.RawMsg, RxBuffer)}
+		sndstack: make(map[uint32]chan RawMsg, TxBuffer),
+		rcvstack: make(chan RawMsg, RxBuffer)}
 	go socketHandler(con)
 	go eventHandler(con)
 	go messageHandler(con)
@@ -98,19 +93,18 @@ func (c *Conn) NewSession() *Session {
 */
 
 // Send send Diameter request
-func (c *Conn) Send(m msg.Request) msg.Answer {
-	req := m.ToRaw()
+func (c *Conn) Send(m Request) Answer {
+	sid := NextSession()
+	req := m.ToRaw(sid)
 	req.HbHID = nextHbH()
 	req.EtEID = nextEtE()
 
-	ch := make(chan msg.RawMsg)
+	ch := make(chan RawMsg)
 	c.sndstack[req.HbHID] = ch
 	c.notify <- eventSndMsg{m: req}
 
 	t := time.AfterFunc(c.peer.SndTimeout, func() {
-		m := m.Failed(
-			uint32(rfc6733.DiameterTooBusy),
-			"no response from peer node").ToRaw()
+		m := m.Failed(DiameterTooBusy).ToRaw(sid)
 		m.HbHID = req.HbHID
 		m.EtEID = req.EtEID
 		c.notify <- eventRcvMsg{m}
@@ -119,28 +113,20 @@ func (c *Conn) Send(m msg.Request) msg.Answer {
 	a := <-ch
 	t.Stop()
 	if a.Code == 0 {
-		return m.Failed(
-			uint32(rfc6733.DiameterUnableToDeliver),
-			"failed to send")
+		return m.Failed(DiameterUnableToDeliver)
 	}
 
 	app, ok := supportedApps[a.AppID]
 	if !ok {
-		return m.Failed(
-			uint32(rfc6733.DiameterUnableToComply),
-			"invalid Application-ID answer")
+		return m.Failed(DiameterUnableToComply)
 	}
 	ans, ok := app.ans[a.Code]
 	if !ok {
-		return m.Failed(
-			uint32(rfc6733.DiameterUnableToComply),
-			"invalid Command-Code answer")
+		return m.Failed(DiameterUnableToComply)
 	}
-	ack, e := ans.FromRaw(a)
+	ack, _, e := ans.FromRaw(a)
 	if e != nil {
-		return m.Failed(
-			uint32(rfc6733.DiameterUnableToComply),
-			"invalid data answer")
+		return m.Failed(DiameterUnableToComply)
 		// ToDo
 		// invalid message handling
 	}
@@ -149,18 +135,16 @@ func (c *Conn) Send(m msg.Request) msg.Answer {
 
 func (c *Conn) watchdog() {
 	dwr := MakeDWR(c)
-	req := dwr.ToRaw()
+	req := dwr.ToRaw("")
 	req.HbHID = nextHbH()
 	req.EtEID = nextEtE()
 
-	ch := make(chan msg.RawMsg)
+	ch := make(chan RawMsg)
 	c.sndstack[req.HbHID] = ch
 	c.notify <- eventWatchdog{m: req}
 
 	t := time.AfterFunc(c.peer.SndTimeout, func() {
-		m := dwr.Failed(
-			uint32(rfc6733.DiameterTooBusy),
-			"no response from peer node").ToRaw()
+		m := dwr.Failed(DiameterTooBusy).ToRaw("")
 		m.HbHID = req.HbHID
 		m.EtEID = req.EtEID
 		c.notify <- eventRcvDWA{m}
@@ -177,18 +161,16 @@ func (c *Conn) Close(timeout time.Duration) {
 	}
 
 	dpr := MakeDPR(c)
-	req := dpr.ToRaw()
+	req := dpr.ToRaw("")
 	req.HbHID = nextHbH()
 	req.EtEID = nextEtE()
 
-	ch := make(chan msg.RawMsg)
+	ch := make(chan RawMsg)
 	c.sndstack[req.HbHID] = ch
 	c.notify <- eventStop{m: req}
 
 	t := time.AfterFunc(c.peer.SndTimeout, func() {
-		m := dpr.Failed(
-			uint32(rfc6733.DiameterTooBusy),
-			"no response from peer node").ToRaw()
+		m := dpr.Failed(DiameterTooBusy).ToRaw("")
 		m.HbHID = req.HbHID
 		m.EtEID = req.EtEID
 		c.notify <- eventRcvDPA{m}
@@ -204,12 +186,12 @@ func (c *Conn) LocalAddr() net.Addr {
 }
 
 // PeerHost returns peer host name
-func (c *Conn) PeerHost() msg.DiameterIdentity {
+func (c *Conn) PeerHost() Identity {
 	return c.peer.Host
 }
 
 // PeerRealm returns peer realm name
-func (c *Conn) PeerRealm() msg.DiameterIdentity {
+func (c *Conn) PeerRealm() Identity {
 	return c.peer.Realm
 }
 
@@ -225,7 +207,7 @@ func (c *Conn) AuthApplication() map[uint32][]uint32 {
 
 func socketHandler(c *Conn) {
 	for {
-		m := msg.RawMsg{}
+		m := RawMsg{}
 		c.con.SetReadDeadline(time.Time{})
 		if _, e := m.ReadFrom(c.con); e != nil {
 			break
@@ -279,18 +261,18 @@ func messageHandler(c *Conn) {
 		}
 		if app, ok := supportedApps[m.AppID]; !ok {
 			c.notify <- eventSndMsg{
-				makeErrorMsg(m, rfc6733.DiameterApplicationUnsupported)}
+				makeErrorMsg(m, DiameterApplicationUnsupported)}
 		} else if req, ok := app.req[m.Code]; !ok {
 			c.notify <- eventSndMsg{
-				makeErrorMsg(m, rfc6733.DiameterCommandUnspported)}
-		} else if r, e := req.FromRaw(m); e != nil {
+				makeErrorMsg(m, DiameterCommandUnspported)}
+		} else if r, s, e := req.FromRaw(m); e != nil {
 			// ToDo
 			// invalid message handling
 		} else if ans := HandleMSG(r); ans == nil {
 			// ToDo
 			// message handling failure handling
 		} else {
-			a := ans.ToRaw()
+			a := ans.ToRaw(s)
 			a.HbHID = m.HbHID
 			a.EtEID = m.EtEID
 			c.notify <- eventSndMsg{a}
@@ -298,8 +280,8 @@ func messageHandler(c *Conn) {
 	}
 }
 
-func makeErrorMsg(m msg.RawMsg, c uint32) msg.RawMsg {
-	r := msg.RawMsg{}
+func makeErrorMsg(m RawMsg, c uint32) RawMsg {
+	r := RawMsg{}
 	r.Ver = m.Ver
 	r.FlgP = m.FlgP
 	r.Code = m.Code
@@ -307,17 +289,17 @@ func makeErrorMsg(m msg.RawMsg, c uint32) msg.RawMsg {
 	r.HbHID = m.HbHID
 	r.EtEID = m.EtEID
 
-	host := msg.RawAVP{Code: 264, VenID: 0,
+	host := RawAVP{Code: 264, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	host.Encode(Host)
-	realm := msg.RawAVP{Code: 296, VenID: 0,
+	realm := RawAVP{Code: 296, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	realm.Encode(Realm)
-	rcode := msg.RawAVP{Code: 268, VenID: 0,
+	rcode := RawAVP{Code: 268, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
 	rcode.Encode(c)
 
-	r.AVP = []msg.RawAVP{rcode, host, realm}
+	r.AVP = []RawAVP{rcode, host, realm}
 
 	for _, a := range m.AVP {
 		if e := a.Validate(0, 263, false, true, false); e == nil {

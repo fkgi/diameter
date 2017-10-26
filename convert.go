@@ -1,4 +1,4 @@
-package msg
+package diameter
 
 // Convert from bool list to byte array
 func botob(fs ...bool) (b []byte) {

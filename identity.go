@@ -1,4 +1,4 @@
-package msg
+package diameter
 
 import (
 	"bytes"
@@ -10,29 +10,29 @@ import (
 )
 
 const (
-	idFQDN      = iota
-	idSCHEME    = iota
-	idPORT      = iota
-	idTRANSPORT = iota
-	idPROTOCOL  = iota
+	idFQDN int = iota
+	idSCHEME
+	idPORT
+	idTRANSPORT
+	idPROTOCOL
 )
 
-// DiameterIdentity is identity of Diameter protocol
-type DiameterIdentity string
+// Identity is identity of Diameter protocol
+type Identity string
 
-// ParseDiameterIdentity parse Diamter identity form string
-func ParseDiameterIdentity(str string) (id DiameterIdentity, e error) {
+// ParseIdentity parse Diamter identity form string
+func ParseIdentity(str string) (id Identity, e error) {
 	t := abnf.ParseString(str, _identity())
 	if t == nil {
 		e = fmt.Errorf("Invalid id text")
 	} else {
-		id = DiameterIdentity(t.Child(idFQDN).V)
+		id = Identity(t.Child(idFQDN).V)
 	}
 	return
 }
 
-// Compare compares two Diameter identity
-func Compare(id1, id2 DiameterIdentity) int {
+// CompareIdentity compares two Diameter identity
+func CompareIdentity(id1, id2 Identity) int {
 	s1 := strings.ToLower(string(id1))
 	s2 := strings.ToLower(string(id2))
 
@@ -56,23 +56,23 @@ func Compare(id1, id2 DiameterIdentity) int {
 	return r
 }
 
-// DiameterURI is URI of Diameter protocol
-type DiameterURI struct {
+// URI is URI of Diameter protocol
+type URI struct {
 	Scheme    string
-	Fqdn      DiameterIdentity
+	Fqdn      Identity
 	Port      int
 	Transport string
 	Protocol  string
 }
 
-// ParseDiameterURI parse Diamter URI form string
-func ParseDiameterURI(str string) (uri DiameterURI, e error) {
+// ParseURI parse Diamter URI form string
+func ParseURI(str string) (uri URI, e error) {
 	t := abnf.ParseString(str, _uri())
 	if t == nil {
 		e = fmt.Errorf("Invalid id text")
 	} else {
 		uri.Scheme = string(t.Child(idSCHEME).V)
-		uri.Fqdn = DiameterIdentity(t.Child(idFQDN).V)
+		uri.Fqdn = Identity(t.Child(idFQDN).V)
 		p, _ := strconv.ParseInt(string(t.Child(idPORT).V), 10, 32)
 		uri.Port = int(p)
 		uri.Transport = string(t.Child(idTRANSPORT).V)
@@ -81,7 +81,7 @@ func ParseDiameterURI(str string) (uri DiameterURI, e error) {
 	return
 }
 
-func (d DiameterURI) String() string {
+func (d URI) String() string {
 	var b bytes.Buffer
 	b.WriteString(d.Scheme)
 	b.WriteString("://")

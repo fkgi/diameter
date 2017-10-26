@@ -1,4 +1,4 @@
-package msg
+package diameter
 
 // UnknownAVPType is error of invalid AVP type
 type UnknownAVPType struct {
@@ -46,4 +46,22 @@ type InvalidAVP struct {
 
 func (e InvalidAVP) Error() string {
 	return "invalid AVP data"
+}
+
+// UnknownIDAnswer is error
+type UnknownIDAnswer struct {
+	RawMsg
+}
+
+func (e UnknownIDAnswer) Error() string {
+	return "Unknown message recieved"
+}
+
+// FailureAnswer is error
+type FailureAnswer struct {
+	RawMsg
+}
+
+func (e FailureAnswer) Error() string {
+	return "Answer message with failure"
 }

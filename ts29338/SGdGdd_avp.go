@@ -1,18 +1,18 @@
 package ts29338
 
 import (
-	"github.com/fkgi/diameter/msg"
+	"github.com/fkgi/diameter"
 	"github.com/fkgi/teldata"
 )
 
-func setSCAddress(v teldata.E164) (a msg.RawAVP) {
-	a = msg.RawAVP{Code: 3300, VenID: 10415,
+func setSCAddress(v teldata.E164) (a diameter.RawAVP) {
+	a = diameter.RawAVP{Code: 3300, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	a.Encode(v.String())
 	return
 }
 
-func getSCAddress(a msg.RawAVP) (v teldata.E164, e error) {
+func getSCAddress(a diameter.RawAVP) (v teldata.E164, e error) {
 	s := new(string)
 	if e = a.Validate(10415, 3300, true, true, false); e != nil {
 	} else if e = a.Decode(s); e != nil {
@@ -27,15 +27,15 @@ func getSCAddress(a msg.RawAVP) (v teldata.E164, e error) {
 type SMRPUI []byte
 
 // ToRaw return AVP struct of this value
-func (v SMRPUI) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3301, VenID: 10415,
+func (v SMRPUI) ToRaw() diameter.RawAVP {
+	a := diameter.RawAVP{Code: 3301, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	a.Encode([]byte(v))
 	return a
 }
 
 // GetSMRPUI get AVP value
-func GetSMRPUI(o msg.GroupedAVP) (SMRPUI, bool) {
+func GetSMRPUI(o diameter.GroupedAVP) (SMRPUI, bool) {
 	s := new([]byte)
 	if a, ok := o.Get(3301, 10415); ok {
 		a.Decode(s)
@@ -52,8 +52,8 @@ type TFRFlags struct {
 }
 
 // ToRaw return AVP struct of this value
-func (v TFRFlags) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3302, VenID: 10415,
+func (v TFRFlags) ToRaw() diameter.RawAVP {
+	a := diameter.RawAVP{Code: 3302, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	i := uint32(0)
 
@@ -65,7 +65,7 @@ func (v TFRFlags) ToRaw() msg.RawAVP {
 }
 
 // GetTFRFlags get AVP value
-func GetTFRFlags(o msg.GroupedAVP) (TFRFlags, bool) {
+func GetTFRFlags(o diameter.GroupedAVP) (TFRFlags, bool) {
 	s := new(uint32)
 	if a, ok := o.Get(3302, 10415); ok {
 		a.Decode(s)
@@ -80,19 +80,19 @@ func GetTFRFlags(o msg.GroupedAVP) (TFRFlags, bool) {
 // a SM delivery with an complementary information.
 // If diag is nil, complementary information is empty.
 type SMDeliveryFailureCause struct {
-	Cause msg.Enumerated
+	Cause diameter.Enumerated
 	Diag  []byte
 }
 
 // ToRaw return AVP struct of this value
-func (v SMDeliveryFailureCause) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3303, VenID: 10415,
+func (v SMDeliveryFailureCause) ToRaw() diameter.RawAVP {
+	a := diameter.RawAVP{Code: 3303, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
-	var t []msg.RawAVP
+	var t []diameter.RawAVP
 
 	// SM-Enumerated-Delivery-Failure-Cause
 	{
-		a := msg.RawAVP{Code: 3304, VenID: 10415,
+		a := diameter.RawAVP{Code: 3304, VenID: 10415,
 			FlgV: true, FlgM: true, FlgP: false}
 		a.Encode(v.Cause)
 		t = append(t, a)
@@ -100,21 +100,21 @@ func (v SMDeliveryFailureCause) ToRaw() msg.RawAVP {
 
 	// SM-Diagnostic-Info
 	if v.Diag != nil {
-		a := msg.RawAVP{Code: 3305, VenID: 10415,
+		a := diameter.RawAVP{Code: 3305, VenID: 10415,
 			FlgV: true, FlgM: true, FlgP: false}
 		a.Encode(v.Diag)
 		t = append(t, a)
 	}
 
-	a.Encode(msg.GroupedAVP(t))
+	a.Encode(diameter.GroupedAVP(t))
 	return a
 }
 
 // GetSMDeliveryFailureCause get AVP value
-func GetSMDeliveryFailureCause(o msg.GroupedAVP) (SMDeliveryFailureCause, bool) {
+func GetSMDeliveryFailureCause(o diameter.GroupedAVP) (SMDeliveryFailureCause, bool) {
 	s := SMDeliveryFailureCause{}
 	if a, ok := o.Get(3303, 10415); ok {
-		o = msg.GroupedAVP{}
+		o = diameter.GroupedAVP{}
 		a.Decode(&o)
 	} else {
 		return s, false
@@ -130,34 +130,34 @@ func GetSMDeliveryFailureCause(o msg.GroupedAVP) (SMDeliveryFailureCause, bool) 
 
 const (
 	// MemoryCapacityExceeded is Enumerated value 0
-	MemoryCapacityExceeded msg.Enumerated = 0
+	MemoryCapacityExceeded diameter.Enumerated = 0
 	// EquipmentProtocolError is Enumerated value 1
-	EquipmentProtocolError msg.Enumerated = 1
+	EquipmentProtocolError diameter.Enumerated = 1
 	// EquipmentNotSMEquipped is Enumerated value 2
-	EquipmentNotSMEquipped msg.Enumerated = 2
+	EquipmentNotSMEquipped diameter.Enumerated = 2
 	// UnknownServiceCenter is Enumerated value 3
-	UnknownServiceCenter msg.Enumerated = 3
+	UnknownServiceCenter diameter.Enumerated = 3
 	// SCCongestion is Enumerated value 4
-	SCCongestion msg.Enumerated = 4
+	SCCongestion diameter.Enumerated = 4
 	// InvalidSMEAddress is Enumerated value 5
-	InvalidSMEAddress msg.Enumerated = 5
+	InvalidSMEAddress diameter.Enumerated = 5
 	// UserNotSCUser is Enumerated value 6
-	UserNotSCUser msg.Enumerated = 6
+	UserNotSCUser diameter.Enumerated = 6
 )
 
 // SMDeliveryTimer AVP contain the value in seconds of the timer for SM Delivery.
 type SMDeliveryTimer uint32
 
 // ToRaw return AVP struct of this value
-func (v SMDeliveryTimer) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3306, VenID: 10415,
+func (v SMDeliveryTimer) ToRaw() diameter.RawAVP {
+	a := diameter.RawAVP{Code: 3306, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	a.Encode(uint32(v))
 	return a
 }
 
 // GetSMDeliveryTimer get AVP value
-func GetSMDeliveryTimer(o msg.GroupedAVP) (SMDeliveryTimer, bool) {
+func GetSMDeliveryTimer(o diameter.GroupedAVP) (SMDeliveryTimer, bool) {
 	s := new(uint32)
 	if a, ok := o.Get(3306, 10415); ok {
 		a.Decode(s)
@@ -172,15 +172,15 @@ func GetSMDeliveryTimer(o msg.GroupedAVP) (SMDeliveryTimer, bool) {
 type SMDeliveryStartTime time.Time
 
 // ToRaw return AVP struct of this value
-func (v SMDeliveryStartTime) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3307, VenID: 10415,
+func (v SMDeliveryStartTime) ToRaw() diameter.RawAVP {
+	a := diameter.RawAVP{Code: 3307, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	a.Encode(time.Time(v))
 	return a
 }
 
 // GetSMDeliveryStartTime get AVP value
-func GetSMDeliveryStartTime(o msg.GroupedAVP) (SMDeliveryStartTime, bool) {
+func GetSMDeliveryStartTime(o diameter.GroupedAVP) (SMDeliveryStartTime, bool) {
 	s := new(time.Time)
 	if a, ok := o.Get(3307, 10415); ok {
 		a.Decode(s)
@@ -198,8 +198,8 @@ type OFRFlags struct {
 }
 
 // ToRaw return AVP struct of this value
-func (v OFRFlags) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3328, VenID: 10415,
+func (v OFRFlags) ToRaw() diameter.RawAVP {
+	a := diameter.RawAVP{Code: 3328, VenID: 10415,
 		FlgV: true, FlgM: false, FlgP: false}
 	i := uint32(0)
 
@@ -212,7 +212,7 @@ func (v OFRFlags) ToRaw() msg.RawAVP {
 }
 
 // GetOFRFlags get AVP value
-func GetOFRFlags(o msg.GroupedAVP) (OFRFlags, bool) {
+func GetOFRFlags(o diameter.GroupedAVP) (OFRFlags, bool) {
 	s := new(uint32)
 	if a, ok := o.Get(3328, 10415); ok {
 		a.Decode(s)
@@ -232,42 +232,42 @@ type SMSMICorrelationID struct {
 }
 
 // ToRaw return AVP struct of this value
-func (v SMSMICorrelationID) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3324, VenID: 10415,
+func (v SMSMICorrelationID) ToRaw() diameter.RawAVP {
+	a := diameter.RawAVP{Code: 3324, VenID: 10415,
 		FlgV: true, FlgM: false, FlgP: false}
-	var t []msg.RawAVP
+	var t []diameter.RawAVP
 
 	// HSS-ID
 	if len(v.HSSID) != 0 {
-		a := msg.RawAVP{Code: 3325, VenID: 10415,
+		a := diameter.RawAVP{Code: 3325, VenID: 10415,
 			FlgV: true, FlgM: false, FlgP: false}
 		a.Encode(v.HSSID)
 		t = append(t, a)
 	}
 	// Originating-SIP-URI
 	if len(v.OrigSIPURI) != 0 {
-		a := msg.RawAVP{Code: 3326, VenID: 10415,
+		a := diameter.RawAVP{Code: 3326, VenID: 10415,
 			FlgV: true, FlgM: false, FlgP: false}
 		a.Encode(v.OrigSIPURI)
 		t = append(t, a)
 	}
 	// Destination-SIP-URI
 	if len(v.DestSIPURI) != 0 {
-		a := msg.RawAVP{Code: 3327, VenID: 10415,
+		a := diameter.RawAVP{Code: 3327, VenID: 10415,
 			FlgV: true, FlgM: false, FlgP: false}
 		a.Encode(v.DestSIPURI)
 		t = append(t, a)
 	}
 
-	a.Encode(msg.GroupedAVP(t))
+	a.Encode(diameter.GroupedAVP(t))
 	return a
 }
 
 // GetSMSMICorrelationID get AVP value
-func GetSMSMICorrelationID(o msg.GroupedAVP) (SMSMICorrelationID, bool) {
+func GetSMSMICorrelationID(o diameter.GroupedAVP) (SMSMICorrelationID, bool) {
 	s := SMSMICorrelationID{}
 	if a, ok := o.Get(3324, 10415); ok {
-		o = msg.GroupedAVP{}
+		o = diameter.GroupedAVP{}
 		a.Decode(&o)
 	} else {
 		return s, false
@@ -289,15 +289,15 @@ func GetSMSMICorrelationID(o msg.GroupedAVP) (SMSMICorrelationID, bool) {
 type MaximumRetransmissionTime time.Time
 
 // ToRaw return AVP struct of this value
-func (v MaximumRetransmissionTime) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3330, VenID: 10415,
+func (v MaximumRetransmissionTime) ToRaw() diameter.RawAVP {
+	a := diameter.RawAVP{Code: 3330, VenID: 10415,
 		FlgV: true, FlgM: false, FlgP: false}
 	a.Encode(time.Time(v))
 	return a
 }
 
 // GetMaximumRetransmissionTime get AVP value
-func GetMaximumRetransmissionTime(o msg.GroupedAVP) (MaximumRetransmissionTime, bool) {
+func GetMaximumRetransmissionTime(o diameter.GroupedAVP) (MaximumRetransmissionTime, bool) {
 	s := new(time.Time)
 	if a, ok := o.Get(3330, 10415); ok {
 		a.Decode(s)
@@ -312,15 +312,15 @@ func GetMaximumRetransmissionTime(o msg.GroupedAVP) (MaximumRetransmissionTime, 
 type RequestedRetransmissionTime time.Time
 
 // ToRaw return AVP struct of this value
-func (v RequestedRetransmissionTime) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3331, VenID: 10415,
+func (v RequestedRetransmissionTime) ToRaw() diameter.RawAVP {
+	a := diameter.RawAVP{Code: 3331, VenID: 10415,
 		FlgV: true, FlgM: false, FlgP: false}
 	a.Encode(time.Time(v))
 	return a
 }
 
 // GetRequestedRetransmissionTime get AVP value
-func GetRequestedRetransmissionTime(o msg.GroupedAVP) (RequestedRetransmissionTime, bool) {
+func GetRequestedRetransmissionTime(o diameter.GroupedAVP) (RequestedRetransmissionTime, bool) {
 	s := new(time.Time)
 	if a, ok := o.Get(3331, 10415); ok {
 		a.Decode(s)
@@ -334,15 +334,15 @@ func GetRequestedRetransmissionTime(o msg.GroupedAVP) (RequestedRetransmissionTi
 type SMSGMSCAddress string
 
 // ToRaw return AVP struct of this value
-func (v SMSGMSCAddress) ToRaw() msg.RawAVP {
-	a := msg.RawAVP{Code: 3332, VenID: 10415,
+func (v SMSGMSCAddress) ToRaw() diameter.RawAVP {
+	a := diameter.RawAVP{Code: 3332, VenID: 10415,
 		FlgV: true, FlgM: false, FlgP: false}
 	a.Encode(string(v))
 	return a
 }
 
 // GetSMSGMSCAddress get AVP value
-func GetSMSGMSCAddress(o msg.GroupedAVP) (SMSGMSCAddress, bool) {
+func GetSMSGMSCAddress(o diameter.GroupedAVP) (SMSGMSCAddress, bool) {
 	s := new(string)
 	if a, ok := o.Get(3332, 10415); ok {
 		a.Decode(s)
@@ -354,16 +354,16 @@ func GetSMSGMSCAddress(o msg.GroupedAVP) (SMSGMSCAddress, bool) {
 
 /*
 // UserName AVP from RFC6733
-type UserName msg.UserName
+type UserName diameter.UserName
 
 // ToRaw return AVP struct of this value
-func (v UserName) ToRaw() msg.RawAVP {
-	return msg.UserName(v).Encode()
+func (v UserName) ToRaw() diameter.RawAVP {
+	return diameter.UserName(v).Encode()
 }
 
 // GetUserName get AVP value
-func GetUserName(o msg.GroupedAVP) (UserName, bool) {
-	a, ok := msg.GetUserName(o)
+func GetUserName(o diameter.GroupedAVP) (UserName, bool) {
+	a, ok := diameter.GetUserName(o)
 	return UserName(a), ok
 }
 
@@ -371,12 +371,12 @@ func GetUserName(o msg.GroupedAVP) (UserName, bool) {
 type UserIdentifier ts29336.UserIdentifier
 
 // ToRaw return AVP struct of this value
-func (v UserIdentifier) ToRaw() msg.RawAVP {
+func (v UserIdentifier) ToRaw() diameter.RawAVP {
 	return ts29336.UserIdentifier(v).Encode()
 }
 
 // GetUserIdentifier get AVP value
-func GetUserIdentifier(o msg.GroupedAVP) (UserIdentifier, bool) {
+func GetUserIdentifier(o diameter.GroupedAVP) (UserIdentifier, bool) {
 	a, ok := ts29336.GetUserIdentifier(o)
 	return UserIdentifier(a), ok
 }
@@ -385,12 +385,12 @@ func GetUserIdentifier(o msg.GroupedAVP) (UserIdentifier, bool) {
 type MMENumberForMTSMS ts29272.MMENumberForMTSMS
 
 // ToRaw return AVP struct of this value
-func (v MMENumberForMTSMS) ToRaw() msg.RawAVP {
+func (v MMENumberForMTSMS) ToRaw() diameter.RawAVP {
 	return ts29272.MMENumberForMTSMS(v).Encode()
 }
 
 // GetMMENumberForMTSMS get AVP value
-func GetMMENumberForMTSMS(o msg.GroupedAVP) (MMENumberForMTSMS, bool) {
+func GetMMENumberForMTSMS(o diameter.GroupedAVP) (MMENumberForMTSMS, bool) {
 	a, ok := ts29272.GetMMENumberForMTSMS(o)
 	return MMENumberForMTSMS(a), ok
 }
@@ -401,14 +401,14 @@ func GetMMENumberForMTSMS(o msg.GroupedAVP) (MMENumberForMTSMS, bool) {
 type SGSNNumber ts29272.SGSNNumber
 
 // ToRaw return AVP struct of this value
-func (v SGSNNumber) ToRaw() msg.RawAVP {
+func (v SGSNNumber) ToRaw() diameter.RawAVP {
 	a := ts29272.SGSNNumber(v).Encode()
 	a.FlgM = false
 	return a
 }
 
 // GetSGSNNumber get AVP value
-func GetSGSNNumber(o msg.GroupedAVP) (SGSNNumber, bool) {
+func GetSGSNNumber(o diameter.GroupedAVP) (SGSNNumber, bool) {
 	a, ok := ts29272.GetSGSNNumber(o)
 	return SGSNNumber(a), ok
 }
@@ -418,12 +418,12 @@ func GetSGSNNumber(o msg.GroupedAVP) (SGSNNumber, bool) {
 type SupportedFeatures ts29229.SupportedFeatures
 
 // ToRaw return AVP struct of this value
-func (v SupportedFeatures) ToRaw() msg.RawAVP {
+func (v SupportedFeatures) ToRaw() diameter.RawAVP {
 	return ts29229.SupportedFeatures(v).Encode()
 }
 
 // GetSupportedFeatures get AVP value
-func GetSupportedFeatures(o msg.GroupedAVP) (SupportedFeatures, bool) {
+func GetSupportedFeatures(o diameter.GroupedAVP) (SupportedFeatures, bool) {
 	a, ok := ts29229.GetSupportedFeatures(o)
 	return SupportedFeatures(a), ok
 }
@@ -432,12 +432,12 @@ func GetSupportedFeatures(o msg.GroupedAVP) (SupportedFeatures, bool) {
 type FeatureListID ts29229.FeatureListID
 
 // ToRaw return AVP struct of this value
-func (v FeatureListID) ToRaw() msg.RawAVP {
+func (v FeatureListID) ToRaw() diameter.RawAVP {
 	return ts29229.FeatureListID(v).Encode()
 }
 
 // GetFeatureListID get AVP value
-func GetFeatureListID(o msg.GroupedAVP) (FeatureListID, bool) {
+func GetFeatureListID(o diameter.GroupedAVP) (FeatureListID, bool) {
 	a, ok := ts29229.GetFeatureListID(o)
 	return FeatureListID(a), ok
 }
@@ -446,12 +446,12 @@ func GetFeatureListID(o msg.GroupedAVP) (FeatureListID, bool) {
 type FeatureList ts29229.FeatureList
 
 // ToRaw return AVP struct of this value
-func (v FeatureList) ToRaw() msg.RawAVP {
+func (v FeatureList) ToRaw() diameter.RawAVP {
 	return ts29229.FeatureList(v).Encode()
 }
 
 // GetFeatureList get AVP value
-func GetFeatureList(o msg.GroupedAVP) (FeatureList, bool) {
+func GetFeatureList(o diameter.GroupedAVP) (FeatureList, bool) {
 	a, ok := ts29229.GetFeatureList(o)
 	return FeatureList(a), ok
 }
@@ -461,14 +461,14 @@ func GetFeatureList(o msg.GroupedAVP) (FeatureList, bool) {
 type ExternalIdentifier ts29336.ExternalIdentifier
 
 // ToRaw return AVP struct of this value
-func (v ExternalIdentifier) ToRaw() msg.RawAVP {
+func (v ExternalIdentifier) ToRaw() diameter.RawAVP {
 	a := ts29336.ExternalIdentifier(v).Encode()
 	a.FlgM = false
 	return a
 }
 
 // GetExternalIdentifier get AVP value
-func GetExternalIdentifier(o msg.GroupedAVP) (ExternalIdentifier, bool) {
+func GetExternalIdentifier(o diameter.GroupedAVP) (ExternalIdentifier, bool) {
 	a, ok := ts29336.GetExternalIdentifier(o)
 	return ExternalIdentifier(a), ok
 }

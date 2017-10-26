@@ -1,10 +1,8 @@
-package sock
+package diameter
 
 import (
 	"fmt"
 	"time"
-
-	"github.com/fkgi/diameter/msg"
 )
 
 type state int
@@ -29,11 +27,11 @@ func (s state) String() string {
 
 const (
 	shutdown state = iota
-	closed   state = iota
-	waitCER  state = iota
-	waitCEA  state = iota
-	open     state = iota
-	closing  state = iota
+	closed
+	waitCER
+	waitCEA
+	open
+	closing
 )
 
 // NotAcceptableEvent is error
@@ -79,7 +77,7 @@ func (v eventInit) exec(c *Conn) error {
 
 // Connect
 type eventConnect struct {
-	m msg.RawMsg
+	m RawMsg
 }
 
 func (eventConnect) String() string {
@@ -103,7 +101,7 @@ func (v eventConnect) exec(c *Conn) error {
 
 // Watchdog
 type eventWatchdog struct {
-	m msg.RawMsg
+	m RawMsg
 }
 
 func (eventWatchdog) String() string {
@@ -132,7 +130,7 @@ func (v eventWatchdog) exec(c *Conn) error {
 
 // Stop
 type eventStop struct {
-	m msg.RawMsg
+	m RawMsg
 }
 
 func (eventStop) String() string {
@@ -168,16 +166,16 @@ func (v eventPeerDisc) exec(c *Conn) error {
 	c.state = closed
 
 	for _, ch := range c.sndstack {
-		ch <- msg.RawMsg{}
+		ch <- RawMsg{}
 	}
-	c.rcvstack <- msg.RawMsg{}
+	c.rcvstack <- RawMsg{}
 
 	return nil
 }
 
 // Snd MSG
 type eventSndMsg struct {
-	m msg.RawMsg
+	m RawMsg
 }
 
 func (eventSndMsg) String() string {

@@ -1,4 +1,4 @@
-package msg
+package diameter
 
 import (
 	"bytes"
@@ -19,8 +19,8 @@ var (
 
 // Request is Diameter request
 type Request interface {
-	ToRaw(string) RawMsg
-	FromRaw(RawMsg) (Request, string, error)
+	ToRaw(string) RawMsg                     // generate RawMsg with session-id
+	FromRaw(RawMsg) (Request, string, error) // decode RawMsg and return session-id
 	Failed(uint32) Answer
 }
 
@@ -33,21 +33,21 @@ type Answer interface {
 
 /*
 RawMsg is Diameter message.
-       0                   1                   2                   3
-       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-      |    Version    |                 Message Length                |
-      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-      | Command Flags |                  Command Code                 |
-      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-      |                         Application-ID                        |
-      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-      |                      Hop-by-Hop Identifier                    |
-      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-      |                      End-to-End Identifier                    |
-      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-      |  AVPs ...
-      +-+-+-+-+-+-+-+-+-+-+-+-+-
+    0                   1                   2                   3
+    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |    Version    |                 Message Length                |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   | Command Flags |                  Command Code                 |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                         Application-ID                        |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                      Hop-by-Hop Identifier                    |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |                      End-to-End Identifier                    |
+   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+   |  AVPs ...
+   +-+-+-+-+-+-+-+-+-+-+-+-+-
 */
 type RawMsg struct {
 	Ver   uint8  // Version = 1

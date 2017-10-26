@@ -1,15 +1,9 @@
 package ts29338
 
 import (
-	"github.com/fkgi/diameter/msg"
-	"github.com/fkgi/diameter/sock"
+	"github.com/fkgi/diameter"
 	"github.com/fkgi/sms"
 	"github.com/fkgi/teldata"
-)
-
-var (
-	// EnableSMRPMTI indicate include or not SM-RP-MTI in SRR
-	EnableSMRPMTI = true
 )
 
 /*
@@ -39,36 +33,36 @@ IP-SM-GW and MSISDN-less SMS are not supported.
 */
 type SRR struct {
 	// DRMP
-	OriginHost       msg.DiameterIdentity
-	OriginRealm      msg.DiameterIdentity
-	DestinationHost  msg.DiameterIdentity
-	DestinationRealm msg.DiameterIdentity
+	OriginHost       diameter.Identity
+	OriginRealm      diameter.Identity
+	DestinationHost  diameter.Identity
+	DestinationRealm diameter.Identity
 
 	MSISDN teldata.E164
 	teldata.IMSI
 	// SMSMICorrelationID
 	// []SupportedFeatures
 	SCAddress teldata.E164
-	SMRPMTI   bool
-	SMRPSMEA  sms.Address
-	Flags     struct {
+	MessageType
+	SMRPSMEA sms.Address
+	Flags    struct {
 		GPRSIndicator bool
 		SMRPPRI       bool
 		SingleAttempt bool
 	}
-	RequiredInfo int
+	RequiredInfo
 	// []ProxyInfo
 }
 
-// ToRaw return msg.RawMsg struct of this value
-func (v SRR) ToRaw() msg.RawMsg {
-	m := msg.RawMsg{
-		Ver:  msg.DiaVer,
+// ToRaw return diameter.RawMsg struct of this value
+func (v SRR) ToRaw(s string) diameter.RawMsg {
+	m := diameter.RawMsg{
+		Ver:  diameter.DiaVer,
 		FlgR: true, FlgP: true, FlgE: false, FlgT: false,
 		Code: 8388647, AppID: 16777312,
-		AVP: make([]msg.RawAVP, 0, 15)}
+		AVP: make([]diameter.RawAVP, 0, 15)}
 
-	m.AVP = append(m.AVP, setSessionID(sock.NextSession()))
+	m.AVP = append(m.AVP, setSessionID(s))
 	m.AVP = append(m.AVP, setVendorSpecAppID(16777312))
 	m.AVP = append(m.AVP, setAuthSessionState())
 
@@ -88,8 +82,8 @@ func (v SRR) ToRaw() msg.RawMsg {
 	if v.SCAddress.Length() != 0 {
 		m.AVP = append(m.AVP, setSCAddress(v.SCAddress))
 	}
-	if EnableSMRPMTI {
-		m.AVP = append(m.AVP, setSMRPMTI(v.SMRPMTI))
+	if v.MessageType != UnknownType {
+		m.AVP = append(m.AVP, setSMRPMTI(v.MessageType))
 	}
 	if v.SMRPSMEA.Addr != nil {
 		m.AVP = append(m.AVP, setSMRPSMEA(v.SMRPSMEA))
@@ -102,7 +96,7 @@ func (v SRR) ToRaw() msg.RawMsg {
 			v.Flags.SingleAttempt,
 			v.Flags.SMRPPRI))
 	}
-	if v.RequiredInfo != 0 {
+	if v.RequiredInfo != LocationRequested {
 		m.AVP = append(m.AVP, setSMDeliveryNotIntended(v.RequiredInfo))
 	}
 
@@ -110,16 +104,19 @@ func (v SRR) ToRaw() msg.RawMsg {
 	return m
 }
 
-// FromRaw make this value from msg.RawMsg struct
-func (SRR) FromRaw(m msg.RawMsg) (msg.Request, error) {
+// FromRaw make this value from diameter.RawMsg struct
+func (SRR) FromRaw(m diameter.RawMsg) (diameter.Request, string, error) {
+	s := ""
 	e := m.Validate(16777312, 8388647, true, true, false, false)
 	if e != nil {
-		return nil, e
+		return nil, s, e
 	}
 
 	v := SRR{}
 	for _, a := range m.AVP {
-		if a.VenID == 0 && a.Code == 264 {
+		if a.VenID == 0 && a.Code == 263 {
+			s, e = getSessionID(a)
+		} else if a.VenID == 0 && a.Code == 264 {
 			v.OriginHost, e = getOriginHost(a)
 		} else if a.VenID == 0 && a.Code == 296 {
 			v.OriginRealm, e = getOriginRealm(a)
@@ -135,7 +132,7 @@ func (SRR) FromRaw(m msg.RawMsg) (msg.Request, error) {
 		} else if a.VenID == 10415 && a.Code == 3300 {
 			v.SCAddress, e = getSCAddress(a)
 		} else if a.VenID == 10415 && a.Code == 3308 {
-			v.SMRPMTI, e = getSMRPMTI(a)
+			v.MessageType, e = getSMRPMTI(a)
 		} else if a.VenID == 10415 && a.Code == 3309 {
 			v.SMRPSMEA, e = getSMRPSMEA(a)
 		} else if a.VenID == 10415 && a.Code == 3310 {
@@ -147,20 +144,20 @@ func (SRR) FromRaw(m msg.RawMsg) (msg.Request, error) {
 		}
 
 		if e != nil {
-			return nil, e
+			return nil, s, e
 		}
 	}
 
 	if len(v.OriginHost) == 0 ||
 		len(v.OriginRealm) == 0 ||
 		len(v.DestinationRealm) == 0 {
-		e = msg.NoMandatoryAVP{}
+		e = diameter.NoMandatoryAVP{}
 	}
-	return v, e
+	return v, s, e
 }
 
 // Failed make error message for timeout
-func (v SRR) Failed(c uint32, s string) msg.Answer {
+func (v SRR) Failed(c uint32) diameter.Answer {
 	return SRA{
 		ResultCode:  c,
 		OriginHost:  v.OriginHost,
@@ -197,21 +194,21 @@ IP-SM-GW and MSISDN-less SMS are not supported.
 type SRA struct {
 	// DRMP
 	ResultCode  uint32
-	OriginHost  msg.DiameterIdentity
-	OriginRealm msg.DiameterIdentity
+	OriginHost  diameter.Identity
+	OriginRealm diameter.Identity
 
 	// []SupportedFeatures
 	ServingNode struct {
 		NodeType
 		Address teldata.E164
-		Name    msg.DiameterIdentity
-		Realm   msg.DiameterIdentity
+		Name    diameter.Identity
+		Realm   diameter.Identity
 	}
 	AdditionalServingNode struct {
 		NodeType
 		Address teldata.E164
-		Name    msg.DiameterIdentity
-		Realm   msg.DiameterIdentity
+		Name    diameter.Identity
+		Realm   diameter.Identity
 	}
 	LMSI uint32
 	User struct {
@@ -230,19 +227,19 @@ type SRA struct {
 	MSCAbsentUserDiagnosticSM  uint32
 	SGSNAbsentUserDiagnosticSM uint32
 
-	FailedAVP []msg.RawAVP
+	FailedAVP []diameter.RawAVP
 	// []ProxyInfo
 }
 
-// ToRaw return msg.RawMsg struct of this value
-func (v SRA) ToRaw() msg.RawMsg {
-	m := msg.RawMsg{
-		Ver:  msg.DiaVer,
+// ToRaw return diameter.RawMsg struct of this value
+func (v SRA) ToRaw(s string) diameter.RawMsg {
+	m := diameter.RawMsg{
+		Ver:  diameter.DiaVer,
 		FlgR: false, FlgP: true, FlgE: false, FlgT: false,
 		Code: 8388647, AppID: 16777312,
-		AVP: make([]msg.RawAVP, 0, 20)}
+		AVP: make([]diameter.RawAVP, 0, 20)}
 
-	m.AVP = append(m.AVP, setSessionID(sock.NextSession()))
+	m.AVP = append(m.AVP, setSessionID(s))
 	m.AVP = append(m.AVP, setVendorSpecAppID(16777312))
 	if v.ResultCode >= 5550 && v.ResultCode <= 5558 {
 		m.AVP = append(m.AVP, setExperimentalResult(10415, v.ResultCode))
@@ -304,16 +301,19 @@ func (v SRA) ToRaw() msg.RawMsg {
 	return m
 }
 
-// FromRaw make this value from msg.RawMsg struct
-func (SRA) FromRaw(m msg.RawMsg) (msg.Answer, error) {
+// FromRaw make this value from diameter.RawMsg struct
+func (SRA) FromRaw(m diameter.RawMsg) (diameter.Answer, string, error) {
+	s := ""
 	e := m.Validate(16777312, 8388647, false, true, false, false)
 	if e != nil {
-		return nil, e
+		return nil, s, e
 	}
 
 	v := SRA{}
 	for _, a := range m.AVP {
-		if a.VenID == 0 && a.Code == 268 {
+		if a.VenID == 0 && a.Code == 263 {
+			s, e = getSessionID(a)
+		} else if a.VenID == 0 && a.Code == 268 {
 			v.ResultCode, e = getResultCode(a)
 		} else if a.VenID == 0 && a.Code == 297 {
 			_, v.ResultCode, e = getExperimentalResult(a)
@@ -352,15 +352,15 @@ func (SRA) FromRaw(m msg.RawMsg) (msg.Answer, error) {
 			v.SGSNAbsentUserDiagnosticSM, e = getSGSNAbsentUserDiagnosticSM(a)
 		}
 		if e != nil {
-			return nil, e
+			return nil, s, e
 		}
 	}
 
 	if len(v.OriginHost) == 0 ||
 		len(v.OriginRealm) == 0 {
-		e = msg.NoMandatoryAVP{}
+		e = diameter.NoMandatoryAVP{}
 	}
-	return v, e
+	return v, s, e
 }
 
 // Result returns result-code

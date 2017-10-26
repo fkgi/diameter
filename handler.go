@@ -1,20 +1,17 @@
-package sock
+package diameter
 
 import (
 	"net"
 	"strings"
-
-	"github.com/fkgi/diameter/msg"
-	"github.com/fkgi/diameter/rfc6733"
 )
 
 // HandleMSG is diameter request handler
-var HandleMSG = func(m msg.Request) msg.Answer {
+var HandleMSG = func(m Request) Answer {
 	return nil
 }
 
 // MakeCER returns new CER
-var MakeCER = func(c *Conn) rfc6733.CER {
+var MakeCER = func(c *Conn) CER {
 	ips := make([]net.IP, 0, 2)
 	s := c.con.LocalAddr().String()
 	s = s[:strings.LastIndex(s, ":")]
@@ -22,7 +19,7 @@ var MakeCER = func(c *Conn) rfc6733.CER {
 		ips = append(ips, net.ParseIP(i))
 	}
 
-	return rfc6733.CER{
+	return CER{
 		OriginHost:       Host,
 		OriginRealm:      Realm,
 		HostIPAddress:    ips,
@@ -34,7 +31,7 @@ var MakeCER = func(c *Conn) rfc6733.CER {
 }
 
 // HandleCER is CER handler function
-var HandleCER = func(r rfc6733.CER, c *Conn) rfc6733.CEA {
+var HandleCER = func(r CER, c *Conn) CEA {
 	ips := make([]net.IP, 0, 2)
 	s := c.con.LocalAddr().String()
 	s = s[:strings.LastIndex(s, ":")]
@@ -42,14 +39,14 @@ var HandleCER = func(r rfc6733.CER, c *Conn) rfc6733.CEA {
 		ips = append(ips, net.ParseIP(i))
 	}
 
-	result := rfc6733.DiameterSuccess
+	result := DiameterSuccess
 	if c.peer == nil {
 		c.peer = &Peer{Host: r.OriginHost, Realm: r.OriginRealm}
 	} else if r.OriginHost != c.peer.Host || r.OriginRealm != c.peer.Realm {
-		result = rfc6733.DiameterUnknownPeer
+		result = DiameterUnknownPeer
 	}
 
-	if result == rfc6733.DiameterSuccess {
+	if result == DiameterSuccess {
 		a := make(map[uint32][]uint32)
 		apps := c.peer.AuthApps
 		if apps == nil {
@@ -68,7 +65,7 @@ var HandleCER = func(r rfc6733.CER, c *Conn) rfc6733.CEA {
 			}
 		}
 		if len(a) == 0 {
-			result = rfc6733.DiameterApplicationUnsupported
+			result = DiameterApplicationUnsupported
 		}
 		c.peer.AuthApps = a
 	}
@@ -83,7 +80,7 @@ var HandleCER = func(r rfc6733.CER, c *Conn) rfc6733.CEA {
 		c.peer.SndTimeout = SndTimeout
 	}
 
-	return rfc6733.CEA{
+	return CEA{
 		ResultCode:       result,
 		OriginHost:       Host,
 		OriginRealm:      Realm,
@@ -108,13 +105,13 @@ func match(a, b []uint32) []uint32 {
 }
 
 // HandleCEA is CEA handler function
-var HandleCEA = func(m rfc6733.CEA, c *Conn) {
+var HandleCEA = func(m CEA, c *Conn) {
 	c.peer.AuthApps = m.ApplicationID
 }
 
 // MakeDWR returns new DWR
-var MakeDWR = func(c *Conn) rfc6733.DWR {
-	dwr := rfc6733.DWR{
+var MakeDWR = func(c *Conn) DWR {
+	dwr := DWR{
 		OriginHost:    Host,
 		OriginRealm:   Realm,
 		OriginStateID: StateID}
@@ -122,43 +119,43 @@ var MakeDWR = func(c *Conn) rfc6733.DWR {
 }
 
 // HandleDWR is DWR handler function
-var HandleDWR = func(r rfc6733.DWR, c *Conn) rfc6733.DWA {
-	dwa := rfc6733.DWA{
-		ResultCode:    rfc6733.DiameterSuccess,
+var HandleDWR = func(r DWR, c *Conn) DWA {
+	dwa := DWA{
+		ResultCode:    DiameterSuccess,
 		OriginHost:    Host,
 		OriginRealm:   Realm,
 		OriginStateID: StateID}
 	if c.peer.Host != r.OriginHost || c.peer.Realm != r.OriginRealm {
-		dwa.ResultCode = rfc6733.DiameterUnknownPeer
+		dwa.ResultCode = DiameterUnknownPeer
 	}
 
 	return dwa
 }
 
 // HandleDWA is DWA handler function
-var HandleDWA = func(r rfc6733.DWA, c *Conn) {
+var HandleDWA = func(r DWA, c *Conn) {
 }
 
 // MakeDPR returns new DWR
-var MakeDPR = func(c *Conn) rfc6733.DPR {
-	return rfc6733.DPR{
+var MakeDPR = func(c *Conn) DPR {
+	return DPR{
 		OriginHost:      Host,
 		OriginRealm:     Realm,
-		DisconnectCause: rfc6733.Rebooting}
+		DisconnectCause: Rebooting}
 }
 
 // HandleDPR is DPR handler function
-var HandleDPR = func(r rfc6733.DPR, c *Conn) rfc6733.DPA {
-	dpa := rfc6733.DPA{
-		ResultCode:  rfc6733.DiameterSuccess,
+var HandleDPR = func(r DPR, c *Conn) DPA {
+	dpa := DPA{
+		ResultCode:  DiameterSuccess,
 		OriginHost:  Host,
 		OriginRealm: Realm}
 	if c.peer.Host != r.OriginHost || c.peer.Realm != r.OriginRealm {
-		dpa.ResultCode = rfc6733.DiameterUnknownPeer
+		dpa.ResultCode = DiameterUnknownPeer
 	}
 	return dpa
 }
 
 // HandleDPA is DPA handler function
-var HandleDPA = func(r rfc6733.DPA, c *Conn) {
+var HandleDPA = func(r DPA, c *Conn) {
 }

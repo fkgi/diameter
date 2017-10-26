@@ -1,4 +1,4 @@
-package msg
+package diameter
 
 import (
 	"bytes"
@@ -12,7 +12,20 @@ import (
 // Enumerated is Enumerated format AVP value
 type Enumerated int32
 
-// RawAVP is AVP data and header
+/*
+RawAVP is AVP data and header
+       0                   1                   2                   3
+       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |                           AVP Code                            |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |V M P r r r r r|                  AVP Length                   |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |                        Vendor-ID (opt)                        |
+      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+      |    Data ...
+	  +-+-+-+-+-+-+-+-+
+*/
 type RawAVP struct {
 	Code  uint32 // AVP Code
 	FlgV  bool   // Vendor Specific AVP Flag
@@ -134,9 +147,9 @@ func (a *RawAVP) Encode(d interface{}) (e error) {
 		}
 	case time.Time:
 		e = binary.Write(buf, binary.BigEndian, int64(d.Unix()+2208988800))
-	case DiameterIdentity:
+	case Identity:
 		_, e = buf.Write([]byte(d))
-	case DiameterURI:
+	case URI:
 		_, e = buf.Write([]byte(d.String()))
 	case Enumerated:
 		e = binary.Write(buf, binary.BigEndian, int32(d))
@@ -187,10 +200,10 @@ func (a RawAVP) Decode(d interface{}) (e error) {
 				*d = time.Unix(int64(t-2208988800), int64(0))
 			}
 		}
-	case *DiameterIdentity:
-		*d, e = ParseDiameterIdentity(string(a.data))
-	case *DiameterURI:
-		*d, e = ParseDiameterURI(string(a.data))
+	case *Identity:
+		*d, e = ParseIdentity(string(a.data))
+	case *URI:
+		*d, e = ParseURI(string(a.data))
 	case *Enumerated:
 		if len(a.data) != 4 {
 			e = io.EOF
