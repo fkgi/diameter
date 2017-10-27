@@ -13,7 +13,7 @@ var Notify = func(n Notice) {
 
 // Notice is notification information from connection
 type Notice interface {
-	String() string
+	fmt.Stringer
 }
 
 // StateUpdate notify event

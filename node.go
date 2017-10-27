@@ -13,8 +13,6 @@ var (
 	WDInterval = time.Second * time.Duration(30)
 	// WDExpired is watchdog expired count
 	WDExpired = 3
-	// SndTimeout is message send timeout time
-	SndTimeout = time.Second * time.Duration(30)
 
 	// Host name for local host
 	Host Identity
@@ -27,9 +25,9 @@ var (
 	// and Supported-Vendor-Id AVP
 	supportedApps = make(map[uint32]appSet)
 
-	hbHID     = make(chan uint32, 1)
-	etEID     = make(chan uint32, 1)
-	sessionID = make(chan uint32, 1)
+	hbHID     = make(chan uint32)
+	etEID     = make(chan uint32)
+	sessionID = make(chan uint32)
 )
 
 type appSet struct {
@@ -62,14 +60,6 @@ func init() {
 	sessionID <- rand.Uint32()
 
 	StateID = uint32(ut)
-
-	/*
-		vid := rfc6733.VendorID(0)
-		aid := rfc6733.AuthApplicationID(0)
-		AddSupportedMessage(vid, aid, 257, CER{}, CEA{})
-		AddSupportedMessage(vid, aid, 282, DPR{}, DPA{})
-		AddSupportedMessage(vid, aid, 280, DWR{}, DWA{})
-	*/
 }
 
 // AddSupportedMessage add supported application message
@@ -86,6 +76,14 @@ func AddSupportedMessage(v, a, c uint32,
 	supportedApps[a].ans[c] = ans
 }
 
+// EnableRelaySupport add supported application message
+func EnableRelaySupport() {
+	supportedApps[0xffffffff] = appSet{
+		id:  0,
+		req: map[uint32]Request{0: GenericReq{}},
+		ans: map[uint32]Answer{0: GenericAns{}}}
+}
+
 func nextHbH() uint32 {
 	ret := <-hbHID
 	hbHID <- ret + 1
@@ -98,8 +96,7 @@ func nextEtE() uint32 {
 	return ret
 }
 
-// NextSession returns new SessionID
-func NextSession() string {
+func nextSession() string {
 	ret := <-sessionID
 	sessionID <- ret + 1
 	return fmt.Sprintf("%s;%d;%d;0",
@@ -112,9 +109,7 @@ type Peer struct {
 
 	WDInterval time.Duration
 	WDExpired  int
-	SndTimeout time.Duration
-
-	AuthApps map[uint32][]uint32
+	AuthApps   map[uint32][]uint32
 }
 
 func (p *Peer) String() string {

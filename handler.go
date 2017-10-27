@@ -11,7 +11,9 @@ var HandleMSG = func(m Request) Answer {
 }
 
 // MakeCER returns new CER
-var MakeCER = func(c *Conn) CER {
+var MakeCER = defaultMakeCER
+
+func defaultMakeCER(c *Conn) CER {
 	ips := make([]net.IP, 0, 2)
 	s := c.con.LocalAddr().String()
 	s = s[:strings.LastIndex(s, ":")]
@@ -31,7 +33,9 @@ var MakeCER = func(c *Conn) CER {
 }
 
 // HandleCER is CER handler function
-var HandleCER = func(r CER, c *Conn) CEA {
+var HandleCER = defaultHandleCER
+
+func defaultHandleCER(r CER, c *Conn) CEA {
 	ips := make([]net.IP, 0, 2)
 	s := c.con.LocalAddr().String()
 	s = s[:strings.LastIndex(s, ":")]
@@ -76,9 +80,6 @@ var HandleCER = func(r CER, c *Conn) CEA {
 	if c.peer.WDExpired == 0 {
 		c.peer.WDExpired = WDExpired
 	}
-	if c.peer.SndTimeout == 0 {
-		c.peer.SndTimeout = SndTimeout
-	}
 
 	return CEA{
 		ResultCode:       result,
@@ -105,12 +106,16 @@ func match(a, b []uint32) []uint32 {
 }
 
 // HandleCEA is CEA handler function
-var HandleCEA = func(m CEA, c *Conn) {
+var HandleCEA = defaultHandleCEA
+
+func defaultHandleCEA(m CEA, c *Conn) {
 	c.peer.AuthApps = m.ApplicationID
 }
 
 // MakeDWR returns new DWR
-var MakeDWR = func(c *Conn) DWR {
+var MakeDWR = defaultMakeDWR
+
+func defaultMakeDWR(c *Conn) DWR {
 	dwr := DWR{
 		OriginHost:    Host,
 		OriginRealm:   Realm,
@@ -119,7 +124,9 @@ var MakeDWR = func(c *Conn) DWR {
 }
 
 // HandleDWR is DWR handler function
-var HandleDWR = func(r DWR, c *Conn) DWA {
+var HandleDWR = defaultHandleDWR
+
+func defaultHandleDWR(r DWR, c *Conn) DWA {
 	dwa := DWA{
 		ResultCode:    DiameterSuccess,
 		OriginHost:    Host,
@@ -133,11 +140,15 @@ var HandleDWR = func(r DWR, c *Conn) DWA {
 }
 
 // HandleDWA is DWA handler function
-var HandleDWA = func(r DWA, c *Conn) {
+var HandleDWA = defaultHandleDWA
+
+func defaultHandleDWA(r DWA, c *Conn) {
 }
 
 // MakeDPR returns new DWR
-var MakeDPR = func(c *Conn) DPR {
+var MakeDPR = defaultMakeDPR
+
+func defaultMakeDPR(c *Conn) DPR {
 	return DPR{
 		OriginHost:      Host,
 		OriginRealm:     Realm,
@@ -145,7 +156,9 @@ var MakeDPR = func(c *Conn) DPR {
 }
 
 // HandleDPR is DPR handler function
-var HandleDPR = func(r DPR, c *Conn) DPA {
+var HandleDPR = defaultHandleDPR
+
+func defaultHandleDPR(r DPR, c *Conn) DPA {
 	dpa := DPA{
 		ResultCode:  DiameterSuccess,
 		OriginHost:  Host,
@@ -157,5 +170,7 @@ var HandleDPR = func(r DPR, c *Conn) DPA {
 }
 
 // HandleDPA is DPA handler function
-var HandleDPA = func(r DPA, c *Conn) {
+var HandleDPA = defaultHandleDPA
+
+func defaultHandleDPA(r DPA, c *Conn) {
 }

@@ -13,7 +13,7 @@ const (
 )
 
 var (
-	// Indent for String() output for message
+	// Indent for String() output for RawMsg
 	Indent = " | "
 )
 
@@ -91,6 +91,32 @@ func (m RawMsg) Validate(i, c uint32, r, p, e, t bool) error {
 		return InvalidMessage{}
 	}
 	return nil
+}
+
+// Clone make copy of this RawMsg
+func (m RawMsg) Clone() RawMsg {
+	avp := make([]RawAVP, len(m.AVP))
+	for i := range m.AVP {
+		avp[i] = RawAVP{
+			Code:  m.AVP[i].Code,
+			FlgV:  m.AVP[i].FlgV,
+			FlgM:  m.AVP[i].FlgM,
+			FlgP:  m.AVP[i].FlgP,
+			VenID: m.AVP[i].VenID,
+			data:  make([]byte, len(m.AVP[i].data))}
+		copy(avp[i].data, m.AVP[i].data)
+	}
+	return RawMsg{
+		Ver:   m.Ver,
+		FlgR:  m.FlgR,
+		FlgP:  m.FlgP,
+		FlgE:  m.FlgE,
+		FlgT:  m.FlgT,
+		Code:  m.Code,
+		AppID: m.AppID,
+		HbHID: m.HbHID,
+		EtEID: m.EtEID,
+		AVP:   avp}
 }
 
 // WriteTo write binary data to io.Writer

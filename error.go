@@ -1,5 +1,7 @@
 package diameter
 
+import "fmt"
+
 // UnknownAVPType is error of invalid AVP type
 type UnknownAVPType struct {
 }
@@ -64,4 +66,29 @@ type FailureAnswer struct {
 
 func (e FailureAnswer) Error() string {
 	return "Answer message with failure"
+}
+
+// NotAcceptableEvent is error
+type NotAcceptableEvent struct {
+	stateEvent
+	state
+}
+
+func (e NotAcceptableEvent) Error() string {
+	return fmt.Sprintf("Event %s is not acceptable in state %s",
+		e.stateEvent, e.state)
+}
+
+// WatchdogExpired is error
+type WatchdogExpired struct{}
+
+func (e WatchdogExpired) Error() string {
+	return "watchdog is expired"
+}
+
+// ConnectionRefused is error
+type ConnectionRefused struct{}
+
+func (e ConnectionRefused) Error() string {
+	return "connection is refused"
 }

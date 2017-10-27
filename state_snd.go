@@ -1,7 +1,6 @@
 package diameter
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -33,31 +32,6 @@ const (
 	open
 	closing
 )
-
-// NotAcceptableEvent is error
-type NotAcceptableEvent struct {
-	stateEvent
-	state
-}
-
-func (e NotAcceptableEvent) Error() string {
-	return fmt.Sprintf("Event %s is not acceptable in state %s",
-		e.stateEvent, e.state)
-}
-
-// WatchdogExpired is error
-type WatchdogExpired struct{}
-
-func (e WatchdogExpired) Error() string {
-	return "watchdog is expired"
-}
-
-// ConnectionRefused is error
-type ConnectionRefused struct{}
-
-func (e ConnectionRefused) Error() string {
-	return "connection is refused"
-}
 
 type stateEvent interface {
 	exec(p *Conn) error
@@ -113,8 +87,8 @@ func (v eventWatchdog) exec(c *Conn) error {
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
-	c.wdCounter++
-	if c.wdCounter > c.peer.WDExpired {
+	c.wdCount++
+	if c.wdCount > c.peer.WDExpired {
 		c.con.Close()
 		return WatchdogExpired{}
 	}
@@ -143,7 +117,7 @@ func (v eventStop) exec(c *Conn) error {
 	}
 
 	c.state = closing
-	c.sysTimer.Stop()
+	c.wdTimer.Stop()
 
 	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
 	_, e := v.m.WriteTo(c.con)
