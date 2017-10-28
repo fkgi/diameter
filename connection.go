@@ -7,8 +7,10 @@ import (
 
 // constant values
 var (
-	TxBuffer                = 65535
-	RxBuffer                = 65535
+	TxBuffer = 65535
+	RxBuffer = 65535
+	Workers  = 1
+
 	VendorID         uint32 = 41102
 	ProductName             = "yatagarasu"
 	FirmwareRevision uint32 = 170819001
@@ -30,59 +32,37 @@ type Conn struct {
 
 // Dial make new Conn that use specified peernode and connection
 func Dial(p Peer, c net.Conn, d time.Duration) (*Conn, error) {
-	con := &Conn{
-		peer:     &p,
-		notify:   make(chan stateEvent),
-		state:    closed,
-		con:      c,
-		sndstack: make(map[uint32]chan RawMsg, TxBuffer),
-		rcvstack: make(chan RawMsg, RxBuffer)}
-	go socketHandler(con)
-	go eventHandler(con)
-	go messageHandler(con)
+	con, e := run(&p, c, closed)
+	if e == nil {
+		cer := MakeCER(con)
+		req := cer.ToRaw("")
+		req.HbHID = nextHbH()
+		req.EtEID = nextEtE()
 
-	cer := MakeCER(con)
-	req := cer.ToRaw("")
-	req.HbHID = nextHbH()
-	req.EtEID = nextEtE()
+		ch := make(chan RawMsg)
+		con.sndstack[req.HbHID] = ch
+		con.notify <- eventConnect{m: req}
 
-	ch := make(chan RawMsg)
-	con.sndstack[req.HbHID] = ch
-	con.notify <- eventConnect{m: req}
+		t := time.AfterFunc(d, func() {
+			m := cer.Failed(DiameterTooBusy).ToRaw("")
+			m.HbHID = req.HbHID
+			m.EtEID = req.EtEID
+			con.notify <- eventRcvCEA{m}
+		})
 
-	t := time.AfterFunc(d, func() {
-		m := cer.Failed(DiameterTooBusy).ToRaw("")
-		m.HbHID = req.HbHID
-		m.EtEID = req.EtEID
-		con.notify <- eventRcvCEA{m}
-	})
+		ack := <-ch
+		t.Stop()
 
-	ack := <-ch
-	t.Stop()
-
-	if ack.Code == 0 {
-		return nil, ConnectionRefused{}
+		if ack.Code == 0 {
+			e = ConnectionRefused{}
+		}
 	}
-	return con, nil
+	return con, e
 }
 
 // Accept new transport connection and return Conn
 func Accept(p *Peer, c net.Conn) (*Conn, error) {
-	if c == nil {
-		return nil, ConnectionRefused{}
-	}
-	con := &Conn{
-		peer:     p,
-		notify:   make(chan stateEvent),
-		state:    waitCER,
-		con:      c,
-		sndstack: make(map[uint32]chan RawMsg, TxBuffer),
-		rcvstack: make(chan RawMsg, RxBuffer)}
-	go socketHandler(con)
-	go eventHandler(con)
-	go messageHandler(con)
-
-	return con, nil
+	return run(p, c, waitCER)
 }
 
 // NewSession make new session
@@ -216,6 +196,35 @@ func (c *Conn) AuthApplication() map[uint32][]uint32 {
 	return c.peer.AuthApps
 }
 
+func run(p *Peer, c net.Conn, s state) (*Conn, error) {
+	if c == nil {
+		return nil, ConnectionRefused{}
+	}
+	con := &Conn{
+		peer:     p,
+		notify:   make(chan stateEvent),
+		state:    s,
+		con:      c,
+		sndstack: make(map[uint32]chan RawMsg, TxBuffer),
+		rcvstack: make(chan RawMsg, RxBuffer)}
+	go socketHandler(con)
+	go eventHandler(con)
+	for i := 0; i < Workers; i++ {
+		go func() {
+			for {
+				m := <-con.rcvstack
+				if m.Code == 0 {
+					con.rcvstack <- m
+					break
+				}
+				con.notify <- eventSndMsg{messageHandler(m)}
+			}
+		}()
+	}
+
+	return con, nil
+}
+
 func socketHandler(c *Conn) {
 	for {
 		m := RawMsg{}
@@ -264,50 +273,41 @@ func eventHandler(c *Conn) {
 	}
 }
 
-func messageHandler(c *Conn) {
-	for {
-		m := <-c.rcvstack
-		if m.Code == 0 {
-			break
-		}
-
-		var ans Answer
-		var sid string
-		if app, ok := supportedApps[m.AppID]; !ok {
-			ans = GenericReq(m).Failed(DiameterApplicationUnsupported)
-		} else if req, ok := app.req[m.Code]; !ok {
-			ans = GenericReq(m).Failed(DiameterCommandUnspported)
-		} else {
-			var e error
-			if req, sid, e = req.FromRaw(m); e == nil {
-				ans = HandleMSG(req)
-			}
-			if ans == nil {
-				ans = GenericReq(m).Failed(DiameterUnableToComply)
-				// ToDo
-				// invalid message handling
-			}
-			a := ans.ToRaw(sid)
-			a.HbHID = m.HbHID
-			a.EtEID = m.EtEID
-			c.notify <- eventSndMsg{a}
-
-			continue
-		}
-
-		if app, ok := supportedApps[0xffffffff]; !ok {
-		} else if req, ok := app.req[0]; ok {
-			req, sid, _ = req.FromRaw(m)
+func messageHandler(m RawMsg) RawMsg {
+	var ans Answer
+	var sid string
+	if app, ok := supportedApps[m.AppID]; !ok {
+		ans = GenericReq(m).Failed(DiameterApplicationUnsupported)
+	} else if req, ok := app.req[m.Code]; !ok {
+		ans = GenericReq(m).Failed(DiameterCommandUnspported)
+	} else {
+		var e error
+		if req, sid, e = req.FromRaw(m); e == nil {
 			ans = HandleMSG(req)
-			if ans == nil {
-				ans = GenericReq(m).Failed(DiameterUnableToComply)
-				// ToDo
-				// invalid message handling
-			}
+		}
+		if ans == nil {
+			ans = GenericReq(m).Failed(DiameterUnableToComply)
+			// ToDo
+			// invalid message handling
 		}
 		a := ans.ToRaw(sid)
 		a.HbHID = m.HbHID
 		a.EtEID = m.EtEID
-		c.notify <- eventSndMsg{a}
+		return a
 	}
+
+	if app, ok := supportedApps[0xffffffff]; !ok {
+	} else if req, ok := app.req[0]; ok {
+		req, sid, _ = req.FromRaw(m)
+		ans = HandleMSG(req)
+		if ans == nil {
+			ans = GenericReq(m).Failed(DiameterUnableToComply)
+			// ToDo
+			// invalid message handling
+		}
+	}
+	a := ans.ToRaw(sid)
+	a.HbHID = m.HbHID
+	a.EtEID = m.EtEID
+	return a
 }
