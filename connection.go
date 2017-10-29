@@ -136,36 +136,33 @@ func (c *Conn) Recieve() (Request, func(Answer), error) {
 		return nil, nil, ConnectionRefused{}
 	}
 
-	var ans Answer
 	var req Request
 
-	if app, ok := supportedApps[m.AppID]; !ok {
-		ans = GenericReq(m).Failed(DiameterApplicationUnsupported)
-	} else if req, ok = app.req[m.Code]; !ok {
-		ans = GenericReq(m).Failed(DiameterCommandUnspported)
+	if app, ok := supportedApps[m.AppID]; ok {
+		req, _ = app.req[m.Code]
 	}
 
 	if req != nil {
 	} else if app, ok := supportedApps[0xffffffff]; ok {
 		req, _ = app.req[0]
 	}
-
-	var sid string
-	var e error
 	if req == nil {
-	} else if req, sid, e = req.FromRaw(m); e != nil {
-		ans = GenericReq(m).Failed(DiameterUnableToComply)
-	} else {
-		ans = HandleMSG(req)
+		return nil, nil, ConnectionRefused{}
 	}
 
-	if ans != nil {
+	r, sid, e := req.FromRaw(m)
+	f := func(ans Answer) {
 		a := ans.ToRaw(sid)
 		a.HbHID = m.HbHID
 		a.EtEID = m.EtEID
 		c.notify <- eventSndMsg{a}
 	}
-	return req, nil, nil
+	if e != nil {
+		ans := req.Failed(DiameterUnableToComply)
+		f(ans)
+		return r, nil, e
+	}
+	return r, f, nil
 }
 
 func (c *Conn) watchdog() {
@@ -251,10 +248,6 @@ func run(p *Peer, c net.Conn, s state) *Conn {
 
 	go socketHandler(con)
 	go eventHandler(con)
-	for i := 0; i < Workers; i++ {
-		go messageHandler(con)
-	}
-
 	return con
 }
 
@@ -302,46 +295,6 @@ func eventHandler(c *Conn) {
 
 		if _, ok := event.(eventPeerDisc); ok {
 			break
-		}
-	}
-}
-
-func messageHandler(c *Conn) {
-	for {
-		m := <-c.rcvstack
-		if m.Code == 0 {
-			c.rcvstack <- m
-			break
-		}
-
-		var ans Answer
-		var req Request
-
-		if app, ok := supportedApps[m.AppID]; !ok {
-			ans = GenericReq(m).Failed(DiameterApplicationUnsupported)
-		} else if req, ok = app.req[m.Code]; !ok {
-			ans = GenericReq(m).Failed(DiameterCommandUnspported)
-		}
-
-		if req != nil {
-		} else if app, ok := supportedApps[0xffffffff]; ok {
-			req, _ = app.req[0]
-		}
-
-		var sid string
-		var e error
-		if req == nil {
-		} else if req, sid, e = req.FromRaw(m); e != nil {
-			ans = GenericReq(m).Failed(DiameterUnableToComply)
-		} else {
-			ans = HandleMSG(req)
-		}
-
-		if ans != nil {
-			a := ans.ToRaw(sid)
-			a.HbHID = m.HbHID
-			a.EtEID = m.EtEID
-			c.notify <- eventSndMsg{a}
 		}
 	}
 }
