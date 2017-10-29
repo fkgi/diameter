@@ -270,7 +270,29 @@ func (v eventRcvMsg) exec(c *Conn) (e error) {
 	}
 
 	if v.m.FlgR {
-		c.rcvstack <- v.m
+		var ans Answer
+
+		if app, ok := supportedApps[v.m.AppID]; !ok {
+			ans = GenericReq(v.m).Failed(DiameterApplicationUnsupported)
+		} else if _, ok = app.req[v.m.Code]; !ok {
+			ans = GenericReq(v.m).Failed(DiameterCommandUnspported)
+		}
+
+		if ans == nil {
+		} else if app, ok := supportedApps[0xffffffff]; !ok {
+		} else if _, ok = app.req[0]; ok {
+			ans = nil
+		}
+
+		if ans != nil {
+			a := ans.ToRaw("")
+			a.HbHID = v.m.HbHID
+			a.EtEID = v.m.EtEID
+			c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
+			_, e = a.WriteTo(c.con)
+		} else {
+			c.rcvstack <- v.m
+		}
 	} else {
 		ch, ok := c.sndstack[v.m.HbHID]
 		if !ok {
@@ -282,5 +304,8 @@ func (v eventRcvMsg) exec(c *Conn) (e error) {
 	c.wdTimer.Reset(c.peer.WDInterval)
 
 	Notify(MessageEvent{tx: false, req: true, conn: c, Err: e})
+	if e != nil {
+		c.con.Close()
+	}
 	return
 }
