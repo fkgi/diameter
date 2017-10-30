@@ -25,9 +25,9 @@ var (
 	// and Supported-Vendor-Id AVP
 	supportedApps = make(map[uint32]appSet)
 
-	hbHID     = make(chan uint32)
-	etEID     = make(chan uint32)
-	sessionID = make(chan uint32)
+	hbHID     = make(chan uint32, 1)
+	etEID     = make(chan uint32, 1)
+	sessionID = make(chan uint32, 1)
 )
 
 type appSet struct {

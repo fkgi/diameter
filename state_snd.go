@@ -88,7 +88,7 @@ func (v eventWatchdog) exec(c *Conn) error {
 	}
 
 	c.wdCount++
-	if c.wdCount > c.peer.WDExpired {
+	if c.wdCount > c.Peer.WDExpired {
 		c.con.Close()
 		return WatchdogExpired{}
 	}

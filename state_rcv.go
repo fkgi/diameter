@@ -43,7 +43,7 @@ func (v eventRcvCER) exec(c *Conn) error {
 	}
 	if e == nil {
 		c.state = open
-		c.wdTimer = time.AfterFunc(c.peer.WDInterval, c.watchdog)
+		c.wdTimer = time.AfterFunc(c.Peer.WDInterval, c.watchdog)
 	}
 
 	Notify(CapabilityExchangeEvent{tx: true, req: false, conn: c, Err: e})
@@ -77,7 +77,7 @@ func (v eventRcvCEA) exec(c *Conn) error {
 		HandleCEA(cea.(CEA), c)
 		if cea.Result() == uint32(DiameterSuccess) {
 			c.state = open
-			c.wdTimer = time.AfterFunc(c.peer.WDInterval, c.watchdog)
+			c.wdTimer = time.AfterFunc(c.Peer.WDInterval, c.watchdog)
 		} else {
 			e = FailureAnswer{v.m}
 		}
@@ -128,7 +128,7 @@ func (v eventRcvDWR) exec(c *Conn) error {
 		e = FailureAnswer{m}
 	}
 	if e == nil {
-		c.wdTimer.Reset(c.peer.WDInterval)
+		c.wdTimer.Reset(c.Peer.WDInterval)
 	}
 
 	Notify(WatchdogEvent{tx: true, req: false, conn: c, Err: e})
@@ -162,7 +162,7 @@ func (v eventRcvDWA) exec(c *Conn) error {
 		HandleDWA(dwa.(DWA), c)
 		if dwa.Result() == uint32(DiameterSuccess) {
 			c.wdCount = 0
-			c.wdTimer.Reset(c.peer.WDInterval)
+			c.wdTimer.Reset(c.Peer.WDInterval)
 		} else {
 			e = FailureAnswer{v.m}
 		}
@@ -270,22 +270,23 @@ func (v eventRcvMsg) exec(c *Conn) (e error) {
 	}
 
 	if v.m.FlgR {
-		var ans Answer
+		var cause uint32
 
 		if app, ok := supportedApps[v.m.AppID]; !ok {
-			ans = GenericReq{}.FromRaw(v.m).Failed(DiameterApplicationUnsupported)
+			cause = DiameterApplicationUnsupported
 		} else if _, ok = app.req[v.m.Code]; !ok {
-			ans = GenericReq(v.m).Failed(DiameterCommandUnspported)
+			cause = DiameterCommandUnspported
 		}
 
-		if ans == nil {
+		if cause == 0 {
 		} else if app, ok := supportedApps[0xffffffff]; !ok {
 		} else if _, ok = app.req[0]; ok {
-			ans = nil
+			cause = 0
 		}
 
-		if ans != nil {
-			a := ans.ToRaw("")
+		if cause == 0 {
+			req, sid, _ := GenericReq{}.FromRaw(v.m)
+			a := req.Failed(cause).ToRaw(sid)
 			a.HbHID = v.m.HbHID
 			a.EtEID = v.m.EtEID
 			c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
@@ -301,7 +302,7 @@ func (v eventRcvMsg) exec(c *Conn) (e error) {
 		delete(c.sndstack, v.m.HbHID)
 		ch <- v.m
 	}
-	c.wdTimer.Reset(c.peer.WDInterval)
+	c.wdTimer.Reset(c.Peer.WDInterval)
 
 	Notify(MessageEvent{tx: false, req: true, conn: c, Err: e})
 	if e != nil {

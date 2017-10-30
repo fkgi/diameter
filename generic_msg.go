@@ -79,6 +79,9 @@ func (GenericReq) FromRaw(m RawMsg) (Request, string, error) {
 			copy(a2.data, a.data)
 			v.AVP = append(v.AVP, a2)
 		}
+		if e != nil {
+			return nil, "", e
+		}
 	}
 
 	return v, s, nil
@@ -166,6 +169,9 @@ func (GenericAns) FromRaw(m RawMsg) (Answer, string, error) {
 				data: make([]byte, len(a.data))}
 			copy(a2.data, a.data)
 			v.AVP = append(v.AVP, a2)
+		}
+		if e != nil {
+			return nil, "", e
 		}
 	}
 

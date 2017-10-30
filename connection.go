@@ -18,7 +18,7 @@ var (
 
 // Conn is state machine of Diameter
 type Conn struct {
-	peer *Peer
+	*Peer
 
 	wdTimer *time.Timer // system message timer
 	wdCount int         // watchdog expired counter
@@ -175,7 +175,7 @@ func (c *Conn) watchdog() {
 	c.sndstack[req.HbHID] = ch
 	c.notify <- eventWatchdog{m: req}
 
-	t := time.AfterFunc(c.peer.WDInterval, func() {
+	t := time.AfterFunc(c.Peer.WDInterval, func() {
 		m := dwr.Failed(DiameterTooBusy).ToRaw("")
 		m.HbHID = req.HbHID
 		m.EtEID = req.EtEID
@@ -217,29 +217,14 @@ func (c *Conn) LocalAddr() net.Addr {
 	return c.con.LocalAddr()
 }
 
-// PeerHost returns peer host name
-func (c *Conn) PeerHost() Identity {
-	return c.peer.Host
-}
-
-// PeerRealm returns peer realm name
-func (c *Conn) PeerRealm() Identity {
-	return c.peer.Realm
-}
-
 // PeerAddr returns transport connection of state machine
 func (c *Conn) PeerAddr() net.Addr {
 	return c.con.RemoteAddr()
 }
 
-// AuthApplication returns application ID of this connection
-func (c *Conn) AuthApplication() map[uint32][]uint32 {
-	return c.peer.AuthApps
-}
-
 func run(p *Peer, c net.Conn, s state) *Conn {
 	con := &Conn{
-		peer:     p,
+		Peer:     p,
 		notify:   make(chan stateEvent),
 		state:    s,
 		con:      c,

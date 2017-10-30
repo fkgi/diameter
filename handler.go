@@ -44,15 +44,15 @@ func defaultHandleCER(r CER, c *Conn) CEA {
 	}
 
 	result := DiameterSuccess
-	if c.peer == nil {
-		c.peer = &Peer{Host: r.OriginHost, Realm: r.OriginRealm}
-	} else if r.OriginHost != c.peer.Host || r.OriginRealm != c.peer.Realm {
+	if c.Peer == nil {
+		c.Peer = &Peer{Host: r.OriginHost, Realm: r.OriginRealm}
+	} else if r.OriginHost != c.Peer.Host || r.OriginRealm != c.Peer.Realm {
 		result = DiameterUnknownPeer
 	}
 
 	if result == DiameterSuccess {
 		a := make(map[uint32][]uint32)
-		apps := c.peer.AuthApps
+		apps := c.Peer.AuthApps
 		if apps == nil {
 			apps = getSupportedApps()
 		}
@@ -71,14 +71,14 @@ func defaultHandleCER(r CER, c *Conn) CEA {
 		if len(a) == 0 {
 			result = DiameterApplicationUnsupported
 		}
-		c.peer.AuthApps = a
+		c.Peer.AuthApps = a
 	}
 
-	if c.peer.WDInterval == 0 {
-		c.peer.WDInterval = WDInterval
+	if c.Peer.WDInterval == 0 {
+		c.Peer.WDInterval = WDInterval
 	}
-	if c.peer.WDExpired == 0 {
-		c.peer.WDExpired = WDExpired
+	if c.Peer.WDExpired == 0 {
+		c.Peer.WDExpired = WDExpired
 	}
 
 	return CEA{
@@ -89,7 +89,7 @@ func defaultHandleCER(r CER, c *Conn) CEA {
 		VendorID:         VendorID,
 		ProductName:      ProductName,
 		OriginStateID:    StateID,
-		ApplicationID:    c.peer.AuthApps,
+		ApplicationID:    c.Peer.AuthApps,
 		FirmwareRevision: FirmwareRevision}
 }
 
@@ -109,7 +109,7 @@ func match(a, b []uint32) []uint32 {
 var HandleCEA = defaultHandleCEA
 
 func defaultHandleCEA(m CEA, c *Conn) {
-	c.peer.AuthApps = m.ApplicationID
+	c.Peer.AuthApps = m.ApplicationID
 }
 
 // MakeDWR returns new DWR
@@ -132,7 +132,7 @@ func defaultHandleDWR(r DWR, c *Conn) DWA {
 		OriginHost:    Host,
 		OriginRealm:   Realm,
 		OriginStateID: StateID}
-	if c.peer.Host != r.OriginHost || c.peer.Realm != r.OriginRealm {
+	if c.Peer.Host != r.OriginHost || c.Peer.Realm != r.OriginRealm {
 		dwa.ResultCode = DiameterUnknownPeer
 	}
 
@@ -163,7 +163,7 @@ func defaultHandleDPR(r DPR, c *Conn) DPA {
 		ResultCode:  DiameterSuccess,
 		OriginHost:  Host,
 		OriginRealm: Realm}
-	if c.peer.Host != r.OriginHost || c.peer.Realm != r.OriginRealm {
+	if c.Peer.Host != r.OriginHost || c.Peer.Realm != r.OriginRealm {
 		dpa.ResultCode = DiameterUnknownPeer
 	}
 	return dpa
