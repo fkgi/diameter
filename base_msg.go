@@ -39,8 +39,8 @@ func (v CER) ToRaw(s string) RawMsg {
 		Code: 257, AppID: 0,
 		AVP: make([]RawAVP, 0, 20)}
 
-	m.AVP = append(m.AVP, setOriginHost(v.OriginHost))
-	m.AVP = append(m.AVP, setOriginRealm(v.OriginRealm))
+	m.AVP = append(m.AVP, SetOriginHost(v.OriginHost))
+	m.AVP = append(m.AVP, SetOriginRealm(v.OriginRealm))
 	for _, ip := range v.HostIPAddress {
 		m.AVP = append(m.AVP, setHostIPAddress(ip))
 	}
@@ -57,7 +57,7 @@ func (v CER) ToRaw(s string) RawMsg {
 		} else {
 			m.AVP = append(m.AVP, setSupportedVendorID(vID))
 			for _, aID := range aIDs {
-				m.AVP = append(m.AVP, setVendorSpecAppID(vID, aID))
+				m.AVP = append(m.AVP, SetVendorSpecAppID(vID, aID))
 			}
 		}
 	}
@@ -80,9 +80,9 @@ func (CER) FromRaw(m RawMsg) (Request, string, error) {
 
 	for _, a := range m.AVP {
 		if a.VenID == 0 && a.Code == 264 {
-			v.OriginHost, e = getOriginHost(a)
+			v.OriginHost, e = GetOriginHost(a)
 		} else if a.VenID == 0 && a.Code == 296 {
-			v.OriginRealm, e = getOriginRealm(a)
+			v.OriginRealm, e = GetOriginRealm(a)
 		} else if a.VenID == 0 && a.Code == 257 {
 			if t, e2 := getHostIPAddress(a); e2 == nil {
 				v.HostIPAddress = append(v.HostIPAddress, t)
@@ -110,7 +110,7 @@ func (CER) FromRaw(m RawMsg) (Request, string, error) {
 				v.ApplicationID[0] = append(v.ApplicationID[0], t)
 			}
 		} else if a.VenID == 0 && a.Code == 260 {
-			if vi, ai, e2 := getVendorSpecAppID(a); e2 != nil {
+			if vi, ai, e2 := GetVendorSpecAppID(a); e2 != nil {
 				e = e2
 			} else if _, ok := v.ApplicationID[vi]; !ok {
 				v.ApplicationID[vi] = []uint32{ai}
@@ -191,9 +191,9 @@ func (v CEA) ToRaw(s string) RawMsg {
 		AVP: make([]RawAVP, 0, 20)}
 	m.FlgE = v.ResultCode != DiameterSuccess
 
-	m.AVP = append(m.AVP, setResultCode(v.ResultCode))
-	m.AVP = append(m.AVP, setOriginHost(v.OriginHost))
-	m.AVP = append(m.AVP, setOriginRealm(v.OriginRealm))
+	m.AVP = append(m.AVP, SetResultCode(v.ResultCode))
+	m.AVP = append(m.AVP, SetOriginHost(v.OriginHost))
+	m.AVP = append(m.AVP, SetOriginRealm(v.OriginRealm))
 	for _, ip := range v.HostIPAddress {
 		m.AVP = append(m.AVP, setHostIPAddress(ip))
 	}
@@ -216,7 +216,7 @@ func (v CEA) ToRaw(s string) RawMsg {
 		} else {
 			m.AVP = append(m.AVP, setSupportedVendorID(vID))
 			for _, aID := range aIDs {
-				m.AVP = append(m.AVP, setVendorSpecAppID(vID, aID))
+				m.AVP = append(m.AVP, SetVendorSpecAppID(vID, aID))
 			}
 		}
 	}
@@ -239,11 +239,11 @@ func (CEA) FromRaw(m RawMsg) (Answer, string, error) {
 
 	for _, a := range m.AVP {
 		if a.VenID == 0 && a.Code == 268 {
-			v.ResultCode, e = getResultCode(a)
+			v.ResultCode, e = GetResultCode(a)
 		} else if a.VenID == 0 && a.Code == 264 {
-			v.OriginHost, e = getOriginHost(a)
+			v.OriginHost, e = GetOriginHost(a)
 		} else if a.VenID == 0 && a.Code == 296 {
-			v.OriginRealm, e = getOriginRealm(a)
+			v.OriginRealm, e = GetOriginRealm(a)
 		} else if a.VenID == 0 && a.Code == 257 {
 			if t, e2 := getHostIPAddress(a); e2 == nil {
 				v.HostIPAddress = append(v.HostIPAddress, t)
@@ -275,7 +275,7 @@ func (CEA) FromRaw(m RawMsg) (Answer, string, error) {
 				v.ApplicationID[0] = append(v.ApplicationID[0], t)
 			}
 		} else if a.VenID == 0 && a.Code == 260 {
-			if vi, ai, e2 := getVendorSpecAppID(a); e2 != nil {
+			if vi, ai, e2 := GetVendorSpecAppID(a); e2 != nil {
 				e = e2
 			} else if _, ok := v.ApplicationID[vi]; !ok {
 				v.ApplicationID[vi] = []uint32{ai}
@@ -329,8 +329,8 @@ func (v DPR) ToRaw(s string) RawMsg {
 		Code: 282, AppID: 0,
 		AVP: make([]RawAVP, 0, 3)}
 
-	m.AVP = append(m.AVP, setOriginHost(v.OriginHost))
-	m.AVP = append(m.AVP, setOriginRealm(v.OriginRealm))
+	m.AVP = append(m.AVP, SetOriginHost(v.OriginHost))
+	m.AVP = append(m.AVP, SetOriginRealm(v.OriginRealm))
 	m.AVP = append(m.AVP, setDisconnectCause(v.DisconnectCause))
 	return m
 }
@@ -346,9 +346,9 @@ func (DPR) FromRaw(m RawMsg) (Request, string, error) {
 		DisconnectCause: -1}
 	for _, a := range m.AVP {
 		if a.VenID == 0 && a.Code == 264 {
-			v.OriginHost, e = getOriginHost(a)
+			v.OriginHost, e = GetOriginHost(a)
 		} else if a.VenID == 0 && a.Code == 296 {
-			v.OriginRealm, e = getOriginRealm(a)
+			v.OriginRealm, e = GetOriginRealm(a)
 		} else if a.VenID == 0 && a.Code == 273 {
 			v.DisconnectCause, e = getDisconnectCause(a)
 		}
@@ -401,9 +401,9 @@ func (v DPA) ToRaw(s string) RawMsg {
 		AVP: make([]RawAVP, 0, 5)}
 	m.FlgE = v.ResultCode != DiameterSuccess
 
-	m.AVP = append(m.AVP, setResultCode(v.ResultCode))
-	m.AVP = append(m.AVP, setOriginHost(v.OriginHost))
-	m.AVP = append(m.AVP, setOriginRealm(v.OriginRealm))
+	m.AVP = append(m.AVP, SetResultCode(v.ResultCode))
+	m.AVP = append(m.AVP, SetOriginHost(v.OriginHost))
+	m.AVP = append(m.AVP, SetOriginRealm(v.OriginRealm))
 	if len(v.ErrorMessage) != 0 {
 		m.AVP = append(m.AVP, setErrorMessage(v.ErrorMessage))
 	}
@@ -423,11 +423,11 @@ func (DPA) FromRaw(m RawMsg) (Answer, string, error) {
 	v := DPA{}
 	for _, a := range m.AVP {
 		if a.VenID == 0 && a.Code == 268 {
-			v.ResultCode, e = getResultCode(a)
+			v.ResultCode, e = GetResultCode(a)
 		} else if a.VenID == 0 && a.Code == 264 {
-			v.OriginHost, e = getOriginHost(a)
+			v.OriginHost, e = GetOriginHost(a)
 		} else if a.VenID == 0 && a.Code == 296 {
-			v.OriginRealm, e = getOriginRealm(a)
+			v.OriginRealm, e = GetOriginRealm(a)
 		} else if a.VenID == 0 && a.Code == 281 {
 			v.ErrorMessage, e = getErrorMessage(a)
 		} else if a.VenID == 0 && a.Code == 279 {
@@ -473,8 +473,8 @@ func (v DWR) ToRaw(s string) RawMsg {
 		Code: 280, AppID: 0,
 		AVP: make([]RawAVP, 0, 3)}
 
-	m.AVP = append(m.AVP, setOriginHost(v.OriginHost))
-	m.AVP = append(m.AVP, setOriginRealm(v.OriginRealm))
+	m.AVP = append(m.AVP, SetOriginHost(v.OriginHost))
+	m.AVP = append(m.AVP, SetOriginRealm(v.OriginRealm))
 	if v.OriginStateID != 0 {
 		m.AVP = append(m.AVP, setOriginStateID(v.OriginStateID))
 	}
@@ -491,9 +491,9 @@ func (DWR) FromRaw(m RawMsg) (Request, string, error) {
 	v := DWR{}
 	for _, a := range m.AVP {
 		if a.VenID == 0 && a.Code == 264 {
-			v.OriginHost, e = getOriginHost(a)
+			v.OriginHost, e = GetOriginHost(a)
 		} else if a.VenID == 0 && a.Code == 296 {
-			v.OriginRealm, e = getOriginRealm(a)
+			v.OriginRealm, e = GetOriginRealm(a)
 		} else if a.VenID == 0 && a.Code == 278 {
 			v.OriginStateID, e = getOriginStateID(a)
 		}
@@ -546,9 +546,9 @@ func (v DWA) ToRaw(s string) RawMsg {
 		AVP: make([]RawAVP, 0, 6)}
 	m.FlgE = v.ResultCode != DiameterSuccess
 
-	m.AVP = append(m.AVP, setResultCode(v.ResultCode))
-	m.AVP = append(m.AVP, setOriginHost(v.OriginHost))
-	m.AVP = append(m.AVP, setOriginRealm(v.OriginRealm))
+	m.AVP = append(m.AVP, SetResultCode(v.ResultCode))
+	m.AVP = append(m.AVP, SetOriginHost(v.OriginHost))
+	m.AVP = append(m.AVP, SetOriginRealm(v.OriginRealm))
 	if len(v.ErrorMessage) != 0 {
 		m.AVP = append(m.AVP, setErrorMessage(v.ErrorMessage))
 	}
@@ -571,11 +571,11 @@ func (DWA) FromRaw(m RawMsg) (Answer, string, error) {
 	v := DWA{}
 	for _, a := range m.AVP {
 		if a.VenID == 0 && a.Code == 268 {
-			v.ResultCode, e = getResultCode(a)
+			v.ResultCode, e = GetResultCode(a)
 		} else if a.VenID == 0 && a.Code == 264 {
-			v.OriginHost, e = getOriginHost(a)
+			v.OriginHost, e = GetOriginHost(a)
 		} else if a.VenID == 0 && a.Code == 296 {
-			v.OriginRealm, e = getOriginRealm(a)
+			v.OriginRealm, e = GetOriginRealm(a)
 		} else if a.VenID == 0 && a.Code == 281 {
 			v.ErrorMessage, e = getErrorMessage(a)
 		} else if a.VenID == 0 && a.Code == 279 {

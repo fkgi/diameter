@@ -273,7 +273,7 @@ func (v eventRcvMsg) exec(c *Conn) (e error) {
 		var ans Answer
 
 		if app, ok := supportedApps[v.m.AppID]; !ok {
-			ans = GenericReq(v.m).Failed(DiameterApplicationUnsupported)
+			ans = GenericReq{}.FromRaw(v.m).Failed(DiameterApplicationUnsupported)
 		} else if _, ok = app.req[v.m.Code]; !ok {
 			ans = GenericReq(v.m).Failed(DiameterCommandUnspported)
 		}

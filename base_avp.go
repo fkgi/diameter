@@ -32,51 +32,6 @@ func getAuthAppID(a RawAVP) (v uint32, e error) {
 	return
 }
 
-func setVendorSpecAppID(vi, ai uint32) (a RawAVP) {
-	a = RawAVP{Code: 260, VenID: 0,
-		FlgV: false, FlgM: true, FlgP: false}
-	a.Encode([]RawAVP{
-		setVendorID(vi),
-		setAuthAppID(ai)})
-	return
-}
-
-func getVendorSpecAppID(a RawAVP) (vi, ai uint32, e error) {
-	o := []RawAVP{}
-	if e = a.Validate(0, 260, false, true, false); e == nil {
-		e = a.Decode(&o)
-	}
-	for _, a := range o {
-		if a.VenID != 0 {
-			continue
-		}
-		switch a.Code {
-		case 266:
-			vi, e = getVendorID(a)
-		case 258:
-			ai, e = getAuthAppID(a)
-		}
-	}
-	if vi == 0 || ai == 0 {
-		e = NoMandatoryAVP{}
-	}
-	return
-}
-
-func setOriginHost(v Identity) (a RawAVP) {
-	a = RawAVP{Code: 264, VenID: 0,
-		FlgV: false, FlgM: true, FlgP: false}
-	a.Encode(v)
-	return
-}
-
-func getOriginHost(a RawAVP) (v Identity, e error) {
-	if e = a.Validate(0, 264, false, true, false); e == nil {
-		e = a.Decode(&v)
-	}
-	return
-}
-
 func setVendorID(v uint32) (a RawAVP) {
 	a = RawAVP{Code: 266, VenID: 0,
 		FlgV: false, FlgM: true, FlgP: false}
@@ -100,20 +55,6 @@ func setFirmwareRevision(v uint32) (a RawAVP) {
 
 func getFirmwareRevision(a RawAVP) (v uint32, e error) {
 	if e = a.Validate(0, 267, false, false, false); e == nil {
-		e = a.Decode(&v)
-	}
-	return
-}
-
-func setResultCode(v uint32) (a RawAVP) {
-	a = RawAVP{Code: 268, VenID: 0,
-		FlgV: false, FlgM: true, FlgP: false}
-	a.Encode(v)
-	return
-}
-
-func getResultCode(a RawAVP) (v uint32, e error) {
-	if e = a.Validate(0, 268, false, true, false); e == nil {
 		e = a.Decode(&v)
 	}
 	return
@@ -210,20 +151,6 @@ func setErrorMessage(v string) (a RawAVP) {
 
 func getErrorMessage(a RawAVP) (v string, e error) {
 	if e = a.Validate(0, 281, false, false, false); e == nil {
-		e = a.Decode(&v)
-	}
-	return
-}
-
-func setOriginRealm(v Identity) (a RawAVP) {
-	a = RawAVP{Code: 296, VenID: 0,
-		FlgV: false, FlgM: true, FlgP: false}
-	a.Encode(v)
-	return
-}
-
-func getOriginRealm(a RawAVP) (v Identity, e error) {
-	if e = a.Validate(0, 296, false, true, false); e == nil {
 		e = a.Decode(&v)
 	}
 	return
