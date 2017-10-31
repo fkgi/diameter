@@ -16,9 +16,10 @@ var MakeCER = defaultMakeCER
 func defaultMakeCER(c *Conn) CER {
 	ips := make([]net.IP, 0, 2)
 	s := c.con.LocalAddr().String()
-	s = s[:strings.LastIndex(s, ":")]
+	s, _, _ = net.SplitHostPort(s)
 	for _, i := range strings.Split(s, "/") {
 		ips = append(ips, net.ParseIP(i))
+		println(net.ParseIP(i) == nil)
 	}
 
 	return CER{
@@ -38,7 +39,7 @@ var HandleCER = defaultHandleCER
 func defaultHandleCER(r CER, c *Conn) CEA {
 	ips := make([]net.IP, 0, 2)
 	s := c.con.LocalAddr().String()
-	s = s[:strings.LastIndex(s, ":")]
+	s, _, _ = net.SplitHostPort(s)
 	for _, i := range strings.Split(s, "/") {
 		ips = append(ips, net.ParseIP(i))
 	}
@@ -51,27 +52,33 @@ func defaultHandleCER(r CER, c *Conn) CEA {
 	}
 
 	if result == DiameterSuccess {
-		a := make(map[uint32][]uint32)
-		apps := c.Peer.AuthApps
-		if apps == nil {
-			apps = getSupportedApps()
-		}
-		for vID, aIDs := range r.ApplicationID {
-			if _, ok := apps[vID]; !ok {
-				continue
+		if _, ok := supportedApps[0xffffffff]; ok && c.Peer.AuthApps == nil {
+			c.Peer.AuthApps = getSupportedApps()
+		} else {
+			apps := c.Peer.AuthApps
+			if apps == nil {
+				apps = getSupportedApps()
 			}
-			for _, aID := range match(apps[vID], aIDs) {
-				if _, ok := a[vID]; !ok {
-					a[vID] = []uint32{aID}
-				} else {
-					a[vID] = append(a[vID], aID)
+			a := make(map[uint32][]uint32)
+			for vID, aIDs := range r.ApplicationID {
+				if _, ok := apps[vID]; !ok {
+					continue
+				}
+				for _, aID := range match(apps[vID], aIDs) {
+					if _, ok := a[vID]; !ok {
+						a[vID] = []uint32{aID}
+					} else {
+						a[vID] = append(a[vID], aID)
+					}
 				}
 			}
+			if len(a) == 0 {
+				result = DiameterApplicationUnsupported
+				c.Peer.AuthApps = apps
+			} else {
+				c.Peer.AuthApps = a
+			}
 		}
-		if len(a) == 0 {
-			result = DiameterApplicationUnsupported
-		}
-		c.Peer.AuthApps = a
 	}
 
 	if c.Peer.WDInterval == 0 {

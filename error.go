@@ -1,6 +1,7 @@
 package diameter
 
 import "fmt"
+import "strconv"
 
 // UnknownAVPType is error of invalid AVP type
 type UnknownAVPType struct {
@@ -61,11 +62,11 @@ func (e UnknownIDAnswer) Error() string {
 
 // FailureAnswer is error
 type FailureAnswer struct {
-	RawMsg
+	Answer
 }
 
 func (e FailureAnswer) Error() string {
-	return "Answer message with failure"
+	return "Answer message with failure: code=" + strconv.FormatInt(int64(e.Answer.Result()), 10)
 }
 
 // NotAcceptableEvent is error

@@ -48,9 +48,9 @@ func msgHandleLog(x, r bool, c *Conn, e error, req, ans string) string {
 	} else {
 		fmt.Fprintf(w, ans)
 	}
-	fmt.Fprintf(w, "(%s -> %s)", Host, c.Peer)
+	fmt.Fprintf(w, " (%s -> %s)", Host, c.Peer)
 	if e != nil {
-		fmt.Fprintf(w, " failed: %s", e)
+		fmt.Fprintf(w, ": failed: %s", e)
 	}
 	return w.String()
 }

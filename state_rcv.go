@@ -39,7 +39,7 @@ func (v eventRcvCER) exec(c *Conn) error {
 	_, e = m.WriteTo(c.con)
 
 	if e == nil && cea.ResultCode != DiameterSuccess {
-		e = FailureAnswer{m}
+		e = FailureAnswer{cea}
 	}
 	if e == nil {
 		c.state = open
@@ -75,11 +75,11 @@ func (v eventRcvCEA) exec(c *Conn) error {
 	cea, _, e := CEA{}.FromRaw(v.m)
 	if e == nil {
 		HandleCEA(cea.(CEA), c)
-		if cea.Result() == uint32(DiameterSuccess) {
+		if cea.Result() == DiameterSuccess {
 			c.state = open
 			c.wdTimer = time.AfterFunc(c.Peer.WDInterval, c.watchdog)
 		} else {
-			e = FailureAnswer{v.m}
+			e = FailureAnswer{cea}
 		}
 	}
 
@@ -125,7 +125,7 @@ func (v eventRcvDWR) exec(c *Conn) error {
 	_, e = m.WriteTo(c.con)
 
 	if e == nil && dwa.ResultCode != DiameterSuccess {
-		e = FailureAnswer{m}
+		e = FailureAnswer{dwa}
 	}
 	if e == nil {
 		c.wdTimer.Reset(c.Peer.WDInterval)
@@ -162,11 +162,11 @@ func (v eventRcvDWA) exec(c *Conn) error {
 		HandleDWA(dwa.(DWA), c)
 		if dwa.Result() == uint32(DiameterSuccess) {
 			c.wdCount = 0
-			c.wdTimer.Reset(c.Peer.WDInterval)
 		} else {
-			e = FailureAnswer{v.m}
+			e = FailureAnswer{dwa}
 		}
 	}
+	c.wdTimer.Reset(c.Peer.WDInterval)
 
 	Notify(WatchdogEvent{tx: false, req: false, conn: c, Err: e})
 	if e != nil {
@@ -243,7 +243,7 @@ func (v eventRcvDPA) exec(c *Conn) error {
 	if e == nil {
 		HandleDPA(dpa.(DPA), c)
 		if dpa.Result() != uint32(DiameterSuccess) {
-			e = FailureAnswer{v.m}
+			e = FailureAnswer{dpa}
 		}
 	}
 

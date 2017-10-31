@@ -39,6 +39,9 @@ type appSet struct {
 func getSupportedApps() map[uint32][]uint32 {
 	r := make(map[uint32][]uint32)
 	for id, set := range supportedApps {
+		if id == 0xffffffff {
+			continue
+		}
 		if _, ok := r[set.id]; !ok {
 			r[set.id] = make([]uint32, 0, 1)
 		}

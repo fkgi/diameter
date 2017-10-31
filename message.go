@@ -163,7 +163,7 @@ func (m *RawMsg) ReadFrom(r io.Reader) (n int64, e error) {
 
 	buf[0] = 0x00
 	var lng uint32
-	binary.Read(bytes.NewBuffer(buf[0:4]), binary.BigEndian, lng)
+	binary.Read(bytes.NewBuffer(buf[0:4]), binary.BigEndian, &lng)
 	// l := m.leng - 20 + (4 - m.leng % 4) % 4
 
 	flgs := btobo(buf[4:5])
