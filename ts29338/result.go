@@ -1,6 +1,8 @@
 package ts29338
 
 const (
+	// DiameterErrorUserUnknown is Result-Code 5001
+	DiameterErrorUserUnknown uint32 = 5001
 	// DiameterErrorAbsentUser is Result-Code 5550
 	DiameterErrorAbsentUser uint32 = 5550
 	// DiameterErrorUserBusyForMtSms is Result-Code 5551
