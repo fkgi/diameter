@@ -2,6 +2,7 @@ package diameter
 
 import (
 	"net"
+	"strings"
 	"time"
 )
 
@@ -35,6 +36,24 @@ func Dial(p Peer, c net.Conn, d time.Duration) (*Conn, error) {
 	if c == nil {
 		return nil, ConnectionRefused{}
 	}
+	if len(p.Host) == 0 {
+		return nil, ConnectionRefused{}
+	}
+	if len(p.Realm) == 0 {
+		var e error
+		p.Realm, e = ParseIdentity(string(
+			p.Host[strings.Index(string(p.Host), ".")+1:]))
+		if e != nil {
+			return nil, e
+		}
+	}
+	if p.WDExpired == 0 {
+		p.WDExpired = WDExpired
+	}
+	if p.WDInterval == 0 {
+		p.WDInterval = WDInterval
+	}
+
 	con := run(&p, c, closed)
 	cer := MakeCER(con)
 	req := cer.ToRaw("")

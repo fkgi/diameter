@@ -53,7 +53,7 @@ func defaultHandleCER(r CER, c *Conn) CEA {
 
 	if result == DiameterSuccess {
 		if _, ok := supportedApps[0xffffffff]; ok && c.Peer.AuthApps == nil {
-			c.Peer.AuthApps = getSupportedApps()
+			c.Peer.AuthApps = r.ApplicationID
 		} else {
 			apps := c.Peer.AuthApps
 			if apps == nil {
