@@ -29,7 +29,7 @@ func setVendorSpecAppID(ai uint32) (a diameter.RawAVP) {
 			FlgV: false, FlgM: true, FlgP: false},
 		diameter.RawAVP{Code: 258, VenID: 0,
 			FlgV: false, FlgM: true, FlgP: false}}
-	v[0].Encode(10415)
+	v[0].Encode(uint32(10415))
 	v[1].Encode(ai)
 	a.Encode(v)
 	return
