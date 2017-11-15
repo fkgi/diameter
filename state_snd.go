@@ -153,7 +153,7 @@ type eventSndMsg struct {
 }
 
 func (eventSndMsg) String() string {
-	return "Snd-REQ"
+	return "Snd-MSG"
 }
 
 func (v eventSndMsg) exec(c *Conn) error {

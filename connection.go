@@ -54,7 +54,19 @@ func Dial(p Peer, c net.Conn, d time.Duration) (*Conn, error) {
 		p.WDInterval = WDInterval
 	}
 
-	con := run(&p, c, closed)
+	con := &Conn{
+		Peer:     &p,
+		notify:   make(chan stateEvent),
+		state:    closed,
+		con:      c,
+		sndstack: make(map[uint32]chan RawMsg, TxBuffer),
+		rcvstack: make(chan RawMsg, RxBuffer)}
+	go socketHandler(con)
+	Notify(StateUpdate{
+		oldStat: shutdown, newStat: con.state,
+		stateEvent: eventInit{}, conn: con, Err: nil})
+	go eventHandler(con)
+
 	cer := MakeCER(con)
 	req := cer.ToRaw("")
 	req.HbHID = nextHbH()
@@ -85,7 +97,74 @@ func Accept(p *Peer, c net.Conn) (*Conn, error) {
 	if c == nil {
 		return nil, ConnectionRefused{}
 	}
-	return run(p, c, waitCER), nil
+	con := &Conn{
+		Peer:     p,
+		notify:   make(chan stateEvent),
+		state:    waitCER,
+		con:      c,
+		sndstack: make(map[uint32]chan RawMsg, TxBuffer),
+		rcvstack: make(chan RawMsg, RxBuffer)}
+	go socketHandler(con)
+
+	Notify(StateUpdate{
+		oldStat: shutdown, newStat: con.state,
+		stateEvent: eventInit{}, conn: con, Err: nil})
+
+	event := <-con.notify
+	old := con.state
+	e := event.exec(con)
+	Notify(StateUpdate{
+		oldStat: old, newStat: con.state,
+		stateEvent: event, conn: con, Err: e})
+	if e != nil {
+		c.Close()
+	}
+	go eventHandler(con)
+
+	return con, e
+}
+
+func socketHandler(c *Conn) {
+	for {
+		m := RawMsg{}
+		c.con.SetReadDeadline(time.Time{})
+		if _, e := m.ReadFrom(c.con); e != nil {
+			break
+		}
+
+		if m.AppID == 0 && m.Code == 257 && m.FlgR {
+			c.notify <- eventRcvCER{m}
+		} else if m.AppID == 0 && m.Code == 257 && !m.FlgR {
+			c.notify <- eventRcvCEA{m}
+		} else if m.AppID == 0 && m.Code == 280 && m.FlgR {
+			c.notify <- eventRcvDWR{m}
+		} else if m.AppID == 0 && m.Code == 280 && !m.FlgR {
+			c.notify <- eventRcvDWA{m}
+		} else if m.AppID == 0 && m.Code == 282 && m.FlgR {
+			c.notify <- eventRcvDPR{m}
+		} else if m.AppID == 0 && m.Code == 282 && !m.FlgR {
+			c.notify <- eventRcvDPA{m}
+		} else {
+			c.notify <- eventRcvMsg{m}
+		}
+	}
+	c.notify <- eventPeerDisc{}
+}
+
+func eventHandler(c *Conn) {
+	for {
+		event := <-c.notify
+		old := c.state
+		e := event.exec(c)
+
+		Notify(StateUpdate{
+			oldStat: old, newStat: c.state,
+			stateEvent: event, conn: c, Err: e})
+
+		if _, ok := event.(eventPeerDisc); ok {
+			break
+		}
+	}
 }
 
 // NewSession make new session
@@ -239,66 +318,4 @@ func (c *Conn) LocalAddr() net.Addr {
 // PeerAddr returns transport connection of state machine
 func (c *Conn) PeerAddr() net.Addr {
 	return c.con.RemoteAddr()
-}
-
-func run(p *Peer, c net.Conn, s state) *Conn {
-	con := &Conn{
-		Peer:     p,
-		notify:   make(chan stateEvent),
-		state:    s,
-		con:      c,
-		sndstack: make(map[uint32]chan RawMsg, TxBuffer),
-		rcvstack: make(chan RawMsg, RxBuffer)}
-
-	go socketHandler(con)
-	go eventHandler(con)
-	return con
-}
-
-func socketHandler(c *Conn) {
-	for {
-		m := RawMsg{}
-		c.con.SetReadDeadline(time.Time{})
-		if _, e := m.ReadFrom(c.con); e != nil {
-			break
-		}
-
-		if m.AppID == 0 && m.Code == 257 && m.FlgR {
-			c.notify <- eventRcvCER{m}
-		} else if m.AppID == 0 && m.Code == 257 && !m.FlgR {
-			c.notify <- eventRcvCEA{m}
-		} else if m.AppID == 0 && m.Code == 280 && m.FlgR {
-			c.notify <- eventRcvDWR{m}
-		} else if m.AppID == 0 && m.Code == 280 && !m.FlgR {
-			c.notify <- eventRcvDWA{m}
-		} else if m.AppID == 0 && m.Code == 282 && m.FlgR {
-			c.notify <- eventRcvDPR{m}
-		} else if m.AppID == 0 && m.Code == 282 && !m.FlgR {
-			c.notify <- eventRcvDPA{m}
-		} else {
-			c.notify <- eventRcvMsg{m}
-		}
-	}
-	c.notify <- eventPeerDisc{}
-}
-
-func eventHandler(c *Conn) {
-	old := shutdown
-	Notify(StateUpdate{
-		oldStat: old, newStat: c.state,
-		stateEvent: eventInit{}, conn: c, Err: nil})
-
-	for {
-		event := <-c.notify
-		old = c.state
-		e := event.exec(c)
-
-		Notify(StateUpdate{
-			oldStat: old, newStat: c.state,
-			stateEvent: event, conn: c, Err: e})
-
-		if _, ok := event.(eventPeerDisc); ok {
-			break
-		}
-	}
 }

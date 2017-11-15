@@ -241,7 +241,7 @@ func (v SRA) ToRaw(s string) diameter.RawMsg {
 
 	m.AVP = append(m.AVP, setSessionID(s))
 	m.AVP = append(m.AVP, setVendorSpecAppID(16777312))
-	if v.ResultCode >= 5550 && v.ResultCode <= 5558 {
+	if v.ResultCode >= 5000 && v.ResultCode <= 5999 {
 		m.AVP = append(m.AVP, setExperimentalResult(10415, v.ResultCode))
 	} else {
 		m.AVP = append(m.AVP, setResultCode(v.ResultCode))

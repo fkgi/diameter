@@ -284,7 +284,7 @@ func (v eventRcvMsg) exec(c *Conn) (e error) {
 			cause = 0
 		}
 
-		if cause == 0 {
+		if cause != 0 {
 			req, sid, _ := GenericReq{}.FromRaw(v.m)
 			a := req.Failed(cause).ToRaw(sid)
 			a.HbHID = v.m.HbHID
@@ -304,7 +304,7 @@ func (v eventRcvMsg) exec(c *Conn) (e error) {
 	}
 	c.wdTimer.Reset(c.Peer.WDInterval)
 
-	Notify(MessageEvent{tx: false, req: true, conn: c, Err: e})
+	Notify(MessageEvent{tx: false, req: v.m.FlgR, conn: c, Err: e})
 	if e != nil {
 		c.con.Close()
 	}
