@@ -21,7 +21,6 @@ func getMSISDN(a diameter.RawAVP) (v teldata.E164, e error) {
 	s := new([]byte)
 	if e = a.Validate(10415, 701, true, true, false); e != nil {
 	} else if e = a.Decode(s); e == nil {
-		log.Printf("% x\n", *s)
 		v, e = teldata.ToE164(*s)
 		log.Println(v)
 	}
@@ -271,20 +270,27 @@ func getSN(c uint32, a diameter.RawAVP) (
 		if a.VenID != 10415 {
 			continue
 		}
+		b := new([]byte)
 		switch a.Code {
 		case 1489:
-			if e = a.Validate(1489, 10415, true, true, false); e == nil {
-				e = a.Decode(&d)
+			if e = a.Validate(10415, 1489, true, true, false); e == nil {
+				if e = a.Decode(b); e == nil {
+					d, e = teldata.ToE164(*b)
+				}
 				t = NodeSGSN
 			}
 		case 1645:
-			if e = a.Validate(1645, 10415, true, true, false); e == nil {
-				e = a.Decode(&d)
+			if e = a.Validate(10415, 1645, true, true, false); e == nil {
+				if e = a.Decode(b); e == nil {
+					d, e = teldata.ToE164(*b)
+				}
 				t = NodeMME
 			}
 		case 2403:
-			if e = a.Validate(2403, 10415, true, true, false); e == nil {
-				e = a.Decode(&d)
+			if e = a.Validate(10415, 2403, true, true, false); e == nil {
+				if e = a.Decode(b); e == nil {
+					d, e = teldata.ToE164(*b)
+				}
 				t = NodeMSC
 			}
 		}
@@ -297,11 +303,11 @@ func getSN(c uint32, a diameter.RawAVP) (
 			}
 			switch a.Code {
 			case 2409:
-				if e = a.Validate(2409, 10415, true, true, false); e == nil {
+				if e = a.Validate(10415, 2409, true, true, false); e == nil {
 					e = a.Decode(&n)
 				}
 			case 2410:
-				if e = a.Validate(2410, 10415, true, true, false); e == nil {
+				if e = a.Validate(10415, 2410, true, true, false); e == nil {
 					e = a.Decode(&r)
 				}
 			}
@@ -313,11 +319,11 @@ func getSN(c uint32, a diameter.RawAVP) (
 			}
 			switch a.Code {
 			case 2402:
-				if e = a.Validate(2402, 10415, true, true, false); e == nil {
+				if e = a.Validate(10415, 2402, true, true, false); e == nil {
 					e = a.Decode(&n)
 				}
 			case 2408:
-				if e = a.Validate(2408, 10415, true, true, false); e == nil {
+				if e = a.Validate(10415, 2408, true, true, false); e == nil {
 					e = a.Decode(&r)
 				}
 			}
