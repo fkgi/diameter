@@ -1,5 +1,10 @@
 package diameter
 
+import (
+	"bytes"
+	"fmt"
+)
+
 // GenericReq is generic format of diameter request
 type GenericReq struct {
 	FlgP     bool   // Proxiable
@@ -15,6 +20,20 @@ type GenericReq struct {
 	DestinationRealm Identity
 
 	AVP []RawAVP
+}
+
+func (v GenericReq) String() string {
+	w := new(bytes.Buffer)
+
+	fmt.Fprintf(w, "%sOrigin-Host       =%s\n", Indent, v.OriginHost)
+	fmt.Fprintf(w, "%sOrigin-Realm      =%s\n", Indent, v.OriginRealm)
+	fmt.Fprintf(w, "%sDestination-Host  =%s\n", Indent, v.DestinationHost)
+	fmt.Fprintf(w, "%sDestination-Realm =%s\n", Indent, v.DestinationRealm)
+	for i, avp := range v.AVP {
+		fmt.Fprintf(w, "%sAVP[%d]    =\n%s", Indent, i, avp)
+	}
+
+	return w.String()
 }
 
 // ToRaw return RawMsg struct of this value
@@ -112,6 +131,19 @@ type GenericAns struct {
 	OriginRealm Identity
 
 	AVP []RawAVP
+}
+
+func (v GenericAns) String() string {
+	w := new(bytes.Buffer)
+
+	fmt.Fprintf(w, "%sResult-Code     =%d\n", Indent, v.ResultCode)
+	fmt.Fprintf(w, "%sOrigin-Host     =%s\n", Indent, v.OriginHost)
+	fmt.Fprintf(w, "%sOrigin-Realm    =%s\n", Indent, v.OriginRealm)
+	for i, avp := range v.AVP {
+		fmt.Fprintf(w, "%sAVP[%d]  =\n%s", Indent, i, avp)
+	}
+
+	return w.String()
 }
 
 // ToRaw return RawMsg struct of this value

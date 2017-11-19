@@ -1,6 +1,10 @@
 package diameter
 
-import "net"
+import (
+	"bytes"
+	"fmt"
+	"net"
+)
 
 /*
 CER is Capabilities-Exchange-Request message
@@ -29,6 +33,31 @@ type CER struct {
 	ApplicationID map[uint32][]uint32
 	// []InbandSecurityID
 	FirmwareRevision uint32
+}
+
+func (v CER) String() string {
+	w := new(bytes.Buffer)
+
+	fmt.Fprintf(w, "%sOrigin-Host     =%s\n", Indent, v.OriginHost)
+	fmt.Fprintf(w, "%sOrigin-Realm    =%s\n", Indent, v.OriginRealm)
+	fmt.Fprintf(w, "%sHost-IP-Address =", Indent)
+	for _, ip := range v.HostIPAddress {
+		fmt.Fprintf(w, "%s ", ip)
+	}
+	fmt.Fprint(w, "\n")
+	fmt.Fprintf(w, "%sVendor-ID       =%d\n", Indent, v.VendorID)
+	fmt.Fprintf(w, "%sProduct-Name    =%s\n", Indent, v.ProductName)
+	fmt.Fprintf(w, "%sOrigin-State-ID =0x%x\n", Indent, v.OriginStateID)
+	fmt.Fprintf(w, "%sSupported-Application-ID =\n", Indent)
+	for vID, aIDs := range v.ApplicationID {
+		fmt.Fprintf(w, "%s%sVendor-ID =%d\n", Indent, Indent, vID)
+		for _, aID := range aIDs {
+			fmt.Fprintf(w, "%s%s%sApplication-ID =%d\n", Indent, Indent, Indent, aID)
+		}
+	}
+	fmt.Fprintf(w, "%sFirmware-Revision=%d", Indent, v.FirmwareRevision)
+
+	return w.String()
 }
 
 // ToRaw return RawMsg struct of this value
@@ -182,6 +211,35 @@ type CEA struct {
 	FirmwareRevision uint32
 }
 
+func (v CEA) String() string {
+	w := new(bytes.Buffer)
+
+	fmt.Fprintf(w, "%sResult-Code     =%d\n", Indent, v.ResultCode)
+	fmt.Fprintf(w, "%sOrigin-Host     =%s\n", Indent, v.OriginHost)
+	fmt.Fprintf(w, "%sOrigin-Realm    =%s\n", Indent, v.OriginRealm)
+	fmt.Fprintf(w, "%sHost-IP-Address =", Indent)
+	for _, ip := range v.HostIPAddress {
+		fmt.Fprintf(w, "%s ", ip)
+	}
+	fmt.Fprint(w, "\n")
+	fmt.Fprintf(w, "%sVendor-ID       =%d\n", Indent, v.VendorID)
+	fmt.Fprintf(w, "%sProduct-Name    =%s\n", Indent, v.ProductName)
+	fmt.Fprintf(w, "%sOrigin-State-ID =0x%x\n", Indent, v.OriginStateID)
+	for _, avp := range v.FailedAVP {
+		fmt.Fprintf(w, "%sFailed-AVP      =\n%s", Indent, avp)
+	}
+	fmt.Fprintf(w, "%sSupported-Application-ID =\n", Indent)
+	for vID, aIDs := range v.ApplicationID {
+		fmt.Fprintf(w, "%s%sVendor-ID =%d\n", Indent, Indent, vID)
+		for _, aID := range aIDs {
+			fmt.Fprintf(w, "%s%s%sApplication-ID =%d\n", Indent, Indent, Indent, aID)
+		}
+	}
+	fmt.Fprintf(w, "%sFirmware-Revision=%d", Indent, v.FirmwareRevision)
+
+	return w.String()
+}
+
 // ToRaw return RawMsg struct of this value
 func (v CEA) ToRaw(s string) RawMsg {
 	m := RawMsg{
@@ -321,6 +379,16 @@ type DPR struct {
 	DisconnectCause Enumerated
 }
 
+func (v DPR) String() string {
+	w := new(bytes.Buffer)
+
+	fmt.Fprintf(w, "%sOrigin-Host     =%s\n", Indent, v.OriginHost)
+	fmt.Fprintf(w, "%sOrigin-Realm    =%s\n", Indent, v.OriginRealm)
+	fmt.Fprintf(w, "%sDisconnect-Cause=%d\n", Indent, v.DisconnectCause)
+
+	return w.String()
+}
+
 // ToRaw return RawMsg struct of this value
 func (v DPR) ToRaw(s string) RawMsg {
 	m := RawMsg{
@@ -390,6 +458,20 @@ type DPA struct {
 	OriginRealm  Identity
 	ErrorMessage string
 	FailedAVP    []RawAVP
+}
+
+func (v DPA) String() string {
+	w := new(bytes.Buffer)
+
+	fmt.Fprintf(w, "%sResult-Code     =%d\n", Indent, v.ResultCode)
+	fmt.Fprintf(w, "%sOrigin-Host     =%s\n", Indent, v.OriginHost)
+	fmt.Fprintf(w, "%sOrigin-Realm    =%s\n", Indent, v.OriginRealm)
+	fmt.Fprintf(w, "%sError-Message   =%s\n", Indent, v.ErrorMessage)
+	for _, avp := range v.FailedAVP {
+		fmt.Fprintf(w, "%sFailed-AVP      =\n%s", Indent, avp)
+	}
+
+	return w.String()
 }
 
 // ToRaw return RawMsg struct of this value
@@ -465,6 +547,16 @@ type DWR struct {
 	OriginStateID uint32
 }
 
+func (v DWR) String() string {
+	w := new(bytes.Buffer)
+
+	fmt.Fprintf(w, "%sOrigin-Host     =%s\n", Indent, v.OriginHost)
+	fmt.Fprintf(w, "%sOrigin-Realm    =%s\n", Indent, v.OriginRealm)
+	fmt.Fprintf(w, "%sOrigin-State-ID =%d\n", Indent, v.OriginStateID)
+
+	return w.String()
+}
+
 // ToRaw return RawMsg struct of this value
 func (v DWR) ToRaw(s string) RawMsg {
 	m := RawMsg{
@@ -535,6 +627,21 @@ type DWA struct {
 	ErrorMessage  string
 	FailedAVP     []RawAVP
 	OriginStateID uint32
+}
+
+func (v DWA) String() string {
+	w := new(bytes.Buffer)
+
+	fmt.Fprintf(w, "%sResult-Code     =%d\n", Indent, v.ResultCode)
+	fmt.Fprintf(w, "%sOrigin-Host     =%s\n", Indent, v.OriginHost)
+	fmt.Fprintf(w, "%sOrigin-Realm    =%s\n", Indent, v.OriginRealm)
+	fmt.Fprintf(w, "%sError-Message   =%s\n", Indent, v.ErrorMessage)
+	for _, avp := range v.FailedAVP {
+		fmt.Fprintf(w, "%sFailed-AVP      =\n%s", Indent, avp)
+	}
+	fmt.Fprintf(w, "%sOrigin-State-ID =%d\n", Indent, v.OriginStateID)
+
+	return w.String()
 }
 
 // ToRaw return RawMsg struct of this value

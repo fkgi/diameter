@@ -1,6 +1,9 @@
 package ts29338
 
 import (
+	"bytes"
+	"fmt"
+
 	"github.com/fkgi/diameter"
 	"github.com/fkgi/sms"
 	"github.com/fkgi/teldata"
@@ -52,6 +55,39 @@ type SRR struct {
 	}
 	RequiredInfo
 	// []ProxyInfo
+}
+
+func (v SRR) String() string {
+	w := new(bytes.Buffer)
+
+	fmt.Fprintf(w, "%sOrigin-Host       =%s\n", diameter.Indent, v.OriginHost)
+	fmt.Fprintf(w, "%sOrigin-Realm      =%s\n", diameter.Indent, v.OriginRealm)
+	fmt.Fprintf(w, "%sDestination-Host  =%s\n", diameter.Indent, v.DestinationHost)
+	fmt.Fprintf(w, "%sDestination-Realm =%s\n", diameter.Indent, v.DestinationRealm)
+
+	fmt.Fprintf(w, "%sMSISDN            =%s\n", diameter.Indent, v.MSISDN)
+	fmt.Fprintf(w, "%sIMSI              =%s\n", diameter.Indent, v.IMSI)
+	fmt.Fprintf(w, "%sSCAddress         =%s\n", diameter.Indent, v.SCAddress)
+	switch v.MessageType {
+	case DeliverType:
+		fmt.Fprintf(w, "%sSM-RP-MTI         =SM_DELIVER\n", diameter.Indent)
+	case StatusReportType:
+		fmt.Fprintf(w, "%sSM-RP-MTI         =SM_STATUS_REPORT\n", diameter.Indent)
+	default:
+		fmt.Fprintf(w, "%sSM-RP-MTI         =unknown\n", diameter.Indent)
+	}
+	fmt.Fprintf(w, "%sSM-RP-SMEA        =%s\n", diameter.Indent, v.SMRPSMEA)
+	fmt.Fprintf(w, "%sGPRS support      =%t\n", diameter.Indent, v.Flags.GPRSIndicator)
+	fmt.Fprintf(w, "%sSM-RP-PRI         =%t\n", diameter.Indent, v.Flags.SMRPPRI)
+	fmt.Fprintf(w, "%sSingle-Attempt    =%t\n", diameter.Indent, v.Flags.SingleAttempt)
+
+	switch v.RequiredInfo {
+	case OnlyImsiRequested:
+		fmt.Fprintf(w, "%sSM-Delivery-Not-Intended =ONLY_IMSI_REQUESTED\n", diameter.Indent)
+	case OnlyMccMncRequested:
+		fmt.Fprintf(w, "%sSM-Delivery-Not-Intended =ONLY_MCC_MNC_REQUESTED\n", diameter.Indent)
+	}
+	return w.String()
 }
 
 // ToRaw return diameter.RawMsg struct of this value
@@ -229,6 +265,47 @@ type SRA struct {
 
 	FailedAVP []diameter.RawAVP
 	// []ProxyInfo
+}
+
+func (v SRA) String() string {
+	w := new(bytes.Buffer)
+
+	fmt.Fprintf(w, "%sResult-Code       =%d\n", diameter.Indent, v.ResultCode)
+	fmt.Fprintf(w, "%sOrigin-Host       =%s\n", diameter.Indent, v.OriginHost)
+	fmt.Fprintf(w, "%sOrigin-Realm      =%s\n", diameter.Indent, v.OriginRealm)
+
+	switch v.ServingNode.NodeType {
+	case NodeSGSN:
+		fmt.Fprintf(w, "%sServing-Node(SGSN)\n", diameter.Indent)
+	case NodeMME:
+		fmt.Fprintf(w, "%sServing-Node(MME)\n", diameter.Indent)
+	case NodeMSC:
+		fmt.Fprintf(w, "%sServing-Node(MSC)\n", diameter.Indent)
+	}
+	fmt.Fprintf(w, "%s%sAddress =%s\n", diameter.Indent, diameter.Indent, v.ServingNode.Address)
+	fmt.Fprintf(w, "%s%sHost    =%s\n", diameter.Indent, diameter.Indent, v.ServingNode.Name)
+	fmt.Fprintf(w, "%s%sRealm   =%s\n", diameter.Indent, diameter.Indent, v.ServingNode.Realm)
+	switch v.AdditionalServingNode.NodeType {
+	case NodeSGSN:
+		fmt.Fprintf(w, "%sServing-Node(SGSN)\n", diameter.Indent)
+	case NodeMME:
+		fmt.Fprintf(w, "%sServing-Node(MME)\n", diameter.Indent)
+	case NodeMSC:
+		fmt.Fprintf(w, "%sServing-Node(MSC)\n", diameter.Indent)
+	}
+	fmt.Fprintf(w, "%s%sAddress =%s\n", diameter.Indent, diameter.Indent, v.AdditionalServingNode.Address)
+	fmt.Fprintf(w, "%s%sHost    =%s\n", diameter.Indent, diameter.Indent, v.AdditionalServingNode.Name)
+	fmt.Fprintf(w, "%s%sRealm   =%s\n", diameter.Indent, diameter.Indent, v.AdditionalServingNode.Realm)
+	fmt.Fprintf(w, "%sLMSI              =%x\n", diameter.Indent, v.LMSI)
+	fmt.Fprintf(w, "%sIMSI              =%s\n", diameter.Indent, v.User.IMSI)
+	fmt.Fprintf(w, "%sMSISDN            =%s\n", diameter.Indent, v.User.MSISDN)
+
+	fmt.Fprintf(w, "%sSCAddrNotIncluded =%t\n", diameter.Indent, v.MWDStat.SCAddrNotIncluded)
+	fmt.Fprintf(w, "%sMNRF              =%t\n", diameter.Indent, v.MWDStat.MNRF)
+	fmt.Fprintf(w, "%sMCEF              =%t\n", diameter.Indent, v.MWDStat.MCEF)
+	fmt.Fprintf(w, "%sMNRG              =%t\n", diameter.Indent, v.MWDStat.MNRG)
+
+	return w.String()
 }
 
 // ToRaw return diameter.RawMsg struct of this value

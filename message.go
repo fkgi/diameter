@@ -22,6 +22,7 @@ type Request interface {
 	ToRaw(string) RawMsg                     // generate RawMsg with session-id
 	FromRaw(RawMsg) (Request, string, error) // decode RawMsg and return session-id
 	Failed(uint32) Answer
+	fmt.Stringer
 }
 
 // Answer is Diameter answer
@@ -29,6 +30,7 @@ type Answer interface {
 	ToRaw(string) RawMsg
 	FromRaw(RawMsg) (Answer, string, error)
 	Result() uint32
+	fmt.Stringer
 }
 
 /*

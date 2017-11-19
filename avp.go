@@ -228,7 +228,9 @@ func (a RawAVP) Decode(d interface{}) (e error) {
 			*d = append(*d, avp)
 		}
 	case *[]byte:
-		copy(*d, a.data)
+		b := make([]byte, len(a.data))
+		copy(b, a.data)
+		*d = b
 	case *int32, *uint32, *float32:
 		if len(a.data) != 4 {
 			e = io.EOF
