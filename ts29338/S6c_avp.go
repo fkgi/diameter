@@ -5,21 +5,37 @@ import (
 	"encoding/binary"
 	"log"
 
-	"github.com/fkgi/diameter"
+	dia "github.com/fkgi/diameter"
 	"github.com/fkgi/sms"
 	"github.com/fkgi/teldata"
 )
 
-func setMSISDN(v teldata.E164) (a diameter.RawAVP) {
-	a = diameter.RawAVP{Code: 701, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
+func setUserName(v teldata.IMSI) (a dia.RawAVP) {
+	a = dia.RawAVP{Code: 1, VenID: 0, FlgV: false, FlgM: true, FlgP: false}
+	a.Encode(v.String())
+	return
+}
+
+func getUserName(a dia.RawAVP) (v teldata.IMSI, e error) {
+	s := new(string)
+	if a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+	} else if e = a.Decode(s); e == nil {
+		v, e = teldata.ParseIMSI(*s)
+	}
+	return
+}
+
+func setMSISDN(v teldata.E164) (a dia.RawAVP) {
+	a = dia.RawAVP{Code: 701, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 	a.Encode(v.Bytes())
 	return
 }
 
-func getMSISDN(a diameter.RawAVP) (v teldata.E164, e error) {
+func getMSISDN(a dia.RawAVP) (v teldata.E164, e error) {
 	s := new([]byte)
-	if e = a.Validate(10415, 701, true, true, false); e != nil {
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(s); e == nil {
 		v, e = teldata.ToE164(*s)
 		log.Println(v)
@@ -40,28 +56,28 @@ const (
 	StatusReportType
 )
 
-func setSMRPMTI(v MessageType) (a diameter.RawAVP) {
-	a = diameter.RawAVP{Code: 3308, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
+func setSMRPMTI(v MessageType) (a dia.RawAVP) {
+	a = dia.RawAVP{Code: 3308, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 	switch v {
 	case DeliverType:
-		a.Encode(diameter.Enumerated(0))
+		a.Encode(dia.Enumerated(0))
 	case StatusReportType:
-		a.Encode(diameter.Enumerated(1))
+		a.Encode(dia.Enumerated(1))
 	}
 	return
 }
 
-func getSMRPMTI(a diameter.RawAVP) (v MessageType, e error) {
-	s := new(diameter.Enumerated)
-	if e = a.Validate(10415, 3308, true, true, false); e != nil {
+func getSMRPMTI(a dia.RawAVP) (v MessageType, e error) {
+	s := new(dia.Enumerated)
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(s); e != nil {
 	} else if *s == 0 {
 		v = DeliverType
 	} else if *s == 1 {
 		v = StatusReportType
 	} else {
-		e = diameter.InvalidAVP{}
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpValue)
 	}
 	return
 }
@@ -70,17 +86,17 @@ func getSMRPMTI(a diameter.RawAVP) (v MessageType, e error) {
 // the Short Message Entity that has originated the SM.
 // It shall be formatted according to the formatting rules of
 // the address fields described in 3GPP TS 23.040.
-func setSMRPSMEA(v sms.Address) (a diameter.RawAVP) {
-	a = diameter.RawAVP{Code: 3309, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
+func setSMRPSMEA(v sms.Address) (a dia.RawAVP) {
+	a = dia.RawAVP{Code: 3309, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 	_, b := v.Encode()
 	a.Encode(b)
 	return
 }
 
-func getSMRPSMEA(a diameter.RawAVP) (v sms.Address, e error) {
+func getSMRPSMEA(a dia.RawAVP) (v sms.Address, e error) {
 	s := new([]byte)
-	if e = a.Validate(10415, 3309, true, true, false); e != nil {
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(s); e == nil {
 		v.Decode(byte(len(*s)-3)*2, *s)
 	}
@@ -95,9 +111,8 @@ func getSMRPSMEA(a diameter.RawAVP) (v sms.Address, e error) {
 // in the Message Waiting Data file.
 // Single-Attempt if true indicates that only one delivery attempt
 // shall be performed for this particular SM.
-func setSRRFlags(g, p, s bool) (a diameter.RawAVP) {
-	a = diameter.RawAVP{Code: 3310, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
+func setSRRFlags(g, p, s bool) (a dia.RawAVP) {
+	a = dia.RawAVP{Code: 3310, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 	i := uint32(0)
 	if g {
 		i = i | 0x00000001
@@ -112,9 +127,10 @@ func setSRRFlags(g, p, s bool) (a diameter.RawAVP) {
 	return
 }
 
-func getSRRFlags(a diameter.RawAVP) (g, p, s bool, e error) {
+func getSRRFlags(a dia.RawAVP) (g, p, s bool, e error) {
 	v := new(uint32)
-	if e = a.Validate(10415, 3310, true, true, false); e != nil {
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(v); e == nil {
 		g = (*v)&0x00000001 == 0x00000001
 		p = (*v)&0x00000002 == 0x00000002
@@ -137,28 +153,28 @@ const (
 	OnlyMccMncRequested
 )
 
-func setSMDeliveryNotIntended(v RequiredInfo) (a diameter.RawAVP) {
-	a = diameter.RawAVP{Code: 3311, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
+func setSMDeliveryNotIntended(v RequiredInfo) (a dia.RawAVP) {
+	a = dia.RawAVP{Code: 3311, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 	switch v {
 	case OnlyImsiRequested:
-		a.Encode(diameter.Enumerated(0))
+		a.Encode(dia.Enumerated(0))
 	case OnlyMccMncRequested:
-		a.Encode(diameter.Enumerated(1))
+		a.Encode(dia.Enumerated(1))
 	}
 	return
 }
 
-func getSMDeliveryNotIntended(a diameter.RawAVP) (v RequiredInfo, e error) {
-	s := new(diameter.Enumerated)
-	if e = a.Validate(10415, 3311, true, true, false); e != nil {
+func getSMDeliveryNotIntended(a dia.RawAVP) (v RequiredInfo, e error) {
+	s := new(dia.Enumerated)
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(s); e != nil {
 	} else if *s == 0 {
 		v = OnlyImsiRequested
 	} else if *s == 1 {
 		v = OnlyMccMncRequested
 	} else {
-		e = diameter.InvalidAVP{}
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpValue)
 	}
 	return
 }
@@ -180,117 +196,101 @@ const (
 	// NodeIPSMGW
 )
 
-func setServingNode(
-	t NodeType, d teldata.E164, n, r diameter.Identity) diameter.RawAVP {
-	return setSN(2401, t, d, n, r)
+func setServingNode(t NodeType, d teldata.E164, n, r dia.Identity) dia.RawAVP {
+	a := dia.RawAVP{Code: 2401, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
+	return setSN(a, t, d, n, r)
 }
 
-func setAdditionalServingNode(
-	t NodeType, d teldata.E164, n, r diameter.Identity) diameter.RawAVP {
-	return setSN(2406, t, d, n, r)
+func setAdditionalServingNode(t NodeType, d teldata.E164, n, r dia.Identity) dia.RawAVP {
+	a := dia.RawAVP{Code: 2406, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
+	return setSN(a, t, d, n, r)
 }
 
-func setSN(c uint32, t NodeType,
-	d teldata.E164, n, r diameter.Identity) (a diameter.RawAVP) {
-	a = diameter.RawAVP{Code: c, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
-	v := make([]diameter.RawAVP, 1, 3)
+func setSN(a dia.RawAVP, t NodeType, d teldata.E164, n, r dia.Identity) dia.RawAVP {
+	v := make([]dia.RawAVP, 1, 3)
 	switch t {
 	case NodeSGSN:
-		v[0] = diameter.RawAVP{Code: 1489, VenID: 10415,
-			FlgV: true, FlgM: true, FlgP: false}
+		v[0] = dia.RawAVP{Code: 1489, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 		v[0].Encode(d.Bytes())
 		if len(n) != 0 {
-			nv := diameter.RawAVP{Code: 2409, VenID: 10415,
-				FlgV: true, FlgM: false, FlgP: false}
+			nv := dia.RawAVP{Code: 2409, VenID: 10415, FlgV: true, FlgM: false, FlgP: false}
 			nv.Encode(n)
 			v = append(v, nv)
 		}
 		if len(r) != 0 {
-			rv := diameter.RawAVP{Code: 2410, VenID: 10415,
-				FlgV: true, FlgM: false, FlgP: false}
+			rv := dia.RawAVP{Code: 2410, VenID: 10415, FlgV: true, FlgM: false, FlgP: false}
 			rv.Encode(r)
 			v = append(v, rv)
 		}
 	case NodeMME:
-		v[0] = diameter.RawAVP{Code: 1645, VenID: 10415,
-			FlgV: true, FlgM: true, FlgP: false}
+		v[0] = dia.RawAVP{Code: 1645, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 		v[0].Encode(d.Bytes())
 		if len(n) != 0 {
-			nv := diameter.RawAVP{Code: 2402, VenID: 10415,
-				FlgV: true, FlgM: true, FlgP: false}
+			nv := dia.RawAVP{Code: 2402, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 			nv.Encode(n)
 			v = append(v, nv)
 		}
 		if len(r) != 0 {
-			rv := diameter.RawAVP{Code: 2408, VenID: 10415,
-				FlgV: true, FlgM: true, FlgP: false}
+			rv := dia.RawAVP{Code: 2408, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 			rv.Encode(r)
 			v = append(v, rv)
 		}
 	case NodeMSC:
-		v[0] = diameter.RawAVP{Code: 2403, VenID: 10415,
-			FlgV: true, FlgM: true, FlgP: false}
+		v[0] = dia.RawAVP{Code: 2403, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 		v[0].Encode(d.Bytes())
 		if len(n) != 0 {
-			nv := diameter.RawAVP{Code: 2402, VenID: 10415,
-				FlgV: true, FlgM: true, FlgP: false}
+			nv := dia.RawAVP{Code: 2402, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 			nv.Encode(n)
 			v = append(v, nv)
 		}
 		if len(r) != 0 {
-			rv := diameter.RawAVP{Code: 2408, VenID: 10415,
-				FlgV: true, FlgM: true, FlgP: false}
+			rv := dia.RawAVP{Code: 2408, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 			rv.Encode(r)
 			v = append(v, rv)
 		}
 	}
 
 	a.Encode(v)
-	return
+	return a
 }
 
-func getServingNode(a diameter.RawAVP) (
-	t NodeType, d teldata.E164, n, r diameter.Identity, e error) {
-	return getSN(2401, a)
+func getServingNode(a dia.RawAVP) (t NodeType, d teldata.E164, n, r dia.Identity, e error) {
+	return getSN(a)
 }
 
-func getAdditionalServingNode(a diameter.RawAVP) (
-	t NodeType, d teldata.E164, n, r diameter.Identity, e error) {
-	return getSN(2406, a)
+func getAdditionalServingNode(a dia.RawAVP) (t NodeType, d teldata.E164, n, r dia.Identity, e error) {
+	return getSN(a)
 }
 
-func getSN(c uint32, a diameter.RawAVP) (
-	t NodeType, d teldata.E164, n, r diameter.Identity, e error) {
-	o := []diameter.RawAVP{}
-	if e = a.Validate(10415, c, true, true, false); e == nil {
+func getSN(a dia.RawAVP) (t NodeType, d teldata.E164, n, r dia.Identity, e error) {
+	o := []dia.RawAVP{}
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+	} else {
 		e = a.Decode(&o)
 	}
 	for _, a := range o {
-		if a.VenID != 10415 {
-			continue
-		}
 		b := new([]byte)
 		switch a.Code {
 		case 1489:
-			if e = a.Validate(10415, 1489, true, true, false); e == nil {
-				if e = a.Decode(b); e == nil {
-					d, e = teldata.ToE164(*b)
-				}
+			if !a.FlgV || !a.FlgM || a.FlgP {
+				e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+			} else if e = a.Decode(b); e == nil {
+				d, e = teldata.ToE164(*b)
 				t = NodeSGSN
 			}
 		case 1645:
-			if e = a.Validate(10415, 1645, true, true, false); e == nil {
-				if e = a.Decode(b); e == nil {
-					d, e = teldata.ToE164(*b)
-				}
+			if !a.FlgV || !a.FlgM || a.FlgP {
+				e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+			} else if e = a.Decode(b); e == nil {
+				d, e = teldata.ToE164(*b)
 				t = NodeMME
 			}
 		case 2403:
-			if e = a.Validate(10415, 2403, true, true, false); e == nil {
-				if e = a.Decode(b); e == nil {
-					d, e = teldata.ToE164(*b)
-				}
+			if !a.FlgV || !a.FlgM || a.FlgP {
+				e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+			} else if e = a.Decode(b); e == nil {
+				d, e = teldata.ToE164(*b)
 				t = NodeMSC
 			}
 		}
@@ -298,32 +298,34 @@ func getSN(c uint32, a diameter.RawAVP) (
 	switch t {
 	case NodeSGSN:
 		for _, a := range o {
-			if a.VenID != 10415 {
-				continue
-			}
 			switch a.Code {
 			case 2409:
-				if e = a.Validate(10415, 2409, true, true, false); e == nil {
+				if !a.FlgV || !a.FlgM || a.FlgP {
+					e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+				} else {
 					e = a.Decode(&n)
 				}
 			case 2410:
-				if e = a.Validate(10415, 2410, true, true, false); e == nil {
+				if !a.FlgV || !a.FlgM || a.FlgP {
+					e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+				} else {
 					e = a.Decode(&r)
 				}
 			}
 		}
 	case NodeMME, NodeMSC:
 		for _, a := range o {
-			if a.VenID != 10415 {
-				continue
-			}
 			switch a.Code {
 			case 2402:
-				if e = a.Validate(10415, 2402, true, true, false); e == nil {
+				if !a.FlgV || !a.FlgM || a.FlgP {
+					e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+				} else {
 					e = a.Decode(&n)
 				}
 			case 2408:
-				if e = a.Validate(10415, 2408, true, true, false); e == nil {
+				if !a.FlgV || !a.FlgM || a.FlgP {
+					e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+				} else {
 					e = a.Decode(&r)
 				}
 			}
@@ -332,44 +334,46 @@ func getSN(c uint32, a diameter.RawAVP) (
 	return
 }
 
-func setLMSI(v uint32) diameter.RawAVP {
-	a := diameter.RawAVP{Code: 2400, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
+func setLMSI(v uint32) dia.RawAVP {
+	a := dia.RawAVP{Code: 2400, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, v)
 	a.Encode(buf.Bytes())
 	return a
 }
 
-func getLMSI(a diameter.RawAVP) (v uint32, e error) {
+func getLMSI(a dia.RawAVP) (v uint32, e error) {
 	s := new([]byte)
-	if e = a.Validate(10415, 2400, true, true, false); e != nil {
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(s); e == nil && len(*s) == 4 {
 		binary.Read(bytes.NewBuffer(*s), binary.BigEndian, &v)
 	}
 	return
 }
 
-func setUserIdentifier(v teldata.E164) diameter.RawAVP {
-	a := diameter.RawAVP{Code: 3102, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
-	t := []diameter.RawAVP{
-		diameter.RawAVP{Code: 701, VenID: 10415,
-			FlgV: true, FlgM: true, FlgP: false}}
+func setUserIdentifier(v teldata.E164) dia.RawAVP {
+	a := dia.RawAVP{Code: 3102, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
+	t := []dia.RawAVP{
+		dia.RawAVP{Code: 701, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}}
 	t[0].Encode(v.Bytes())
 	a.Encode(t)
 	return a
 }
 
-func getUserIdentifier(a diameter.RawAVP) (v teldata.E164, e error) {
-	o := []diameter.RawAVP{}
-	if e = a.Validate(10415, 3102, true, true, false); e != nil {
+func getUserIdentifier(a dia.RawAVP) (v teldata.E164, e error) {
+	o := []dia.RawAVP{}
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(&o); e == nil {
 		for _, a := range o {
-			if a.Code == 701 && a.VenID == 10415 {
-				if e = a.Validate(10415, 701, true, true, false); e == nil {
-					a.Decode(&v)
-				}
+			if a.Code != 701 {
+				continue
+			}
+			if !a.FlgV || !a.FlgM || a.FlgP {
+				e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+			} else {
+				a.Decode(&v)
 			}
 		}
 	}
@@ -377,14 +381,12 @@ func getUserIdentifier(a diameter.RawAVP) (v teldata.E164, e error) {
 }
 
 // MWD-Status AVP contain a bit mask.
-// SCAddrNotIncluded shall indicate the presence of
-// the SC Address in the Message Waiting Data in the HSS.
+// SCAddrNotIncluded shall indicate the presence of the SC Address in the Message Waiting Data in the HSS.
 // MNRF shall indicate that the MNRF flag is set in the HSS.
 // MCEF shall indicate that the MCEF flag is set in the HSS.
 // MNRG shall indicate that the MNRG flag is set in the HSS.
-func setMWDStatus(sca, mnrf, mcef, mnrg bool) (a diameter.RawAVP) {
-	a = diameter.RawAVP{Code: 3312, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
+func setMWDStatus(sca, mnrf, mcef, mnrg bool) (a dia.RawAVP) {
+	a = dia.RawAVP{Code: 3312, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 
 	i := uint32(0)
 	if sca {
@@ -403,9 +405,10 @@ func setMWDStatus(sca, mnrf, mcef, mnrg bool) (a diameter.RawAVP) {
 	return
 }
 
-func getMWDStatus(a diameter.RawAVP) (sca, mnrf, mcef, mnrg bool, e error) {
+func getMWDStatus(a dia.RawAVP) (sca, mnrf, mcef, mnrg bool, e error) {
 	s := new(uint32)
-	if e = a.Validate(10415, 3312, true, true, false); e != nil {
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(s); e == nil {
 		sca = (*s)&0x00000001 == 0x00000001
 		mnrf = (*s)&0x00000002 == 0x00000002
@@ -434,15 +437,16 @@ func getMWDStatus(a diameter.RawAVP) (sca, mnrf, mcef, mnrg bool, e error) {
 
 // MMEAbsentUserDiagnosticSM AVP shall indicate the diagnostic
 // explaining the absence of the user given by the MME.
-func setMMEAbsentUserDiagnosticSM(v uint32) (a diameter.RawAVP) {
-	a = diameter.RawAVP{Code: 3313, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
+func setMMEAbsentUserDiagnosticSM(v uint32) (a dia.RawAVP) {
+	a = dia.RawAVP{Code: 3313, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 	a.Encode(v)
 	return
 }
 
-func getMMEAbsentUserDiagnosticSM(a diameter.RawAVP) (v uint32, e error) {
-	if e = a.Validate(10415, 3313, true, true, false); e == nil {
+func getMMEAbsentUserDiagnosticSM(a dia.RawAVP) (v uint32, e error) {
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+	} else {
 		e = a.Decode(&v)
 	}
 	return
@@ -450,15 +454,16 @@ func getMMEAbsentUserDiagnosticSM(a diameter.RawAVP) (v uint32, e error) {
 
 // MSCAbsentUserDiagnosticSM AVP shall indicate the diagnostic
 // explaining the absence of the user given by the MSC.
-func setMSCAbsentUserDiagnosticSM(v uint32) (a diameter.RawAVP) {
-	a = diameter.RawAVP{Code: 3314, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
+func setMSCAbsentUserDiagnosticSM(v uint32) (a dia.RawAVP) {
+	a = dia.RawAVP{Code: 3314, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 	a.Encode(v)
 	return
 }
 
-func getMSCAbsentUserDiagnosticSM(a diameter.RawAVP) (v uint32, e error) {
-	if e = a.Validate(10415, 3314, true, true, false); e == nil {
+func getMSCAbsentUserDiagnosticSM(a dia.RawAVP) (v uint32, e error) {
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+	} else {
 		e = a.Decode(&v)
 	}
 	return
@@ -466,15 +471,16 @@ func getMSCAbsentUserDiagnosticSM(a diameter.RawAVP) (v uint32, e error) {
 
 // SGSNAbsentUserDiagnosticSM AVP shall indicate the diagnostic
 // explaining the absence of the user given by the SGSN.
-func setSGSNAbsentUserDiagnosticSM(v uint32) (a diameter.RawAVP) {
-	a = diameter.RawAVP{Code: 3315, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
+func setSGSNAbsentUserDiagnosticSM(v uint32) (a dia.RawAVP) {
+	a = dia.RawAVP{Code: 3315, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 	a.Encode(v)
 	return
 }
 
-func getSGSNAbsentUserDiagnosticSM(a diameter.RawAVP) (v uint32, e error) {
-	if e = a.Validate(10415, 3315, true, true, false); e == nil {
+func getSGSNAbsentUserDiagnosticSM(a dia.RawAVP) (v uint32, e error) {
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+	} else {
 		e = a.Decode(&v)
 	}
 	return
@@ -483,13 +489,13 @@ func getSGSNAbsentUserDiagnosticSM(a diameter.RawAVP) (v uint32, e error) {
 /*
 // SMDeliveryOutcome AVP contains the result of the SM delivery.
 type SMDeliveryOutcome struct {
-	E diameter.Enumerated
+	E dia.Enumerated
 	I uint32
 }
 
 // ToRaw return AVP struct of this value
-func (v *SMDeliveryOutcome) ToRaw() diameter.RawAVP {
-	a := diameter.RawAVP{Code: 3316, VenID: 10415,
+func (v *SMDeliveryOutcome) ToRaw() dia.RawAVP {
+	a := dia.RawAVP{Code: 3316, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	// a.Encode()
 	return a
@@ -504,14 +510,14 @@ type MMESMDeliveryOutcome struct {
 }
 
 // ToRaw return AVP struct of this value
-func (v *MMESMDeliveryOutcome) ToRaw() diameter.RawAVP {
-	a := diameter.RawAVP{Code: 3317, VenID: 10415,
+func (v *MMESMDeliveryOutcome) ToRaw() dia.RawAVP {
+	a := dia.RawAVP{Code: 3317, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	if v != nil {
-		t := []diameter.RawAVP{
+		t := []dia.RawAVP{
 			v.SMDeliveryCause.ToRaw(),
 			v.AbsentUserDiagnosticSM.ToRaw()}
-		a.Encode(diameter.GroupedAVP(t))
+		a.Encode(dia.GroupedAVP(t))
 	}
 	return a
 }
@@ -525,14 +531,14 @@ type MSCSMDeliveryOutcome struct {
 }
 
 // ToRaw return AVP struct of this value
-func (v *MSCSMDeliveryOutcome) ToRaw() diameter.RawAVP {
-	a := diameter.RawAVP{Code: 3318, VenID: 10415,
+func (v *MSCSMDeliveryOutcome) ToRaw() dia.RawAVP {
+	a := dia.RawAVP{Code: 3318, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	if v != nil {
-		t := []diameter.RawAVP{
+		t := []dia.RawAVP{
 			v.SMDeliveryCause.ToRaw(),
 			v.AbsentUserDiagnosticSM.ToRaw()}
-		a.Encode(diameter.GroupedAVP(t))
+		a.Encode(dia.GroupedAVP(t))
 	}
 	return a
 }
@@ -546,14 +552,14 @@ type SGSNSMDeliveryOutcome struct {
 }
 
 // ToRaw return AVP struct of this value
-func (v *SGSNSMDeliveryOutcome) ToRaw() diameter.RawAVP {
-	a := diameter.RawAVP{Code: 3319, VenID: 10415,
+func (v *SGSNSMDeliveryOutcome) ToRaw() dia.RawAVP {
+	a := dia.RawAVP{Code: 3319, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	if v != nil {
-		t := []diameter.RawAVP{
+		t := []dia.RawAVP{
 			v.SMDeliveryCause.ToRaw(),
 			v.AbsentUserDiagnosticSM.ToRaw()}
-		a.Encode(diameter.GroupedAVP(t))
+		a.Encode(dia.GroupedAVP(t))
 	}
 	return a
 }
@@ -567,21 +573,21 @@ type IPSMGWSMDeliveryOutcome struct {
 }
 
 // ToRaw return AVP struct of this value
-func (v *IPSMGWSMDeliveryOutcome) ToRaw() diameter.RawAVP {
-	a := diameter.RawAVP{Code: 3320, VenID: 10415,
+func (v *IPSMGWSMDeliveryOutcome) ToRaw() dia.RawAVP {
+	a := dia.RawAVP{Code: 3320, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	if v != nil {
-		t := []diameter.RawAVP{
+		t := []dia.RawAVP{
 			v.SMDeliveryCause.ToRaw(),
 			v.AbsentUserDiagnosticSM.ToRaw()}
-		a.Encode(diameter.GroupedAVP(t))
+		a.Encode(dia.GroupedAVP(t))
 	}
 	return a
 }
 
 // SMDeliveryCause AVP shall indicate the cause of
 // the SMP delivery result.
-type SMDeliveryCause diameter.Enumerated
+type SMDeliveryCause dia.Enumerated
 
 const (
 	// UeMemoryCapacityExceeded is Enumerated value 0
@@ -593,21 +599,21 @@ const (
 )
 
 // ToRaw return AVP struct of this value
-func (v *SMDeliveryCause) ToRaw() diameter.RawAVP {
-	a := diameter.RawAVP{Code: 3321, VenID: 10415,
+func (v *SMDeliveryCause) ToRaw() dia.RawAVP {
+	a := dia.RawAVP{Code: 3321, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	if v != nil {
-		a.Encode(diameter.Enumerated(*v))
+		a.Encode(dia.Enumerated(*v))
 	}
 	return a
 }
 
 // FromRaw get AVP value
-func (v *SMDeliveryCause) FromRaw(a diameter.RawAVP) (e error) {
+func (v *SMDeliveryCause) FromRaw(a dia.RawAVP) (e error) {
 	if e = a.Validate(10415, 3321, true, true, false); e != nil {
 		return
 	}
-	s := new(diameter.Enumerated)
+	s := new(dia.Enumerated)
 	if e = a.Decode(s); e != nil {
 		return
 	}
@@ -620,8 +626,8 @@ func (v *SMDeliveryCause) FromRaw(a diameter.RawAVP) (e error) {
 type AbsentUserDiagnosticSM uint32
 
 // ToRaw return AVP struct of this value
-func (v *AbsentUserDiagnosticSM) ToRaw() diameter.RawAVP {
-	a := diameter.RawAVP{Code: 3322, VenID: 10415,
+func (v *AbsentUserDiagnosticSM) ToRaw() dia.RawAVP {
+	a := dia.RawAVP{Code: 3322, VenID: 10415,
 		FlgV: true, FlgM: true, FlgP: false}
 	if v != nil {
 		a.Encode(uint32(*v))
@@ -630,7 +636,7 @@ func (v *AbsentUserDiagnosticSM) ToRaw() diameter.RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *AbsentUserDiagnosticSM) FromRaw(a diameter.RawAVP) (e error) {
+func (v *AbsentUserDiagnosticSM) FromRaw(a dia.RawAVP) (e error) {
 	if e = a.Validate(10415, 3322, true, true, false); e != nil {
 		return
 	}
@@ -650,8 +656,8 @@ type RDRFlags struct {
 }
 
 // ToRaw return AVP struct of this value
-func (v *RDRFlags) ToRaw() diameter.RawAVP {
-	a := diameter.RawAVP{Code: 3323, VenID: 10415,
+func (v *RDRFlags) ToRaw() dia.RawAVP {
+	a := dia.RawAVP{Code: 3323, VenID: 10415,
 		FlgV: true, FlgM: false, FlgP: false}
 	if v != nil {
 		i := uint32(0)
@@ -664,7 +670,7 @@ func (v *RDRFlags) ToRaw() diameter.RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *RDRFlags) FromRaw(a diameter.RawAVP) (e error) {
+func (v *RDRFlags) FromRaw(a dia.RawAVP) (e error) {
 	if e = a.Validate(10415, 3323, true, false, false); e != nil {
 		return
 	}
@@ -684,8 +690,8 @@ func (v *RDRFlags) FromRaw(a diameter.RawAVP) (e error) {
 type MaximumUEAvailabilityTime time.Time
 
 // ToRaw return AVP struct of this value
-func (v *MaximumUEAvailabilityTime) ToRaw() diameter.RawAVP {
-	a := diameter.RawAVP{Code: 3329, VenID: 10415,
+func (v *MaximumUEAvailabilityTime) ToRaw() dia.RawAVP {
+	a := dia.RawAVP{Code: 3329, VenID: 10415,
 		FlgV: true, FlgM: false, FlgP: false}
 	if v != nil {
 		a.Encode(time.Time(*v))
@@ -694,7 +700,7 @@ func (v *MaximumUEAvailabilityTime) ToRaw() diameter.RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *MaximumUEAvailabilityTime) FromRaw(a diameter.RawAVP) (e error) {
+func (v *MaximumUEAvailabilityTime) FromRaw(a dia.RawAVP) (e error) {
 	if e = a.Validate(10415, 3329, true, false, false); e != nil {
 		return
 	}
@@ -717,8 +723,8 @@ type SMSGMSCAlertEvent struct {
 }
 
 // ToRaw return AVP struct of this value
-func (v *SMSGMSCAlertEvent) ToRaw() diameter.RawAVP {
-	a := diameter.RawAVP{Code: 3333, VenID: 10415,
+func (v *SMSGMSCAlertEvent) ToRaw() dia.RawAVP {
+	a := dia.RawAVP{Code: 3333, VenID: 10415,
 		FlgV: true, FlgM: false, FlgP: false}
 	if v != nil {
 		i := uint32(0)
@@ -734,7 +740,7 @@ func (v *SMSGMSCAlertEvent) ToRaw() diameter.RawAVP {
 }
 
 // FromRaw get AVP value
-func (v *SMSGMSCAlertEvent) FromRaw(a diameter.RawAVP) (e error) {
+func (v *SMSGMSCAlertEvent) FromRaw(a dia.RawAVP) (e error) {
 	if e = a.Validate(10415, 3333, true, false, false); e != nil {
 		return
 	}

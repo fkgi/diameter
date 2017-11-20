@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/fkgi/diameter"
+	dia "github.com/fkgi/diameter"
 	"github.com/fkgi/sms"
 	"github.com/fkgi/teldata"
 )
@@ -36,78 +36,83 @@ IP-SM-GW and MSISDN-less SMS are not supported.
 */
 type SRR struct {
 	// DRMP
-	OriginHost       diameter.Identity
-	OriginRealm      diameter.Identity
-	DestinationHost  diameter.Identity
-	DestinationRealm diameter.Identity
+	OriginHost       dia.Identity
+	OriginRealm      dia.Identity
+	DestinationHost  dia.Identity
+	DestinationRealm dia.Identity
 
 	MSISDN teldata.E164
 	teldata.IMSI
-	// SMSMICorrelationID
-	// []SupportedFeatures
 	SCAddress teldata.E164
+
 	MessageType
-	SMRPSMEA sms.Address
-	Flags    struct {
-		GPRSIndicator bool
-		SMRPPRI       bool
+	SMEAddr sms.Address
+	Flags   struct {
+		GPRSSupport   bool
+		Prioritized   bool
 		SingleAttempt bool
 	}
 	RequiredInfo
+
+	// SMSMICorrelationID
+	// []SupportedFeatures
 	// []ProxyInfo
 }
 
 func (v SRR) String() string {
 	w := new(bytes.Buffer)
 
-	fmt.Fprintf(w, "%sOrigin-Host       =%s\n", diameter.Indent, v.OriginHost)
-	fmt.Fprintf(w, "%sOrigin-Realm      =%s\n", diameter.Indent, v.OriginRealm)
-	fmt.Fprintf(w, "%sDestination-Host  =%s\n", diameter.Indent, v.DestinationHost)
-	fmt.Fprintf(w, "%sDestination-Realm =%s\n", diameter.Indent, v.DestinationRealm)
+	fmt.Fprintf(w, "%sOrigin-Host       =%s\n", dia.Indent, v.OriginHost)
+	fmt.Fprintf(w, "%sOrigin-Realm      =%s\n", dia.Indent, v.OriginRealm)
+	fmt.Fprintf(w, "%sDestination-Host  =%s\n", dia.Indent, v.DestinationHost)
+	fmt.Fprintf(w, "%sDestination-Realm =%s\n", dia.Indent, v.DestinationRealm)
 
-	fmt.Fprintf(w, "%sMSISDN            =%s\n", diameter.Indent, v.MSISDN)
-	fmt.Fprintf(w, "%sIMSI              =%s\n", diameter.Indent, v.IMSI)
-	fmt.Fprintf(w, "%sSCAddress         =%s\n", diameter.Indent, v.SCAddress)
+	fmt.Fprintf(w, "%sMSISDN            =%s\n", dia.Indent, v.MSISDN)
+	fmt.Fprintf(w, "%sIMSI              =%s\n", dia.Indent, v.IMSI)
+	fmt.Fprintf(w, "%sSC Address        =%s\n", dia.Indent, v.SCAddress)
+
 	switch v.MessageType {
 	case DeliverType:
-		fmt.Fprintf(w, "%sSM-RP-MTI         =SM_DELIVER\n", diameter.Indent)
+		fmt.Fprintf(w, "%sMessage Type      =Deliver\n", dia.Indent)
 	case StatusReportType:
-		fmt.Fprintf(w, "%sSM-RP-MTI         =SM_STATUS_REPORT\n", diameter.Indent)
+		fmt.Fprintf(w, "%sMessage Type      =Status Report\n", dia.Indent)
 	default:
-		fmt.Fprintf(w, "%sSM-RP-MTI         =unknown\n", diameter.Indent)
+		fmt.Fprintf(w, "%sMessage Type      =Unknown\n", dia.Indent)
 	}
-	fmt.Fprintf(w, "%sSM-RP-SMEA        =%s\n", diameter.Indent, v.SMRPSMEA)
-	fmt.Fprintf(w, "%sGPRS support      =%t\n", diameter.Indent, v.Flags.GPRSIndicator)
-	fmt.Fprintf(w, "%sSM-RP-PRI         =%t\n", diameter.Indent, v.Flags.SMRPPRI)
-	fmt.Fprintf(w, "%sSingle-Attempt    =%t\n", diameter.Indent, v.Flags.SingleAttempt)
+	fmt.Fprintf(w, "%sSME Address       =%s\n", dia.Indent, v.SMEAddr)
+	fmt.Fprintf(w, "%sGPRS support      =%t\n", dia.Indent, v.Flags.GPRSSupport)
+	fmt.Fprintf(w, "%sPrioritized       =%t\n", dia.Indent, v.Flags.Prioritized)
+	fmt.Fprintf(w, "%sSingle Attempt    =%t\n", dia.Indent, v.Flags.SingleAttempt)
 
 	switch v.RequiredInfo {
 	case OnlyImsiRequested:
-		fmt.Fprintf(w, "%sSM-Delivery-Not-Intended =ONLY_IMSI_REQUESTED\n", diameter.Indent)
+		fmt.Fprintf(w, "%sRequired data     =IMSI only\n", dia.Indent)
 	case OnlyMccMncRequested:
-		fmt.Fprintf(w, "%sSM-Delivery-Not-Intended =ONLY_MCC_MNC_REQUESTED\n", diameter.Indent)
+		fmt.Fprintf(w, "%sRequired data     =MCC and MNC only\n", dia.Indent)
+	default:
+		fmt.Fprintf(w, "%sRequired data     =complete data\n", dia.Indent)
 	}
 	return w.String()
 }
 
-// ToRaw return diameter.RawMsg struct of this value
-func (v SRR) ToRaw(s string) diameter.RawMsg {
-	m := diameter.RawMsg{
-		Ver:  diameter.DiaVer,
+// ToRaw return dia.RawMsg struct of this value
+func (v SRR) ToRaw(s string) dia.RawMsg {
+	m := dia.RawMsg{
+		Ver:  dia.DiaVer,
 		FlgR: true, FlgP: true, FlgE: false, FlgT: false,
 		Code: 8388647, AppID: 16777312,
-		AVP: make([]diameter.RawAVP, 0, 15)}
+		AVP: make([]dia.RawAVP, 0, 15)}
 
-	m.AVP = append(m.AVP, setSessionID(s))
-	m.AVP = append(m.AVP, setVendorSpecAppID(16777312))
-	m.AVP = append(m.AVP, setAuthSessionState())
+	m.AVP = append(m.AVP, dia.SetSessionID(s))
+	m.AVP = append(m.AVP, dia.SetVendorSpecAppID(10415, 16777312))
+	m.AVP = append(m.AVP, dia.SetAuthSessionState(false))
 
-	m.AVP = append(m.AVP, setOriginHost(v.OriginHost))
-	m.AVP = append(m.AVP, setOriginRealm(v.OriginRealm))
+	m.AVP = append(m.AVP, dia.SetOriginHost(v.OriginHost))
+	m.AVP = append(m.AVP, dia.SetOriginRealm(v.OriginRealm))
 	if len(v.DestinationHost) != 0 {
-		m.AVP = append(m.AVP, setDestinationHost(v.DestinationHost))
+		m.AVP = append(m.AVP, dia.SetDestinationHost(v.DestinationHost))
 	}
-	m.AVP = append(m.AVP, setDestinationRealm(v.DestinationRealm))
+	m.AVP = append(m.AVP, dia.SetDestinationRealm(v.DestinationRealm))
 
 	if v.MSISDN.Length() != 0 {
 		m.AVP = append(m.AVP, setMSISDN(v.MSISDN))
@@ -121,27 +126,23 @@ func (v SRR) ToRaw(s string) diameter.RawMsg {
 	if v.MessageType != UnknownType {
 		m.AVP = append(m.AVP, setSMRPMTI(v.MessageType))
 	}
-	if v.SMRPSMEA.Addr != nil {
-		m.AVP = append(m.AVP, setSMRPSMEA(v.SMRPSMEA))
+	if v.SMEAddr.Addr != nil {
+		m.AVP = append(m.AVP, setSMRPSMEA(v.SMEAddr))
 	}
-	if v.Flags.GPRSIndicator ||
-		v.Flags.SingleAttempt ||
-		v.Flags.SMRPPRI {
+	if v.Flags.GPRSSupport || v.Flags.SingleAttempt || v.Flags.Prioritized {
 		m.AVP = append(m.AVP, setSRRFlags(
-			v.Flags.GPRSIndicator,
-			v.Flags.SingleAttempt,
-			v.Flags.SMRPPRI))
+			v.Flags.GPRSSupport, v.Flags.SingleAttempt, v.Flags.Prioritized))
 	}
 	if v.RequiredInfo != LocationRequested {
 		m.AVP = append(m.AVP, setSMDeliveryNotIntended(v.RequiredInfo))
 	}
 
-	m.AVP = append(m.AVP, setRouteRecord(v.OriginHost))
+	m.AVP = append(m.AVP, dia.SetRouteRecord(v.OriginHost))
 	return m
 }
 
-// FromRaw make this value from diameter.RawMsg struct
-func (SRR) FromRaw(m diameter.RawMsg) (diameter.Request, string, error) {
+// FromRaw make this value from dia.RawMsg struct
+func (SRR) FromRaw(m dia.RawMsg) (dia.Request, string, error) {
 	s := ""
 	e := m.Validate(16777312, 8388647, true, true, false, false)
 	if e != nil {
@@ -151,15 +152,15 @@ func (SRR) FromRaw(m diameter.RawMsg) (diameter.Request, string, error) {
 	v := SRR{}
 	for _, a := range m.AVP {
 		if a.VenID == 0 && a.Code == 263 {
-			s, e = getSessionID(a)
+			s, e = dia.GetSessionID(a)
 		} else if a.VenID == 0 && a.Code == 264 {
-			v.OriginHost, e = getOriginHost(a)
+			v.OriginHost, e = dia.GetOriginHost(a)
 		} else if a.VenID == 0 && a.Code == 296 {
-			v.OriginRealm, e = getOriginRealm(a)
+			v.OriginRealm, e = dia.GetOriginRealm(a)
 		} else if a.VenID == 0 && a.Code == 293 {
-			v.DestinationHost, e = getDestinationHost(a)
+			v.DestinationHost, e = dia.GetDestinationHost(a)
 		} else if a.VenID == 0 && a.Code == 283 {
-			v.DestinationRealm, e = getDestinationRealm(a)
+			v.DestinationRealm, e = dia.GetDestinationRealm(a)
 
 		} else if a.VenID == 10415 && a.Code == 701 {
 			v.MSISDN, e = getMSISDN(a)
@@ -170,11 +171,9 @@ func (SRR) FromRaw(m diameter.RawMsg) (diameter.Request, string, error) {
 		} else if a.VenID == 10415 && a.Code == 3308 {
 			v.MessageType, e = getSMRPMTI(a)
 		} else if a.VenID == 10415 && a.Code == 3309 {
-			v.SMRPSMEA, e = getSMRPSMEA(a)
+			v.SMEAddr, e = getSMRPSMEA(a)
 		} else if a.VenID == 10415 && a.Code == 3310 {
-			v.Flags.GPRSIndicator,
-				v.Flags.SingleAttempt,
-				v.Flags.SMRPPRI, e = getSRRFlags(a)
+			v.Flags.GPRSSupport, v.Flags.SingleAttempt, v.Flags.Prioritized, e = getSRRFlags(a)
 		} else if a.VenID == 10415 && a.Code == 3311 {
 			v.RequiredInfo, e = getSMDeliveryNotIntended(a)
 		}
@@ -187,13 +186,13 @@ func (SRR) FromRaw(m diameter.RawMsg) (diameter.Request, string, error) {
 	if len(v.OriginHost) == 0 ||
 		len(v.OriginRealm) == 0 ||
 		len(v.DestinationRealm) == 0 {
-		e = diameter.NoMandatoryAVP{}
+		e = dia.NoMandatoryAVP{}
 	}
 	return v, s, e
 }
 
 // Failed make error message for timeout
-func (v SRR) Failed(c uint32) diameter.Answer {
+func (v SRR) Failed(c uint32) dia.Answer {
 	return SRA{
 		ResultCode:  c,
 		OriginHost:  v.OriginHost,
@@ -230,119 +229,106 @@ IP-SM-GW and MSISDN-less SMS are not supported.
 type SRA struct {
 	// DRMP
 	ResultCode  uint32
-	OriginHost  diameter.Identity
-	OriginRealm diameter.Identity
+	OriginHost  dia.Identity
+	OriginRealm dia.Identity
 
-	// []SupportedFeatures
-	ServingNode struct {
+	ServingNode [2]struct {
 		NodeType
 		Address teldata.E164
-		Name    diameter.Identity
-		Realm   diameter.Identity
-	}
-	AdditionalServingNode struct {
-		NodeType
-		Address teldata.E164
-		Name    diameter.Identity
-		Realm   diameter.Identity
+		Name    dia.Identity
+		Realm   dia.Identity
 	}
 	LMSI uint32
+
 	User struct {
 		teldata.IMSI
 		MSISDN teldata.E164
 		// ExtID  string
 	}
 	MWDStat struct {
-		SCAddrNotIncluded bool
-		MNRF              bool
-		MCEF              bool
-		MNRG              bool
+		NoSCAddr bool
+		MNRF     bool
+		MCEF     bool
+		MNRG     bool
 	}
 
 	MMEAbsentUserDiagnosticSM  uint32
 	MSCAbsentUserDiagnosticSM  uint32
 	SGSNAbsentUserDiagnosticSM uint32
 
-	FailedAVP []diameter.RawAVP
+	FailedAVP []dia.RawAVP
+	// []SupportedFeatures
 	// []ProxyInfo
 }
 
 func (v SRA) String() string {
 	w := new(bytes.Buffer)
 
-	fmt.Fprintf(w, "%sResult-Code       =%d\n", diameter.Indent, v.ResultCode)
-	fmt.Fprintf(w, "%sOrigin-Host       =%s\n", diameter.Indent, v.OriginHost)
-	fmt.Fprintf(w, "%sOrigin-Realm      =%s\n", diameter.Indent, v.OriginRealm)
+	fmt.Fprintf(w, "%sResult-Code       =%d\n", dia.Indent, v.ResultCode)
+	fmt.Fprintf(w, "%sOrigin-Host       =%s\n", dia.Indent, v.OriginHost)
+	fmt.Fprintf(w, "%sOrigin-Realm      =%s\n", dia.Indent, v.OriginRealm)
 
-	switch v.ServingNode.NodeType {
-	case NodeSGSN:
-		fmt.Fprintf(w, "%sServing-Node(SGSN)\n", diameter.Indent)
-	case NodeMME:
-		fmt.Fprintf(w, "%sServing-Node(MME)\n", diameter.Indent)
-	case NodeMSC:
-		fmt.Fprintf(w, "%sServing-Node(MSC)\n", diameter.Indent)
+	for i := 0; i < 2; i++ {
+		switch v.ServingNode[i].NodeType {
+		case NodeSGSN:
+			fmt.Fprintf(w, "%sServing-Node(SGSN)\n", dia.Indent)
+		case NodeMME:
+			fmt.Fprintf(w, "%sServing-Node(MME)\n", dia.Indent)
+		case NodeMSC:
+			fmt.Fprintf(w, "%sServing-Node(MSC)\n", dia.Indent)
+		}
+		fmt.Fprintf(w, "%s%sAddress =%s\n", dia.Indent, dia.Indent, v.ServingNode[i].Address)
+		fmt.Fprintf(w, "%s%sHost    =%s\n", dia.Indent, dia.Indent, v.ServingNode[i].Name)
+		fmt.Fprintf(w, "%s%sRealm   =%s\n", dia.Indent, dia.Indent, v.ServingNode[i].Realm)
 	}
-	fmt.Fprintf(w, "%s%sAddress =%s\n", diameter.Indent, diameter.Indent, v.ServingNode.Address)
-	fmt.Fprintf(w, "%s%sHost    =%s\n", diameter.Indent, diameter.Indent, v.ServingNode.Name)
-	fmt.Fprintf(w, "%s%sRealm   =%s\n", diameter.Indent, diameter.Indent, v.ServingNode.Realm)
-	switch v.AdditionalServingNode.NodeType {
-	case NodeSGSN:
-		fmt.Fprintf(w, "%sServing-Node(SGSN)\n", diameter.Indent)
-	case NodeMME:
-		fmt.Fprintf(w, "%sServing-Node(MME)\n", diameter.Indent)
-	case NodeMSC:
-		fmt.Fprintf(w, "%sServing-Node(MSC)\n", diameter.Indent)
-	}
-	fmt.Fprintf(w, "%s%sAddress =%s\n", diameter.Indent, diameter.Indent, v.AdditionalServingNode.Address)
-	fmt.Fprintf(w, "%s%sHost    =%s\n", diameter.Indent, diameter.Indent, v.AdditionalServingNode.Name)
-	fmt.Fprintf(w, "%s%sRealm   =%s\n", diameter.Indent, diameter.Indent, v.AdditionalServingNode.Realm)
-	fmt.Fprintf(w, "%sLMSI              =%x\n", diameter.Indent, v.LMSI)
-	fmt.Fprintf(w, "%sIMSI              =%s\n", diameter.Indent, v.User.IMSI)
-	fmt.Fprintf(w, "%sMSISDN            =%s\n", diameter.Indent, v.User.MSISDN)
+	fmt.Fprintf(w, "%sLMSI              =%x\n", dia.Indent, v.LMSI)
 
-	fmt.Fprintf(w, "%sSCAddrNotIncluded =%t\n", diameter.Indent, v.MWDStat.SCAddrNotIncluded)
-	fmt.Fprintf(w, "%sMNRF              =%t\n", diameter.Indent, v.MWDStat.MNRF)
-	fmt.Fprintf(w, "%sMCEF              =%t\n", diameter.Indent, v.MWDStat.MCEF)
-	fmt.Fprintf(w, "%sMNRG              =%t\n", diameter.Indent, v.MWDStat.MNRG)
+	fmt.Fprintf(w, "%sIMSI              =%s\n", dia.Indent, v.User.IMSI)
+	fmt.Fprintf(w, "%sMSISDN            =%s\n", dia.Indent, v.User.MSISDN)
+
+	fmt.Fprintf(w, "%sSCAddrNotIncluded =%t\n", dia.Indent, v.MWDStat.NoSCAddr)
+	fmt.Fprintf(w, "%sMNRF              =%t\n", dia.Indent, v.MWDStat.MNRF)
+	fmt.Fprintf(w, "%sMCEF              =%t\n", dia.Indent, v.MWDStat.MCEF)
+	fmt.Fprintf(w, "%sMNRG              =%t\n", dia.Indent, v.MWDStat.MNRG)
 
 	return w.String()
 }
 
-// ToRaw return diameter.RawMsg struct of this value
-func (v SRA) ToRaw(s string) diameter.RawMsg {
-	m := diameter.RawMsg{
-		Ver:  diameter.DiaVer,
+// ToRaw return dia.RawMsg struct of this value
+func (v SRA) ToRaw(s string) dia.RawMsg {
+	m := dia.RawMsg{
+		Ver:  dia.DiaVer,
 		FlgR: false, FlgP: true, FlgE: false, FlgT: false,
 		Code: 8388647, AppID: 16777312,
-		AVP: make([]diameter.RawAVP, 0, 20)}
+		AVP: make([]dia.RawAVP, 0, 20)}
 
-	m.AVP = append(m.AVP, setSessionID(s))
-	m.AVP = append(m.AVP, setVendorSpecAppID(16777312))
+	m.AVP = append(m.AVP, dia.SetSessionID(s))
+	m.AVP = append(m.AVP, dia.SetVendorSpecAppID(10415, 16777312))
 	if v.ResultCode >= 5000 && v.ResultCode <= 5999 {
-		m.AVP = append(m.AVP, setExperimentalResult(10415, v.ResultCode))
+		m.AVP = append(m.AVP, dia.SetExperimentalResult(10415, v.ResultCode))
 	} else {
-		m.AVP = append(m.AVP, setResultCode(v.ResultCode))
+		m.AVP = append(m.AVP, dia.SetResultCode(v.ResultCode))
 	}
-	m.AVP = append(m.AVP, setAuthSessionState())
-	m.AVP = append(m.AVP, setOriginHost(v.OriginHost))
-	m.AVP = append(m.AVP, setOriginRealm(v.OriginRealm))
+	m.AVP = append(m.AVP, dia.SetAuthSessionState(false))
+	m.AVP = append(m.AVP, dia.SetOriginHost(v.OriginHost))
+	m.AVP = append(m.AVP, dia.SetOriginRealm(v.OriginRealm))
 
 	if v.User.IMSI.Length() != 0 {
 		m.AVP = append(m.AVP, setUserName(v.User.IMSI))
 	}
-	if v.ServingNode.Address.Length() != 0 {
+	if v.ServingNode[0].Address.Length() != 0 {
 		m.AVP = append(m.AVP, setServingNode(
-			v.ServingNode.NodeType,
-			v.ServingNode.Address,
-			v.ServingNode.Name,
-			v.ServingNode.Realm))
+			v.ServingNode[0].NodeType,
+			v.ServingNode[0].Address,
+			v.ServingNode[0].Name,
+			v.ServingNode[0].Realm))
 	}
-	if v.AdditionalServingNode.Address.Length() != 0 {
+	if v.ServingNode[1].Address.Length() != 0 {
 		m.AVP = append(m.AVP, setAdditionalServingNode(
-			v.AdditionalServingNode.NodeType,
-			v.AdditionalServingNode.Address,
-			v.AdditionalServingNode.Name,
-			v.AdditionalServingNode.Realm))
+			v.ServingNode[1].NodeType,
+			v.ServingNode[1].Address,
+			v.ServingNode[1].Name,
+			v.ServingNode[1].Realm))
 	}
 	if v.LMSI != 0 {
 		m.AVP = append(m.AVP, setLMSI(v.LMSI))
@@ -350,15 +336,9 @@ func (v SRA) ToRaw(s string) diameter.RawMsg {
 	if v.User.MSISDN.Length() != 0 {
 		m.AVP = append(m.AVP, setUserIdentifier(v.User.MSISDN))
 	}
-	if v.MWDStat.SCAddrNotIncluded ||
-		v.MWDStat.MNRF ||
-		v.MWDStat.MCEF ||
-		v.MWDStat.MNRG {
+	if v.MWDStat.NoSCAddr || v.MWDStat.MNRF || v.MWDStat.MCEF || v.MWDStat.MNRG {
 		m.AVP = append(m.AVP, setMWDStatus(
-			v.MWDStat.SCAddrNotIncluded,
-			v.MWDStat.MNRF,
-			v.MWDStat.MCEF,
-			v.MWDStat.MNRG))
+			v.MWDStat.NoSCAddr, v.MWDStat.MNRF, v.MWDStat.MCEF, v.MWDStat.MNRG))
 	}
 	if v.MMEAbsentUserDiagnosticSM != 0 {
 		m.AVP = append(m.AVP,
@@ -373,13 +353,13 @@ func (v SRA) ToRaw(s string) diameter.RawMsg {
 			setSGSNAbsentUserDiagnosticSM(v.SGSNAbsentUserDiagnosticSM))
 	}
 	if len(v.FailedAVP) != 0 {
-		m.AVP = append(m.AVP, setFailedAVP(v.FailedAVP))
+		m.AVP = append(m.AVP, dia.SetFailedAVP(v.FailedAVP))
 	}
 	return m
 }
 
-// FromRaw make this value from diameter.RawMsg struct
-func (SRA) FromRaw(m diameter.RawMsg) (diameter.Answer, string, error) {
+// FromRaw make this value from dia.RawMsg struct
+func (SRA) FromRaw(m dia.RawMsg) (dia.Answer, string, error) {
 	s := ""
 	e := m.Validate(16777312, 8388647, false, true, false, false)
 	if e != nil {
@@ -389,37 +369,30 @@ func (SRA) FromRaw(m diameter.RawMsg) (diameter.Answer, string, error) {
 	v := SRA{}
 	for _, a := range m.AVP {
 		if a.VenID == 0 && a.Code == 263 {
-			s, e = getSessionID(a)
+			s, e = dia.GetSessionID(a)
 		} else if a.VenID == 0 && a.Code == 268 {
-			v.ResultCode, e = getResultCode(a)
+			v.ResultCode, e = dia.GetResultCode(a)
 		} else if a.VenID == 0 && a.Code == 297 {
-			_, v.ResultCode, e = getExperimentalResult(a)
+			_, v.ResultCode, e = dia.GetExperimentalResult(a)
 		} else if a.VenID == 0 && a.Code == 264 {
-			v.OriginHost, e = getOriginHost(a)
+			v.OriginHost, e = dia.GetOriginHost(a)
 		} else if a.VenID == 0 && a.Code == 296 {
-			v.OriginRealm, e = getOriginRealm(a)
+			v.OriginRealm, e = dia.GetOriginRealm(a)
 
 		} else if a.VenID == 0 && a.Code == 1 {
 			v.User.IMSI, e = getUserName(a)
 		} else if a.VenID == 10415 && a.Code == 3102 {
 			v.User.MSISDN, e = getUserIdentifier(a)
 		} else if a.VenID == 10415 && a.Code == 2401 {
-			v.ServingNode.NodeType,
-				v.ServingNode.Address,
-				v.ServingNode.Name,
-				v.ServingNode.Realm, e = getServingNode(a)
+			v.ServingNode[0].NodeType, v.ServingNode[0].Address,
+				v.ServingNode[0].Name, v.ServingNode[0].Realm, e = getServingNode(a)
 		} else if a.VenID == 10415 && a.Code == 2406 {
-			v.AdditionalServingNode.NodeType,
-				v.AdditionalServingNode.Address,
-				v.AdditionalServingNode.Name,
-				v.AdditionalServingNode.Realm, e = getAdditionalServingNode(a)
+			v.ServingNode[1].NodeType, v.ServingNode[1].Address,
+				v.ServingNode[1].Name, v.ServingNode[1].Realm, e = getAdditionalServingNode(a)
 		} else if a.VenID == 10415 && a.Code == 2400 {
 			v.LMSI, e = getLMSI(a)
 		} else if a.VenID == 10415 && a.Code == 3312 {
-			v.MWDStat.SCAddrNotIncluded,
-				v.MWDStat.MNRF,
-				v.MWDStat.MCEF,
-				v.MWDStat.MNRG, e = getMWDStatus(a)
+			v.MWDStat.NoSCAddr, v.MWDStat.MNRF, v.MWDStat.MCEF, v.MWDStat.MNRG, e = getMWDStatus(a)
 
 		} else if a.VenID == 10415 && a.Code == 3313 {
 			v.MMEAbsentUserDiagnosticSM, e = getMMEAbsentUserDiagnosticSM(a)
@@ -435,7 +408,7 @@ func (SRA) FromRaw(m diameter.RawMsg) (diameter.Answer, string, error) {
 
 	if len(v.OriginHost) == 0 ||
 		len(v.OriginRealm) == 0 {
-		e = diameter.NoMandatoryAVP{}
+		e = dia.NoMandatoryAVP{}
 	}
 	return v, s, e
 }

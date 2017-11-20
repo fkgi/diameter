@@ -48,6 +48,7 @@ func (a RawAVP) String() string {
 }
 
 // Validate header value
+/*
 func (a RawAVP) Validate(i, c uint32, v, m, p bool) error {
 	if a.VenID != i || a.Code != c {
 		return InvalidAVP{}
@@ -56,6 +57,7 @@ func (a RawAVP) Validate(i, c uint32, v, m, p bool) error {
 	}
 	return nil
 }
+*/
 
 // WriteTo wite binary data to io.Writer
 func (a RawAVP) WriteTo(w io.Writer) (n int64, e error) {

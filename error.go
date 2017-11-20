@@ -44,11 +44,16 @@ func (e NoMandatoryAVP) Error() string {
 }
 
 // InvalidAVP is error of invalid AVP value
-type InvalidAVP struct {
-}
+type InvalidAVP uint32
 
 func (e InvalidAVP) Error() string {
-	return "invalid AVP data"
+	switch uint32(e) {
+	case DiameterInvalidAvpBits:
+		return "invalid AVP Bits"
+	case DiameterInvalidAvpValue:
+		return "invalid AVP Value"
+	}
+	return "invalid AVP"
 }
 
 // UnknownIDAnswer is error
