@@ -43,39 +43,39 @@ func getMSISDN(a dia.RawAVP) (v teldata.E164, e error) {
 	return
 }
 
-// MessageType indicate SM-RP-MTI
+// MTType indicate SM-RP-MTI
 // SM-RP-MTI AVP contain the RP-Message Type Indicator of the Short Message.
-type MessageType int
+type MTType int
 
 const (
-	// UnknownType is no SM-RP-MTI
-	UnknownType MessageType = iota
-	// DeliverType is SM_DELIVER
-	DeliverType
-	// StatusReportType is SM_STATUS_REPORT
-	StatusReportType
+	// UnknownMT is no SM-RP-MTI
+	UnknownMT MTType = iota
+	// DeliverMT is SM_DELIVER
+	DeliverMT
+	// StatusReportMT is SM_STATUS_REPORT
+	StatusReportMT
 )
 
-func setSMRPMTI(v MessageType) (a dia.RawAVP) {
+func setSMRPMTI(v MTType) (a dia.RawAVP) {
 	a = dia.RawAVP{Code: 3308, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 	switch v {
-	case DeliverType:
+	case DeliverMT:
 		a.Encode(dia.Enumerated(0))
-	case StatusReportType:
+	case StatusReportMT:
 		a.Encode(dia.Enumerated(1))
 	}
 	return
 }
 
-func getSMRPMTI(a dia.RawAVP) (v MessageType, e error) {
+func getSMRPMTI(a dia.RawAVP) (v MTType, e error) {
 	s := new(dia.Enumerated)
 	if !a.FlgV || !a.FlgM || a.FlgP {
 		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(s); e != nil {
 	} else if *s == 0 {
-		v = DeliverType
+		v = DeliverMT
 	} else if *s == 1 {
-		v = StatusReportType
+		v = StatusReportMT
 	} else {
 		e = dia.InvalidAVP(dia.DiameterInvalidAvpValue)
 	}

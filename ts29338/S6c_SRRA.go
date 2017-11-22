@@ -24,7 +24,7 @@ SRR is Send-Routing-Info-For-SM-Request message.
            [ User-Name ]
            [ SMSMI-Correlation-ID ] // not supported
          * [ Supported-Features ] // not supported
-           [ SC-Address ]
+           { SC-Address } // mandatory in table
            [ SM-RP-MTI ]
            [ SM-RP-SMEA ]
            [ SRR-Flags ]
@@ -45,7 +45,7 @@ type SRR struct {
 	teldata.IMSI
 	SCAddress teldata.E164
 
-	MessageType
+	MTType
 	SMEAddr sms.Address
 	Flags   struct {
 		GPRSSupport   bool
@@ -71,13 +71,13 @@ func (v SRR) String() string {
 	fmt.Fprintf(w, "%sIMSI              =%s\n", dia.Indent, v.IMSI)
 	fmt.Fprintf(w, "%sSC Address        =%s\n", dia.Indent, v.SCAddress)
 
-	switch v.MessageType {
-	case DeliverType:
-		fmt.Fprintf(w, "%sMessage Type      =Deliver\n", dia.Indent)
-	case StatusReportType:
-		fmt.Fprintf(w, "%sMessage Type      =Status Report\n", dia.Indent)
+	switch v.MTType {
+	case DeliverMT:
+		fmt.Fprintf(w, "%sMT Message Type   =Deliver\n", dia.Indent)
+	case StatusReportMT:
+		fmt.Fprintf(w, "%sMT Message Type   =Status Report\n", dia.Indent)
 	default:
-		fmt.Fprintf(w, "%sMessage Type      =Unknown\n", dia.Indent)
+		fmt.Fprintf(w, "%sMT Message Type   =Unknown\n", dia.Indent)
 	}
 	fmt.Fprintf(w, "%sSME Address       =%s\n", dia.Indent, v.SMEAddr)
 	fmt.Fprintf(w, "%sGPRS support      =%t\n", dia.Indent, v.Flags.GPRSSupport)
@@ -116,15 +116,19 @@ func (v SRR) ToRaw(s string) dia.RawMsg {
 
 	if v.MSISDN.Length() != 0 {
 		m.AVP = append(m.AVP, setMSISDN(v.MSISDN))
-	}
-	if v.IMSI.Length() != 0 {
+	} else if v.IMSI.Length() != 0 {
 		m.AVP = append(m.AVP, setUserName(v.IMSI))
+	} else {
+		m.AVP = append(m.AVP, setMSISDN(teldata.E164{}))
 	}
+
 	if v.SCAddress.Length() != 0 {
 		m.AVP = append(m.AVP, setSCAddress(v.SCAddress))
+	} else {
+		m.AVP = append(m.AVP, setSCAddress(teldata.E164{}))
 	}
-	if v.MessageType != UnknownType {
-		m.AVP = append(m.AVP, setSMRPMTI(v.MessageType))
+	if v.MTType != UnknownMT {
+		m.AVP = append(m.AVP, setSMRPMTI(v.MTType))
 	}
 	if v.SMEAddr.Addr != nil {
 		m.AVP = append(m.AVP, setSMRPSMEA(v.SMEAddr))
@@ -169,7 +173,7 @@ func (SRR) FromRaw(m dia.RawMsg) (dia.Request, string, error) {
 		} else if a.VenID == 10415 && a.Code == 3300 {
 			v.SCAddress, e = getSCAddress(a)
 		} else if a.VenID == 10415 && a.Code == 3308 {
-			v.MessageType, e = getSMRPMTI(a)
+			v.MTType, e = getSMRPMTI(a)
 		} else if a.VenID == 10415 && a.Code == 3309 {
 			v.SMEAddr, e = getSMRPSMEA(a)
 		} else if a.VenID == 10415 && a.Code == 3310 {
@@ -183,9 +187,10 @@ func (SRR) FromRaw(m dia.RawMsg) (dia.Request, string, error) {
 		}
 	}
 
-	if len(v.OriginHost) == 0 ||
-		len(v.OriginRealm) == 0 ||
-		len(v.DestinationRealm) == 0 {
+	if len(v.OriginHost) == 0 || len(v.OriginRealm) == 0 ||
+		len(v.DestinationRealm) == 0 || v.SCAddress.Length() == 0 {
+		e = dia.NoMandatoryAVP{}
+	} else if v.MSISDN.Length() == 0 && v.IMSI.Length() == 0 {
 		e = dia.NoMandatoryAVP{}
 	}
 	return v, s, e
@@ -232,29 +237,28 @@ type SRA struct {
 	OriginHost  dia.Identity
 	OriginRealm dia.Identity
 
+	teldata.IMSI
+	// ExtID  string
 	ServingNode [2]struct {
 		NodeType
 		Address teldata.E164
-		Name    dia.Identity
+		Host    dia.Identity
 		Realm   dia.Identity
+		LMSI    uint32
 	}
-	LMSI uint32
 
-	User struct {
-		teldata.IMSI
-		MSISDN teldata.E164
-		// ExtID  string
-	}
-	MWDStat struct {
+	MWDStat struct { // for Inform-SC
+		MSISDN   teldata.E164
 		NoSCAddr bool
 		MNRF     bool
 		MCEF     bool
 		MNRG     bool
 	}
-
-	MMEAbsentUserDiagnosticSM  uint32
-	MSCAbsentUserDiagnosticSM  uint32
-	SGSNAbsentUserDiagnosticSM uint32
+	AbsentUserDiag struct { // for Inform-SC
+		MME  uint32
+		MSC  uint32
+		SGSN uint32
+	}
 
 	FailedAVP []dia.RawAVP
 	// []SupportedFeatures
@@ -268,6 +272,7 @@ func (v SRA) String() string {
 	fmt.Fprintf(w, "%sOrigin-Host       =%s\n", dia.Indent, v.OriginHost)
 	fmt.Fprintf(w, "%sOrigin-Realm      =%s\n", dia.Indent, v.OriginRealm)
 
+	fmt.Fprintf(w, "%sIMSI              =%s\n", dia.Indent, v.IMSI)
 	for i := 0; i < 2; i++ {
 		switch v.ServingNode[i].NodeType {
 		case NodeSGSN:
@@ -278,18 +283,22 @@ func (v SRA) String() string {
 			fmt.Fprintf(w, "%sServing-Node(MSC)\n", dia.Indent)
 		}
 		fmt.Fprintf(w, "%s%sAddress =%s\n", dia.Indent, dia.Indent, v.ServingNode[i].Address)
-		fmt.Fprintf(w, "%s%sHost    =%s\n", dia.Indent, dia.Indent, v.ServingNode[i].Name)
+		fmt.Fprintf(w, "%s%sHost    =%s\n", dia.Indent, dia.Indent, v.ServingNode[i].Host)
 		fmt.Fprintf(w, "%s%sRealm   =%s\n", dia.Indent, dia.Indent, v.ServingNode[i].Realm)
+		fmt.Fprintf(w, "%s%sLMSI    =%x\n", dia.Indent, dia.Indent, v.ServingNode[i].LMSI)
 	}
-	fmt.Fprintf(w, "%sLMSI              =%x\n", dia.Indent, v.LMSI)
 
-	fmt.Fprintf(w, "%sIMSI              =%s\n", dia.Indent, v.User.IMSI)
-	fmt.Fprintf(w, "%sMSISDN            =%s\n", dia.Indent, v.User.MSISDN)
+	fmt.Fprintf(w, "%sMWD information for Inform-SC\n", dia.Indent)
+	fmt.Fprintf(w, "%s%sMSISDN in MWD     =%s\n", dia.Indent, dia.Indent, v.MWDStat.MSISDN)
+	fmt.Fprintf(w, "%s%sno SCAddr in MWD  =%t\n", dia.Indent, dia.Indent, v.MWDStat.NoSCAddr)
+	fmt.Fprintf(w, "%s%sMNRF              =%t\n", dia.Indent, dia.Indent, v.MWDStat.MNRF)
+	fmt.Fprintf(w, "%s%sMCEF              =%t\n", dia.Indent, dia.Indent, v.MWDStat.MCEF)
+	fmt.Fprintf(w, "%s%sMNRG              =%t\n", dia.Indent, dia.Indent, v.MWDStat.MNRG)
 
-	fmt.Fprintf(w, "%sSCAddrNotIncluded =%t\n", dia.Indent, v.MWDStat.NoSCAddr)
-	fmt.Fprintf(w, "%sMNRF              =%t\n", dia.Indent, v.MWDStat.MNRF)
-	fmt.Fprintf(w, "%sMCEF              =%t\n", dia.Indent, v.MWDStat.MCEF)
-	fmt.Fprintf(w, "%sMNRG              =%t\n", dia.Indent, v.MWDStat.MNRG)
+	fmt.Fprintf(w, "%sAbsent User Diagnostics for SM\n", dia.Indent)
+	fmt.Fprintf(w, "%s%sMME  =%d\n", dia.Indent, dia.Indent, v.AbsentUserDiag.MME)
+	fmt.Fprintf(w, "%s%sMME  =%d\n", dia.Indent, dia.Indent, v.AbsentUserDiag.MSC)
+	fmt.Fprintf(w, "%s%sMME  =%d\n", dia.Indent, dia.Indent, v.AbsentUserDiag.SGSN)
 
 	return w.String()
 }
@@ -313,47 +322,52 @@ func (v SRA) ToRaw(s string) dia.RawMsg {
 	m.AVP = append(m.AVP, dia.SetOriginHost(v.OriginHost))
 	m.AVP = append(m.AVP, dia.SetOriginRealm(v.OriginRealm))
 
-	if v.User.IMSI.Length() != 0 {
-		m.AVP = append(m.AVP, setUserName(v.User.IMSI))
+	if v.ResultCode != dia.DiameterSuccess {
+		if len(v.FailedAVP) != 0 {
+			m.AVP = append(m.AVP, dia.SetFailedAVP(v.FailedAVP))
+		}
+		return m
 	}
+
+	m.AVP = append(m.AVP, setUserName(v.IMSI))
+
 	if v.ServingNode[0].Address.Length() != 0 {
 		m.AVP = append(m.AVP, setServingNode(
 			v.ServingNode[0].NodeType,
 			v.ServingNode[0].Address,
-			v.ServingNode[0].Name,
+			v.ServingNode[0].Host,
 			v.ServingNode[0].Realm))
+		if v.ServingNode[0].NodeType == NodeMSC && v.ServingNode[0].LMSI != 0 {
+			m.AVP = append(m.AVP, setLMSI(v.ServingNode[0].LMSI))
+		}
+
+		if v.ServingNode[1].Address.Length() != 0 &&
+			v.ServingNode[0].NodeType != v.ServingNode[1].NodeType {
+			m.AVP = append(m.AVP, setAdditionalServingNode(
+				v.ServingNode[1].NodeType,
+				v.ServingNode[1].Address,
+				v.ServingNode[1].Host,
+				v.ServingNode[1].Realm))
+			if v.ServingNode[1].NodeType == NodeMSC && v.ServingNode[1].LMSI != 0 {
+				m.AVP = append(m.AVP, setLMSI(v.ServingNode[1].LMSI))
+			}
+		}
 	}
-	if v.ServingNode[1].Address.Length() != 0 {
-		m.AVP = append(m.AVP, setAdditionalServingNode(
-			v.ServingNode[1].NodeType,
-			v.ServingNode[1].Address,
-			v.ServingNode[1].Name,
-			v.ServingNode[1].Realm))
-	}
-	if v.LMSI != 0 {
-		m.AVP = append(m.AVP, setLMSI(v.LMSI))
-	}
-	if v.User.MSISDN.Length() != 0 {
-		m.AVP = append(m.AVP, setUserIdentifier(v.User.MSISDN))
+	if v.MWDStat.MSISDN.Length() != 0 {
+		m.AVP = append(m.AVP, setUserIdentifier(v.MWDStat.MSISDN))
 	}
 	if v.MWDStat.NoSCAddr || v.MWDStat.MNRF || v.MWDStat.MCEF || v.MWDStat.MNRG {
 		m.AVP = append(m.AVP, setMWDStatus(
 			v.MWDStat.NoSCAddr, v.MWDStat.MNRF, v.MWDStat.MCEF, v.MWDStat.MNRG))
 	}
-	if v.MMEAbsentUserDiagnosticSM != 0 {
-		m.AVP = append(m.AVP,
-			setMMEAbsentUserDiagnosticSM(v.MMEAbsentUserDiagnosticSM))
+	if v.AbsentUserDiag.MME != 0 {
+		m.AVP = append(m.AVP, setMMEAbsentUserDiagnosticSM(v.AbsentUserDiag.MME))
 	}
-	if v.MSCAbsentUserDiagnosticSM != 0 {
-		m.AVP = append(m.AVP,
-			setMSCAbsentUserDiagnosticSM(v.MSCAbsentUserDiagnosticSM))
+	if v.AbsentUserDiag.MSC != 0 {
+		m.AVP = append(m.AVP, setMSCAbsentUserDiagnosticSM(v.AbsentUserDiag.MSC))
 	}
-	if v.SGSNAbsentUserDiagnosticSM != 0 {
-		m.AVP = append(m.AVP,
-			setSGSNAbsentUserDiagnosticSM(v.SGSNAbsentUserDiagnosticSM))
-	}
-	if len(v.FailedAVP) != 0 {
-		m.AVP = append(m.AVP, dia.SetFailedAVP(v.FailedAVP))
+	if v.AbsentUserDiag.SGSN != 0 {
+		m.AVP = append(m.AVP, setSGSNAbsentUserDiagnosticSM(v.AbsentUserDiag.SGSN))
 	}
 	return m
 }
@@ -367,6 +381,7 @@ func (SRA) FromRaw(m dia.RawMsg) (dia.Answer, string, error) {
 	}
 
 	v := SRA{}
+	lmsi := uint32(0)
 	for _, a := range m.AVP {
 		if a.VenID == 0 && a.Code == 263 {
 			s, e = dia.GetSessionID(a)
@@ -380,35 +395,54 @@ func (SRA) FromRaw(m dia.RawMsg) (dia.Answer, string, error) {
 			v.OriginRealm, e = dia.GetOriginRealm(a)
 
 		} else if a.VenID == 0 && a.Code == 1 {
-			v.User.IMSI, e = getUserName(a)
+			v.IMSI, e = getUserName(a)
 		} else if a.VenID == 10415 && a.Code == 3102 {
-			v.User.MSISDN, e = getUserIdentifier(a)
+			v.MWDStat.MSISDN, e = getUserIdentifier(a)
 		} else if a.VenID == 10415 && a.Code == 2401 {
 			v.ServingNode[0].NodeType, v.ServingNode[0].Address,
-				v.ServingNode[0].Name, v.ServingNode[0].Realm, e = getServingNode(a)
+				v.ServingNode[0].Host, v.ServingNode[0].Realm, e = getServingNode(a)
 		} else if a.VenID == 10415 && a.Code == 2406 {
 			v.ServingNode[1].NodeType, v.ServingNode[1].Address,
-				v.ServingNode[1].Name, v.ServingNode[1].Realm, e = getAdditionalServingNode(a)
+				v.ServingNode[1].Host, v.ServingNode[1].Realm, e = getAdditionalServingNode(a)
 		} else if a.VenID == 10415 && a.Code == 2400 {
-			v.LMSI, e = getLMSI(a)
+			lmsi, e = getLMSI(a)
 		} else if a.VenID == 10415 && a.Code == 3312 {
 			v.MWDStat.NoSCAddr, v.MWDStat.MNRF, v.MWDStat.MCEF, v.MWDStat.MNRG, e = getMWDStatus(a)
 
 		} else if a.VenID == 10415 && a.Code == 3313 {
-			v.MMEAbsentUserDiagnosticSM, e = getMMEAbsentUserDiagnosticSM(a)
+			v.AbsentUserDiag.MME, e = getMMEAbsentUserDiagnosticSM(a)
 		} else if a.VenID == 10415 && a.Code == 3314 {
-			v.MSCAbsentUserDiagnosticSM, e = getMSCAbsentUserDiagnosticSM(a)
+			v.AbsentUserDiag.MSC, e = getMSCAbsentUserDiagnosticSM(a)
 		} else if a.VenID == 10415 && a.Code == 3315 {
-			v.SGSNAbsentUserDiagnosticSM, e = getSGSNAbsentUserDiagnosticSM(a)
+			v.AbsentUserDiag.SGSN, e = getSGSNAbsentUserDiagnosticSM(a)
 		}
 		if e != nil {
 			return nil, s, e
 		}
 	}
 
-	if len(v.OriginHost) == 0 ||
-		len(v.OriginRealm) == 0 {
+	if lmsi != 0 {
+		if v.ServingNode[0].NodeType == NodeMSC {
+			v.ServingNode[0].LMSI = lmsi
+		}
+		if v.ServingNode[1].NodeType == NodeMSC {
+			v.ServingNode[1].LMSI = lmsi
+		}
+	}
+
+	if v.ResultCode == 0 ||
+		len(v.OriginHost) == 0 || len(v.OriginRealm) == 0 {
 		e = dia.NoMandatoryAVP{}
+	}
+	if v.ResultCode == dia.DiameterSuccess {
+		if v.IMSI.Length() == 0 {
+			e = dia.NoMandatoryAVP{}
+		} else if v.ServingNode[0].Address.Length() == 0 {
+			e = dia.NoMandatoryAVP{}
+		} else if v.ServingNode[1].Address.Length() != 0 &&
+			v.ServingNode[0].NodeType == v.ServingNode[1].NodeType {
+			e = dia.InvalidAVP(dia.DiameterInvalidAvpValue)
+		}
 	}
 	return v, s, e
 }
