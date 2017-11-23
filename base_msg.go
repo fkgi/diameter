@@ -169,11 +169,11 @@ func (CER) FromRaw(m RawMsg) (Request, string, error) {
 func (v CER) Failed(c uint32) Answer {
 	return CEA{
 		ResultCode:    c,
-		OriginHost:    v.OriginHost,
-		OriginRealm:   v.OriginRealm,
+		OriginHost:    Host,
+		OriginRealm:   Realm,
 		HostIPAddress: v.HostIPAddress,
-		VendorID:      v.VendorID,
-		ProductName:   v.ProductName}
+		VendorID:      VendorID,
+		ProductName:   ProductName}
 }
 
 /*
@@ -438,8 +438,8 @@ func (DPR) FromRaw(m RawMsg) (Request, string, error) {
 func (v DPR) Failed(c uint32) Answer {
 	return DPA{
 		ResultCode:  c,
-		OriginHost:  v.OriginHost,
-		OriginRealm: v.OriginRealm}
+		OriginHost:  Host,
+		OriginRealm: Realm}
 }
 
 /*
@@ -605,8 +605,8 @@ func (DWR) FromRaw(m RawMsg) (Request, string, error) {
 func (v DWR) Failed(c uint32) Answer {
 	return DWA{
 		ResultCode:  c,
-		OriginHost:  v.OriginHost,
-		OriginRealm: v.OriginRealm}
+		OriginHost:  Host,
+		OriginRealm: Realm}
 }
 
 /*

@@ -3,7 +3,6 @@ package ts29338
 import (
 	"bytes"
 	"encoding/binary"
-	"log"
 
 	dia "github.com/fkgi/diameter"
 	"github.com/fkgi/sms"
@@ -38,7 +37,6 @@ func getMSISDN(a dia.RawAVP) (v teldata.E164, e error) {
 		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(s); e == nil {
 		v, e = teldata.ToE164(*s)
-		log.Println(v)
 	}
 	return
 }

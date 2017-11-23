@@ -200,8 +200,8 @@ func (SRR) FromRaw(m dia.RawMsg) (dia.Request, string, error) {
 func (v SRR) Failed(c uint32) dia.Answer {
 	return SRA{
 		ResultCode:  c,
-		OriginHost:  v.OriginHost,
-		OriginRealm: v.OriginRealm}
+		OriginHost:  dia.Host,
+		OriginRealm: dia.Realm}
 }
 
 /*
@@ -276,11 +276,11 @@ func (v SRA) String() string {
 	for i := 0; i < 2; i++ {
 		switch v.ServingNode[i].NodeType {
 		case NodeSGSN:
-			fmt.Fprintf(w, "%sServing-Node(SGSN)\n", dia.Indent)
+			fmt.Fprintf(w, "%sServing-Node#%d(SGSN)\n", dia.Indent, i+1)
 		case NodeMME:
-			fmt.Fprintf(w, "%sServing-Node(MME)\n", dia.Indent)
+			fmt.Fprintf(w, "%sServing-Node#%d(MME)\n", dia.Indent, i+1)
 		case NodeMSC:
-			fmt.Fprintf(w, "%sServing-Node(MSC)\n", dia.Indent)
+			fmt.Fprintf(w, "%sServing-Node#%d(MSC)\n", dia.Indent, i+1)
 		}
 		fmt.Fprintf(w, "%s%sAddress =%s\n", dia.Indent, dia.Indent, v.ServingNode[i].Address)
 		fmt.Fprintf(w, "%s%sHost    =%s\n", dia.Indent, dia.Indent, v.ServingNode[i].Host)

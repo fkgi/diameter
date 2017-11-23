@@ -15,7 +15,7 @@ func getSCAddress(a dia.RawAVP) (v teldata.E164, e error) {
 	s := new(string)
 	if !a.FlgV || !a.FlgM || a.FlgP {
 		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
-	} else if e = a.Decode(s); e != nil {
+	} else if e = a.Decode(s); e == nil {
 		v, e = teldata.ParseE164(*s)
 	}
 	return
