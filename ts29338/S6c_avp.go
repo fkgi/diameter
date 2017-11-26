@@ -484,6 +484,22 @@ func getSGSNAbsentUserDiagnosticSM(a dia.RawAVP) (v uint32, e error) {
 	return
 }
 
+// AbsentUserDiagnosticSM AVP shall indicate the diagnostic explaining the absence of the subscriber.
+func setAbsentUserDiagnosticSM(v uint32) (a dia.RawAVP) {
+	a = dia.RawAVP{Code: 3322, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
+	a.Encode(v)
+	return
+}
+
+func getAbsentUserDiagnosticSM(a dia.RawAVP) (v uint32, e error) {
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+	} else {
+		e = a.Decode(&v)
+	}
+	return
+}
+
 /*
 // SMDeliveryOutcome AVP contains the result of the SM delivery.
 type SMDeliveryOutcome struct {
@@ -619,32 +635,6 @@ func (v *SMDeliveryCause) FromRaw(a dia.RawAVP) (e error) {
 	return
 }
 
-// AbsentUserDiagnosticSM AVP shall indicate the diagnostic
-// explaining the absence of the subscriber.
-type AbsentUserDiagnosticSM uint32
-
-// ToRaw return AVP struct of this value
-func (v *AbsentUserDiagnosticSM) ToRaw() dia.RawAVP {
-	a := dia.RawAVP{Code: 3322, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
-	if v != nil {
-		a.Encode(uint32(*v))
-	}
-	return a
-}
-
-// FromRaw get AVP value
-func (v *AbsentUserDiagnosticSM) FromRaw(a dia.RawAVP) (e error) {
-	if e = a.Validate(10415, 3322, true, true, false); e != nil {
-		return
-	}
-	s := new(uint32)
-	if e = a.Decode(s); e != nil {
-		return
-	}
-	*v = AbsentUserDiagnosticSM(*s)
-	return
-}
 
 // RDRFlags AVP contain a bit mask.
 // SingleAttemptDelivery indicates that only one delivery attempt

@@ -206,7 +206,7 @@ func SetExperimentalResult(i, c uint32) (a RawAVP) {
 		RawAVP{Code: 266, VenID: 0, FlgV: false, FlgM: true, FlgP: false},
 		RawAVP{Code: 298, VenID: 0, FlgV: false, FlgM: true, FlgP: false}}
 	v[0].Encode(i)
-	v[1].Encode(c)
+	v[1].Encode(c - ResultOffset)
 	a.Encode(v)
 	return
 }
@@ -235,6 +235,7 @@ func GetExperimentalResult(a RawAVP) (i, c uint32, e error) {
 				e = InvalidAVP(DiameterInvalidAvpBits)
 			} else {
 				e = a.Decode(&c)
+				c += ResultOffset
 			}
 		}
 	}

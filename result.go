@@ -1,6 +1,9 @@
 package diameter
 
 const (
+	// ResultOffset is offset value
+	ResultOffset uint32 = 4294900000
+
 	// DiameterMultiRoundAuth is Result-Code 1001
 	DiameterMultiRoundAuth uint32 = 1001
 

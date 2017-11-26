@@ -119,14 +119,10 @@ func (v SRR) ToRaw(s string) dia.RawMsg {
 	} else if v.IMSI.Length() != 0 {
 		m.AVP = append(m.AVP, setUserName(v.IMSI))
 	} else {
-		m.AVP = append(m.AVP, setMSISDN(teldata.E164{}))
+		m.AVP = append(m.AVP, setMSISDN(v.MSISDN))
 	}
+	m.AVP = append(m.AVP, setSCAddress(v.SCAddress))
 
-	if v.SCAddress.Length() != 0 {
-		m.AVP = append(m.AVP, setSCAddress(v.SCAddress))
-	} else {
-		m.AVP = append(m.AVP, setSCAddress(teldata.E164{}))
-	}
 	if v.MTType != UnknownMT {
 		m.AVP = append(m.AVP, setSMRPMTI(v.MTType))
 	}
@@ -268,7 +264,12 @@ type SRA struct {
 func (v SRA) String() string {
 	w := new(bytes.Buffer)
 
-	fmt.Fprintf(w, "%sResult-Code       =%d\n", dia.Indent, v.ResultCode)
+	if v.ResultCode > dia.ResultOffset {
+		fmt.Fprintf(w, "%sExp-Result-Code   =%d\n", dia.Indent, v.ResultCode-dia.ResultOffset)
+
+	} else {
+		fmt.Fprintf(w, "%sResult-Code       =%d\n", dia.Indent, v.ResultCode)
+	}
 	fmt.Fprintf(w, "%sOrigin-Host       =%s\n", dia.Indent, v.OriginHost)
 	fmt.Fprintf(w, "%sOrigin-Realm      =%s\n", dia.Indent, v.OriginRealm)
 
@@ -297,8 +298,8 @@ func (v SRA) String() string {
 
 	fmt.Fprintf(w, "%sAbsent User Diagnostics for SM\n", dia.Indent)
 	fmt.Fprintf(w, "%s%sMME  =%d\n", dia.Indent, dia.Indent, v.AbsentUserDiag.MME)
-	fmt.Fprintf(w, "%s%sMME  =%d\n", dia.Indent, dia.Indent, v.AbsentUserDiag.MSC)
-	fmt.Fprintf(w, "%s%sMME  =%d\n", dia.Indent, dia.Indent, v.AbsentUserDiag.SGSN)
+	fmt.Fprintf(w, "%s%sMSC  =%d\n", dia.Indent, dia.Indent, v.AbsentUserDiag.MSC)
+	fmt.Fprintf(w, "%s%sSGSN =%d\n", dia.Indent, dia.Indent, v.AbsentUserDiag.SGSN)
 
 	return w.String()
 }
@@ -313,7 +314,7 @@ func (v SRA) ToRaw(s string) dia.RawMsg {
 
 	m.AVP = append(m.AVP, dia.SetSessionID(s))
 	m.AVP = append(m.AVP, dia.SetVendorSpecAppID(10415, 16777312))
-	if v.ResultCode >= 5000 && v.ResultCode <= 5999 {
+	if v.ResultCode > dia.ResultOffset {
 		m.AVP = append(m.AVP, dia.SetExperimentalResult(10415, v.ResultCode))
 	} else {
 		m.AVP = append(m.AVP, dia.SetResultCode(v.ResultCode))
