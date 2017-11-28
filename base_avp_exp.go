@@ -200,19 +200,19 @@ func GetOriginRealm(a RawAVP) (v Identity, e error) {
 }
 
 // SetExperimentalResult make Experimental-Result AVP
-func SetExperimentalResult(i, c uint32) (a RawAVP) {
+func SetExperimentalResult(c uint32) (a RawAVP) {
 	a = RawAVP{Code: 297, VenID: 0, FlgV: false, FlgM: true, FlgP: false}
 	v := []RawAVP{
 		RawAVP{Code: 266, VenID: 0, FlgV: false, FlgM: true, FlgP: false},
 		RawAVP{Code: 298, VenID: 0, FlgV: false, FlgM: true, FlgP: false}}
-	v[0].Encode(i)
-	v[1].Encode(c - ResultOffset)
+	v[0].Encode(c / 10000)
+	v[1].Encode(c % 10000)
 	a.Encode(v)
 	return
 }
 
 // GetExperimentalResult read Experimental-Result AVP
-func GetExperimentalResult(a RawAVP) (i, c uint32, e error) {
+func GetExperimentalResult(a RawAVP) (c uint32, e error) {
 	o := []RawAVP{}
 	if a.FlgV || !a.FlgM || a.FlgP {
 		e = InvalidAVP(DiameterInvalidAvpBits)
@@ -228,18 +228,21 @@ func GetExperimentalResult(a RawAVP) (i, c uint32, e error) {
 			if a.FlgV || !a.FlgM || a.FlgP {
 				e = InvalidAVP(DiameterInvalidAvpBits)
 			} else {
+				var i uint32
 				e = a.Decode(&i)
+				c += i * 10000
 			}
 		case 298:
 			if a.FlgV || !a.FlgM || a.FlgP {
 				e = InvalidAVP(DiameterInvalidAvpBits)
 			} else {
-				e = a.Decode(&c)
-				c += ResultOffset
+				var r uint32
+				e = a.Decode(&r)
+				c += r
 			}
 		}
 	}
-	if i == 0 || c == 0 {
+	if c < 10000 || c%10000 == 0 {
 		e = NoMandatoryAVP{}
 	}
 	return

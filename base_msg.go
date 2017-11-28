@@ -108,29 +108,30 @@ func (CER) FromRaw(m RawMsg) (Request, string, error) {
 		ApplicationID: make(map[uint32][]uint32, 5)}
 
 	for _, a := range m.AVP {
-		if a.VenID == 0 && a.Code == 264 {
+		switch a.Code {
+		case 264:
 			v.OriginHost, e = GetOriginHost(a)
-		} else if a.VenID == 0 && a.Code == 296 {
+		case 296:
 			v.OriginRealm, e = GetOriginRealm(a)
-		} else if a.VenID == 0 && a.Code == 257 {
-			if t, e2 := getHostIPAddress(a); e2 == nil {
-				v.HostIPAddress = append(v.HostIPAddress, t)
-			} else {
+		case 257:
+			if t, e2 := getHostIPAddress(a); e2 != nil {
 				e = e2
+			} else {
+				v.HostIPAddress = append(v.HostIPAddress, t)
 			}
-		} else if a.VenID == 0 && a.Code == 266 {
+		case 266:
 			v.VendorID, e = getVendorID(a)
-		} else if a.VenID == 0 && a.Code == 269 {
+		case 269:
 			v.ProductName, e = getProductName(a)
-		} else if a.VenID == 0 && a.Code == 278 {
+		case 278:
 			v.OriginStateID, e = getOriginStateID(a)
-		} else if a.VenID == 0 && a.Code == 265 {
+		case 265:
 			if t, e2 := getSupportedVendorID(a); e2 != nil {
 				e = e2
 			} else if _, ok := v.ApplicationID[t]; !ok {
 				v.ApplicationID[t] = []uint32{}
 			}
-		} else if a.VenID == 0 && a.Code == 258 {
+		case 258:
 			if t, e2 := getAuthAppID(a); e2 != nil {
 				e = e2
 			} else if _, ok := v.ApplicationID[0]; !ok {
@@ -138,7 +139,7 @@ func (CER) FromRaw(m RawMsg) (Request, string, error) {
 			} else {
 				v.ApplicationID[0] = append(v.ApplicationID[0], t)
 			}
-		} else if a.VenID == 0 && a.Code == 260 {
+		case 260:
 			if vi, ai, e2 := GetVendorSpecAppID(a); e2 != nil {
 				e = e2
 			} else if _, ok := v.ApplicationID[vi]; !ok {
@@ -146,7 +147,7 @@ func (CER) FromRaw(m RawMsg) (Request, string, error) {
 			} else {
 				v.ApplicationID[vi] = append(v.ApplicationID[vi], ai)
 			}
-		} else if a.VenID == 0 && a.Code == 267 {
+		case 267:
 			v.FirmwareRevision, e = getFirmwareRevision(a)
 		}
 
@@ -171,7 +172,7 @@ func (v CER) Failed(c uint32) Answer {
 		ResultCode:    c,
 		OriginHost:    Host,
 		OriginRealm:   Realm,
-		HostIPAddress: v.HostIPAddress,
+		HostIPAddress: []net.IP{net.IPv4zero},
 		VendorID:      VendorID,
 		ProductName:   ProductName}
 }
@@ -296,35 +297,36 @@ func (CEA) FromRaw(m RawMsg) (Answer, string, error) {
 		ApplicationID: make(map[uint32][]uint32, 5)}
 
 	for _, a := range m.AVP {
-		if a.VenID == 0 && a.Code == 268 {
+		switch a.Code {
+		case 268:
 			v.ResultCode, e = GetResultCode(a)
-		} else if a.VenID == 0 && a.Code == 264 {
+		case 264:
 			v.OriginHost, e = GetOriginHost(a)
-		} else if a.VenID == 0 && a.Code == 296 {
+		case 296:
 			v.OriginRealm, e = GetOriginRealm(a)
-		} else if a.VenID == 0 && a.Code == 257 {
+		case 257:
 			if t, e2 := getHostIPAddress(a); e2 == nil {
 				v.HostIPAddress = append(v.HostIPAddress, t)
 			} else {
 				e = e2
 			}
-		} else if a.VenID == 0 && a.Code == 266 {
+		case 266:
 			v.VendorID, e = getVendorID(a)
-		} else if a.VenID == 0 && a.Code == 269 {
+		case 269:
 			v.ProductName, e = getProductName(a)
-		} else if a.VenID == 0 && a.Code == 278 {
+		case 278:
 			v.OriginStateID, e = getOriginStateID(a)
-		} else if a.VenID == 0 && a.Code == 281 {
+		case 281:
 			v.ErrorMessage, e = getErrorMessage(a)
-		} else if a.VenID == 0 && a.Code == 279 {
+		case 279:
 			v.FailedAVP, e = getFailedAVP(a)
-		} else if a.VenID == 0 && a.Code == 265 {
+		case 265:
 			if t, e2 := getSupportedVendorID(a); e2 != nil {
 				e = e2
 			} else if _, ok := v.ApplicationID[t]; !ok {
 				v.ApplicationID[t] = []uint32{}
 			}
-		} else if a.VenID == 0 && a.Code == 258 {
+		case 258:
 			if t, e2 := getAuthAppID(a); e2 != nil {
 				e = e2
 			} else if _, ok := v.ApplicationID[0]; !ok {
@@ -332,7 +334,7 @@ func (CEA) FromRaw(m RawMsg) (Answer, string, error) {
 			} else {
 				v.ApplicationID[0] = append(v.ApplicationID[0], t)
 			}
-		} else if a.VenID == 0 && a.Code == 260 {
+		case 260:
 			if vi, ai, e2 := GetVendorSpecAppID(a); e2 != nil {
 				e = e2
 			} else if _, ok := v.ApplicationID[vi]; !ok {
@@ -340,7 +342,7 @@ func (CEA) FromRaw(m RawMsg) (Answer, string, error) {
 			} else {
 				v.ApplicationID[vi] = append(v.ApplicationID[vi], ai)
 			}
-		} else if a.VenID == 0 && a.Code == 267 {
+		case 267:
 			v.FirmwareRevision, e = getFirmwareRevision(a)
 		}
 
@@ -413,11 +415,12 @@ func (DPR) FromRaw(m RawMsg) (Request, string, error) {
 	v := DPR{
 		DisconnectCause: -1}
 	for _, a := range m.AVP {
-		if a.VenID == 0 && a.Code == 264 {
+		switch a.Code {
+		case 264:
 			v.OriginHost, e = GetOriginHost(a)
-		} else if a.VenID == 0 && a.Code == 296 {
+		case 296:
 			v.OriginRealm, e = GetOriginRealm(a)
-		} else if a.VenID == 0 && a.Code == 273 {
+		case 273:
 			v.DisconnectCause, e = getDisconnectCause(a)
 		}
 
@@ -504,15 +507,16 @@ func (DPA) FromRaw(m RawMsg) (Answer, string, error) {
 
 	v := DPA{}
 	for _, a := range m.AVP {
-		if a.VenID == 0 && a.Code == 268 {
+		switch a.Code {
+		case 268:
 			v.ResultCode, e = GetResultCode(a)
-		} else if a.VenID == 0 && a.Code == 264 {
+		case 264:
 			v.OriginHost, e = GetOriginHost(a)
-		} else if a.VenID == 0 && a.Code == 296 {
+		case 296:
 			v.OriginRealm, e = GetOriginRealm(a)
-		} else if a.VenID == 0 && a.Code == 281 {
+		case 281:
 			v.ErrorMessage, e = getErrorMessage(a)
-		} else if a.VenID == 0 && a.Code == 279 {
+		case 279:
 			v.FailedAVP, e = getFailedAVP(a)
 		}
 
@@ -582,11 +586,12 @@ func (DWR) FromRaw(m RawMsg) (Request, string, error) {
 
 	v := DWR{}
 	for _, a := range m.AVP {
-		if a.VenID == 0 && a.Code == 264 {
+		switch a.Code {
+		case 264:
 			v.OriginHost, e = GetOriginHost(a)
-		} else if a.VenID == 0 && a.Code == 296 {
+		case 296:
 			v.OriginRealm, e = GetOriginRealm(a)
-		} else if a.VenID == 0 && a.Code == 278 {
+		case 278:
 			v.OriginStateID, e = getOriginStateID(a)
 		}
 
@@ -677,17 +682,18 @@ func (DWA) FromRaw(m RawMsg) (Answer, string, error) {
 
 	v := DWA{}
 	for _, a := range m.AVP {
-		if a.VenID == 0 && a.Code == 268 {
+		switch a.Code {
+		case 268:
 			v.ResultCode, e = GetResultCode(a)
-		} else if a.VenID == 0 && a.Code == 264 {
+		case 264:
 			v.OriginHost, e = GetOriginHost(a)
-		} else if a.VenID == 0 && a.Code == 296 {
+		case 296:
 			v.OriginRealm, e = GetOriginRealm(a)
-		} else if a.VenID == 0 && a.Code == 281 {
+		case 281:
 			v.ErrorMessage, e = getErrorMessage(a)
-		} else if a.VenID == 0 && a.Code == 279 {
+		case 279:
 			v.FailedAVP, e = getFailedAVP(a)
-		} else if a.VenID == 0 && a.Code == 278 {
+		case 278:
 			v.OriginStateID, e = getOriginStateID(a)
 		}
 

@@ -5,11 +5,6 @@ import (
 	"strings"
 )
 
-// HandleMSG is diameter request handler
-var HandleMSG = func(m Request) Answer {
-	return nil
-}
-
 // MakeCER returns new CER
 var MakeCER = defaultMakeCER
 

@@ -10,7 +10,7 @@ import (
 var (
 	TxBuffer = 65535
 	RxBuffer = 65535
-	Workers  = 1
+	//	Workers  = 1
 
 	VendorID         uint32 = 41102
 	ProductName             = "yatagarasu"

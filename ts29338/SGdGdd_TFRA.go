@@ -141,36 +141,37 @@ func (TFR) FromRaw(m dia.RawMsg) (dia.Request, string, error) {
 
 	v := TFR{}
 	for _, a := range m.AVP {
-		if a.VenID == 0 && a.Code == 263 {
+		switch a.Code {
+		case 263:
 			s, e = dia.GetSessionID(a)
-		} else if a.VenID == 0 && a.Code == 264 {
+		case 264:
 			v.OriginHost, e = dia.GetOriginHost(a)
-		} else if a.VenID == 0 && a.Code == 296 {
+		case 296:
 			v.OriginRealm, e = dia.GetOriginRealm(a)
-		} else if a.VenID == 0 && a.Code == 293 {
+		case 293:
 			v.DestinationHost, e = dia.GetDestinationHost(a)
-		} else if a.VenID == 0 && a.Code == 283 {
+		case 283:
 			v.DestinationRealm, e = dia.GetDestinationRealm(a)
 
-		} else if a.VenID == 0 && a.Code == 1 {
+		case 1:
 			v.IMSI, e = getUserName(a)
-		} else if a.VenID == 10415 && a.Code == 3300 {
+		case 3300:
 			v.SCAddress, e = getSCAddress(a)
-		} else if a.VenID == 10415 && a.Code == 3301 {
+		case 3301:
 			v.SMSPDU, e = getSMRPUIasDeliver(a)
-		} else if a.VenID == 10415 && a.Code == 1645 {
+		case 1645:
 			v.MMEAddress, e = getMMENumberForMTSMS(a)
-		} else if a.VenID == 10415 && a.Code == 1489 {
+		case 1489:
 			v.SGSNAddress, e = getSGSNNumber(a)
-		} else if a.VenID == 10415 && a.Code == 3302 {
+		case 3302:
 			v.Flags.MMS, e = getTFRFlags(a)
-		} else if a.VenID == 10415 && a.Code == 3306 {
+		case 3306:
 			v.DeliveryTimer, e = getSMDeliveryTimer(a)
-		} else if a.VenID == 10415 && a.Code == 3307 {
+		case 3307:
 			v.DeliveryStartTime, e = getSMDeliveryStartTime(a)
-		} else if a.VenID == 10415 && a.Code == 3330 {
+		case 3330:
 			v.MaxRetransTime, e = getMaximumRetransmissionTime(a)
-		} else if a.VenID == 10415 && a.Code == 3332 {
+		case 3332:
 			v.SMSGMSCAddress, e = getSMSGMSCAddress(a)
 		}
 
@@ -225,7 +226,7 @@ type TFA struct {
 
 	SMSPDU sms.DeliverReport
 
-	AbsentUserDiag uint32
+	AbsentUserDiag AbsentDiag
 	DeliveryFailureCause
 	ReqRetransTime time.Time
 
@@ -235,9 +236,8 @@ type TFA struct {
 func (v TFA) String() string {
 	w := new(bytes.Buffer)
 
-	if v.ResultCode > dia.ResultOffset {
-		fmt.Fprintf(w, "%sExp-Result-Code   =%d\n", dia.Indent, v.ResultCode-dia.ResultOffset)
-
+	if v.ResultCode > 10000 {
+		fmt.Fprintf(w, "%sExp-Result-Code   =%d:%d\n", dia.Indent, v.ResultCode/10000, v.ResultCode%10000)
 	} else {
 		fmt.Fprintf(w, "%sResult-Code       =%d\n", dia.Indent, v.ResultCode)
 	}
@@ -278,8 +278,8 @@ func (v TFA) ToRaw(s string) dia.RawMsg {
 
 	m.AVP = append(m.AVP, dia.SetSessionID(s))
 	m.AVP = append(m.AVP, dia.SetVendorSpecAppID(10415, 16777312))
-	if v.ResultCode > dia.ResultOffset {
-		m.AVP = append(m.AVP, dia.SetExperimentalResult(10415, v.ResultCode))
+	if v.ResultCode > 10000 {
+		m.AVP = append(m.AVP, dia.SetExperimentalResult(v.ResultCode))
 	} else {
 		m.AVP = append(m.AVP, dia.SetResultCode(v.ResultCode))
 	}
@@ -312,15 +312,16 @@ func (TFA) FromRaw(m dia.RawMsg) (dia.Answer, string, error) {
 
 	v := TFA{}
 	for _, a := range m.AVP {
-		if a.VenID == 0 && a.Code == 263 {
+		switch a.Code {
+		case 263:
 			s, e = dia.GetSessionID(a)
-		} else if a.VenID == 0 && a.Code == 268 {
+		case 268:
 			v.ResultCode, e = dia.GetResultCode(a)
-		} else if a.VenID == 0 && a.Code == 297 {
-			_, v.ResultCode, e = dia.GetExperimentalResult(a)
-		} else if a.VenID == 0 && a.Code == 264 {
+		case 297:
+			v.ResultCode, e = dia.GetExperimentalResult(a)
+		case 264:
 			v.OriginHost, e = dia.GetOriginHost(a)
-		} else if a.VenID == 0 && a.Code == 296 {
+		case 296:
 			v.OriginRealm, e = dia.GetOriginRealm(a)
 		}
 		if e != nil {
@@ -330,7 +331,8 @@ func (TFA) FromRaw(m dia.RawMsg) (dia.Answer, string, error) {
 	switch v.ResultCode {
 	case dia.DiameterSuccess:
 		for _, a := range m.AVP {
-			if a.VenID == 10415 && a.Code == 3301 {
+			switch a.Code {
+			case 3301:
 				v.SMSPDU, e = getSMRPUIasDeliverReport(a)
 			}
 			if e != nil {
@@ -339,9 +341,10 @@ func (TFA) FromRaw(m dia.RawMsg) (dia.Answer, string, error) {
 		}
 	case DiameterErrorAbsentUser:
 		for _, a := range m.AVP {
-			if a.VenID == 10415 && a.Code == 3322 {
+			switch a.Code {
+			case 3322:
 				v.AbsentUserDiag, e = getAbsentUserDiagnosticSM(a)
-			} else if a.VenID == 10415 && a.Code == 3331 {
+			case 3331:
 				v.ReqRetransTime, e = getRequestedRetransmissionTime(a)
 			}
 			if e != nil {
@@ -350,7 +353,8 @@ func (TFA) FromRaw(m dia.RawMsg) (dia.Answer, string, error) {
 		}
 	case DiameterErrorSmDeliveryFailure:
 		for _, a := range m.AVP {
-			if a.VenID == 10415 && a.Code == 3303 {
+			switch a.Code {
+			case 3303:
 				v.DeliveryFailureCause, v.SMSPDU, e = getSMDeliveryFailureCause(a)
 			}
 			if e != nil {

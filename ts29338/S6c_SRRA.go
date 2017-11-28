@@ -151,30 +151,31 @@ func (SRR) FromRaw(m dia.RawMsg) (dia.Request, string, error) {
 
 	v := SRR{}
 	for _, a := range m.AVP {
-		if a.VenID == 0 && a.Code == 263 {
+		switch a.Code {
+		case 263:
 			s, e = dia.GetSessionID(a)
-		} else if a.VenID == 0 && a.Code == 264 {
+		case 264:
 			v.OriginHost, e = dia.GetOriginHost(a)
-		} else if a.VenID == 0 && a.Code == 296 {
+		case 296:
 			v.OriginRealm, e = dia.GetOriginRealm(a)
-		} else if a.VenID == 0 && a.Code == 293 {
+		case 293:
 			v.DestinationHost, e = dia.GetDestinationHost(a)
-		} else if a.VenID == 0 && a.Code == 283 {
+		case 283:
 			v.DestinationRealm, e = dia.GetDestinationRealm(a)
 
-		} else if a.VenID == 10415 && a.Code == 701 {
+		case 701:
 			v.MSISDN, e = getMSISDN(a)
-		} else if a.VenID == 0 && a.Code == 1 {
+		case 1:
 			v.IMSI, e = getUserName(a)
-		} else if a.VenID == 10415 && a.Code == 3300 {
+		case 3300:
 			v.SCAddress, e = getSCAddress(a)
-		} else if a.VenID == 10415 && a.Code == 3308 {
+		case 3308:
 			v.MTType, e = getSMRPMTI(a)
-		} else if a.VenID == 10415 && a.Code == 3309 {
+		case 3309:
 			v.SMEAddr, e = getSMRPSMEA(a)
-		} else if a.VenID == 10415 && a.Code == 3310 {
+		case 3310:
 			v.Flags.GPRSSupport, v.Flags.SingleAttempt, v.Flags.Prioritized, e = getSRRFlags(a)
-		} else if a.VenID == 10415 && a.Code == 3311 {
+		case 3311:
 			v.RequiredInfo, e = getSMDeliveryNotIntended(a)
 		}
 
@@ -251,9 +252,9 @@ type SRA struct {
 		MNRG     bool
 	}
 	AbsentUserDiag struct { // for Inform-SC
-		MME  uint32
-		MSC  uint32
-		SGSN uint32
+		MME  AbsentDiag
+		MSC  AbsentDiag
+		SGSN AbsentDiag
 	}
 
 	FailedAVP []dia.RawAVP
@@ -264,9 +265,8 @@ type SRA struct {
 func (v SRA) String() string {
 	w := new(bytes.Buffer)
 
-	if v.ResultCode > dia.ResultOffset {
-		fmt.Fprintf(w, "%sExp-Result-Code   =%d\n", dia.Indent, v.ResultCode-dia.ResultOffset)
-
+	if v.ResultCode > 10000 {
+		fmt.Fprintf(w, "%sExp-Result-Code   =%d:%d\n", dia.Indent, v.ResultCode/10000, v.ResultCode%10000)
 	} else {
 		fmt.Fprintf(w, "%sResult-Code       =%d\n", dia.Indent, v.ResultCode)
 	}
@@ -314,8 +314,8 @@ func (v SRA) ToRaw(s string) dia.RawMsg {
 
 	m.AVP = append(m.AVP, dia.SetSessionID(s))
 	m.AVP = append(m.AVP, dia.SetVendorSpecAppID(10415, 16777312))
-	if v.ResultCode > dia.ResultOffset {
-		m.AVP = append(m.AVP, dia.SetExperimentalResult(10415, v.ResultCode))
+	if v.ResultCode > 10000 {
+		m.AVP = append(m.AVP, dia.SetExperimentalResult(v.ResultCode))
 	} else {
 		m.AVP = append(m.AVP, dia.SetResultCode(v.ResultCode))
 	}
@@ -361,13 +361,13 @@ func (v SRA) ToRaw(s string) dia.RawMsg {
 		m.AVP = append(m.AVP, setMWDStatus(
 			v.MWDStat.NoSCAddr, v.MWDStat.MNRF, v.MWDStat.MCEF, v.MWDStat.MNRG))
 	}
-	if v.AbsentUserDiag.MME != 0 {
+	if v.AbsentUserDiag.MME != NoAbsentDiag {
 		m.AVP = append(m.AVP, setMMEAbsentUserDiagnosticSM(v.AbsentUserDiag.MME))
 	}
-	if v.AbsentUserDiag.MSC != 0 {
+	if v.AbsentUserDiag.MSC != NoAbsentDiag {
 		m.AVP = append(m.AVP, setMSCAbsentUserDiagnosticSM(v.AbsentUserDiag.MSC))
 	}
-	if v.AbsentUserDiag.SGSN != 0 {
+	if v.AbsentUserDiag.SGSN != NoAbsentDiag {
 		m.AVP = append(m.AVP, setSGSNAbsentUserDiagnosticSM(v.AbsentUserDiag.SGSN))
 	}
 	return m
@@ -384,37 +384,38 @@ func (SRA) FromRaw(m dia.RawMsg) (dia.Answer, string, error) {
 	v := SRA{}
 	lmsi := uint32(0)
 	for _, a := range m.AVP {
-		if a.VenID == 0 && a.Code == 263 {
+		switch a.Code {
+		case 263:
 			s, e = dia.GetSessionID(a)
-		} else if a.VenID == 0 && a.Code == 268 {
+		case 268:
 			v.ResultCode, e = dia.GetResultCode(a)
-		} else if a.VenID == 0 && a.Code == 297 {
-			_, v.ResultCode, e = dia.GetExperimentalResult(a)
-		} else if a.VenID == 0 && a.Code == 264 {
+		case 297:
+			v.ResultCode, e = dia.GetExperimentalResult(a)
+		case 264:
 			v.OriginHost, e = dia.GetOriginHost(a)
-		} else if a.VenID == 0 && a.Code == 296 {
+		case 296:
 			v.OriginRealm, e = dia.GetOriginRealm(a)
 
-		} else if a.VenID == 0 && a.Code == 1 {
+		case 1:
 			v.IMSI, e = getUserName(a)
-		} else if a.VenID == 10415 && a.Code == 3102 {
+		case 3102:
 			v.MWDStat.MSISDN, e = getUserIdentifier(a)
-		} else if a.VenID == 10415 && a.Code == 2401 {
+		case 2401:
 			v.ServingNode[0].NodeType, v.ServingNode[0].Address,
 				v.ServingNode[0].Host, v.ServingNode[0].Realm, e = getServingNode(a)
-		} else if a.VenID == 10415 && a.Code == 2406 {
+		case 2406:
 			v.ServingNode[1].NodeType, v.ServingNode[1].Address,
 				v.ServingNode[1].Host, v.ServingNode[1].Realm, e = getAdditionalServingNode(a)
-		} else if a.VenID == 10415 && a.Code == 2400 {
+		case 2400:
 			lmsi, e = getLMSI(a)
-		} else if a.VenID == 10415 && a.Code == 3312 {
+		case 3312:
 			v.MWDStat.NoSCAddr, v.MWDStat.MNRF, v.MWDStat.MCEF, v.MWDStat.MNRG, e = getMWDStatus(a)
 
-		} else if a.VenID == 10415 && a.Code == 3313 {
+		case 3313:
 			v.AbsentUserDiag.MME, e = getMMEAbsentUserDiagnosticSM(a)
-		} else if a.VenID == 10415 && a.Code == 3314 {
+		case 3314:
 			v.AbsentUserDiag.MSC, e = getMSCAbsentUserDiagnosticSM(a)
-		} else if a.VenID == 10415 && a.Code == 3315 {
+		case 3315:
 			v.AbsentUserDiag.SGSN, e = getSGSNAbsentUserDiagnosticSM(a)
 		}
 		if e != nil {
@@ -452,83 +453,3 @@ func (SRA) FromRaw(m dia.RawMsg) (dia.Answer, string, error) {
 func (v SRA) Result() uint32 {
 	return v.ResultCode
 }
-
-/*
-AlertServiceCentreRequest is ALR message.
- <ALR> ::= < Diameter Header: 8388648, REQ, PXY, 16777312 >
-           < Session-Id >
-           [ DRMP ]
-           [ Vendor-Specific-Application-Id ]
-           { Auth-Session-State }
-           { Origin-Host }
-           { Origin-Realm }
-           [ Destination-Host ]
-           { Destination-Realm }
-           { SC-Address }
-           { User-Identifier }
-           [ SMSMI-Correlation-ID ]
-           [ Maximum-UE-Availability-Time ]
-           [ SMS-GMSC-Alert-Event ]
-           [ Serving-Node ]
-         * [ Supported-Features ]
-         * [ AVP ]
-         * [ Proxy-Info ]
-         * [ Route-Record ]
-*/
-/*
- AlertServiceCentreAnswer is ALA message.
- <ALA> ::= < Diameter Header: 8388648, PXY, 16777312 >
-           < Session-Id >
-           [ DRMP ]
-           [ Vendor-Specific-Application-Id ]
-           [ Result-Code ]
-           [ Experimental-Result ]
-           { Auth-Session-State }
-           { Origin-Host }
-           { Origin-Realm }
-         * [ Supported-Features ]
-         * [ AVP ]
-         * [ Failed-AVP ]
-         * [ Proxy-Info ]
-         * [ Route-Record ]
-*/
-
-/*
-ReportSMDeliveryStatusRequest is RDR message.
- <RDR> ::= < Diameter Header: 8388649, REQ, PXY, 16777312 >
-           < Session-Id >
-           [ DRMP ]
-           [ Vendor-Specific-Application-Id ]
-           { Auth-Session-State }
-           { Origin-Host }
-           { Origin-Realm }
-           [ Destination-Host ]
-           { Destination-Realm }
-         * [ Supported-Features ]
-           { User-Identifier }
-           [ SMSMI-Correlation-ID ]
-           { SC-Address }
-           { SM-Delivery-Outcome }
-           [ RDR-Flags ]
-         * [ AVP ]
-         * [ Proxy-Info ]
-         * [ Route-Record ]
-*/
-/*
-ReportSMDeliveryStatusAnswer is RDA message.
- <RDA> ::= < Diameter Header: 8388649, PXY, 16777312 >
-           < Session-Id >
-           [ DRMP ]
-           [ Vendor-Specific-Application-Id ]
-           [ Result-Code ]
-           [ Experimental-Result ]
-           { Auth-Session-State }
-           { Origin-Host }
-           { Origin-Realm }
-         * [ Supported-Features ]
-           [ User-Identifier ]
-         * [ AVP ]
-         * [ Failed-AVP ]
-         * [ Proxy-Info ]
-         * [ Route-Record ]
-*/

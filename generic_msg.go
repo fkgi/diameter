@@ -76,21 +76,22 @@ func (GenericReq) FromRaw(m RawMsg) (Request, string, error) {
 		Code: m.Code, AppID: m.AppID,
 		AVP: make([]RawAVP, 0, len(m.AVP))}
 	for _, a := range m.AVP {
-		if a.VenID == 0 && a.Code == 263 {
+		switch a.Code {
+		case 263:
 			s, e = GetSessionID(a)
-		} else if a.VenID == 0 && a.Code == 260 {
+		case 260:
 			v.VenID, _, e = GetVendorSpecAppID(a)
-		} else if a.VenID == 0 && a.Code == 277 {
+		case 277:
 			v.Stateful, e = GetAuthSessionState(a)
-		} else if a.VenID == 0 && a.Code == 264 {
+		case 264:
 			v.OriginHost, e = GetOriginHost(a)
-		} else if a.VenID == 0 && a.Code == 296 {
+		case 296:
 			v.OriginRealm, e = GetOriginRealm(a)
-		} else if a.VenID == 0 && a.Code == 293 {
+		case 293:
 			v.DestinationHost, e = GetDestinationHost(a)
-		} else if a.VenID == 0 && a.Code == 283 {
+		case 283:
 			v.DestinationRealm, e = GetDestinationRealm(a)
-		} else {
+		default:
 			a2 := RawAVP{
 				FlgV: a.FlgV, FlgM: a.FlgM, FlgP: a.FlgP,
 				Code: a.Code, VenID: a.VenID,
@@ -154,7 +155,11 @@ func (v GenericAns) ToRaw(s string) RawMsg {
 		Code: v.Code, AppID: v.AppID,
 		AVP: make([]RawAVP, 0, len(v.AVP)+6)}
 
-	m.AVP = append(m.AVP, SetResultCode(v.ResultCode))
+	if v.ResultCode > 10000 {
+		m.AVP = append(m.AVP, SetExperimentalResult(v.ResultCode))
+	} else {
+		m.AVP = append(m.AVP, SetResultCode(v.ResultCode))
+	}
 	m.AVP = append(m.AVP, SetSessionID(s))
 	m.AVP = append(m.AVP, SetVendorSpecAppID(v.VenID, v.AppID))
 	m.AVP = append(m.AVP, SetAuthSessionState(v.Stateful))
@@ -182,19 +187,22 @@ func (GenericAns) FromRaw(m RawMsg) (Answer, string, error) {
 		FlgP: m.FlgP, Code: m.Code, AppID: m.AppID,
 		AVP: make([]RawAVP, 0, len(m.AVP))}
 	for _, a := range m.AVP {
-		if a.VenID == 0 && a.Code == 268 {
+		switch a.Code {
+		case 268:
 			v.ResultCode, e = GetResultCode(a)
-		} else if a.VenID == 0 && a.Code == 263 {
+		case 297:
+			v.ResultCode, e = GetExperimentalResult(a)
+		case 263:
 			s, e = GetSessionID(a)
-		} else if a.VenID == 0 && a.Code == 260 {
+		case 260:
 			v.VenID, _, e = GetVendorSpecAppID(a)
-		} else if a.VenID == 0 && a.Code == 277 {
+		case 277:
 			v.Stateful, e = GetAuthSessionState(a)
-		} else if a.VenID == 0 && a.Code == 264 {
+		case 264:
 			v.OriginHost, e = GetOriginHost(a)
-		} else if a.VenID == 0 && a.Code == 296 {
+		case 296:
 			v.OriginRealm, e = GetOriginRealm(a)
-		} else {
+		default:
 			a2 := RawAVP{
 				FlgV: a.FlgV, FlgM: a.FlgM, FlgP: a.FlgP,
 				Code: a.Code, VenID: a.VenID,
