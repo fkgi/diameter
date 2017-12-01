@@ -1,3 +1,4 @@
+package ts29338
 
 /*
 ReportSMDeliveryStatusRequest is RDR message.

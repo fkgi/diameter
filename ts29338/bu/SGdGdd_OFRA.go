@@ -1,10 +1,5 @@
 package ts29338
 
-import (
-	"github.com/fkgi/diameter/msg"
-	"github.com/fkgi/diameter/ts29336"
-)
-
 /*
 MOForwardShortMessageRequest is OFR message.
  <OFR> ::= < Diameter Header: 8388645, REQ, PXY, 16777313 >
@@ -27,6 +22,7 @@ MOForwardShortMessageRequest is OFR message.
          * [ Proxy-Info ]
          * [ Route-Record ]
 */
+/*
 type MOForwardShortMessageRequest struct {
 	msg.SessionID
 	// DRMP
@@ -134,6 +130,7 @@ func GetMOForwardShortMessageRequest(o msg.Message) (
 	b = true
 	return
 }
+*/
 
 /*
 MOForwardShortMessageAnswer is OFA message.
@@ -154,6 +151,7 @@ MOForwardShortMessageAnswer is OFA message.
          * [ Proxy-Info ]
          * [ Route-Record ]
 */
+/*
 type MOForwardShortMessageAnswer struct {
 	msg.SessionID
 	// DRMP
@@ -246,3 +244,4 @@ func GetMOForwardShortMessageAnswer(o msg.Message) (
 	b = true
 	return
 }
+*/

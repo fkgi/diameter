@@ -1,3 +1,5 @@
+package ts29338
+
 /*
 AlertServiceCentreRequest is ALR message.
  <ALR> ::= < Diameter Header: 8388648, REQ, PXY, 16777312 >
