@@ -134,7 +134,7 @@ func (v TFR) ToRaw(s string) dia.RawMsg {
 // FromRaw make this value from dia.RawMsg struct
 func (TFR) FromRaw(m dia.RawMsg) (dia.Request, string, error) {
 	s := ""
-	e := m.Validate(16777312, 8388646, true, true, false, false)
+	e := m.Validate(16777313, 8388646, true, true, false, false)
 	if e != nil {
 		return nil, s, e
 	}
