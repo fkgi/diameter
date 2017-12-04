@@ -98,7 +98,7 @@ func (v CER) ToRaw(s string) RawMsg {
 
 // FromRaw make this value from RawMsg struct
 func (CER) FromRaw(m RawMsg) (Request, string, error) {
-	e := m.Validate(0, 257, true, false, false, false)
+	e := m.Validate(true, false, false, false)
 	if e != nil {
 		return nil, "", e
 	}
@@ -161,7 +161,7 @@ func (CER) FromRaw(m RawMsg) (Request, string, error) {
 		len(v.HostIPAddress) == 0 ||
 		v.VendorID == 0 ||
 		len(v.ProductName) == 0 {
-		e = NoMandatoryAVP{}
+		e = InvalidAVP(DiameterMissingAvp)
 	}
 	return v, "", e
 }
@@ -287,7 +287,7 @@ func (v CEA) ToRaw(s string) RawMsg {
 
 // FromRaw make this value from RawMsg struct
 func (CEA) FromRaw(m RawMsg) (Answer, string, error) {
-	e := m.Validate(0, 257, false, false, false, false)
+	e := m.Validate(false, false, false, false)
 	if e != nil {
 		return nil, "", e
 	}
@@ -356,7 +356,7 @@ func (CEA) FromRaw(m RawMsg) (Answer, string, error) {
 		len(v.HostIPAddress) == 0 ||
 		v.VendorID == 0 ||
 		len(v.ProductName) == 0 {
-		e = NoMandatoryAVP{}
+		e = InvalidAVP(DiameterMissingAvp)
 	}
 
 	return v, "", e
@@ -407,7 +407,7 @@ func (v DPR) ToRaw(s string) RawMsg {
 
 // FromRaw make this value from RawMsg struct
 func (DPR) FromRaw(m RawMsg) (Request, string, error) {
-	e := m.Validate(0, 282, true, false, false, false)
+	e := m.Validate(true, false, false, false)
 	if e != nil {
 		return nil, "", e
 	}
@@ -432,7 +432,7 @@ func (DPR) FromRaw(m RawMsg) (Request, string, error) {
 	if len(v.OriginHost) == 0 ||
 		len(v.OriginRealm) == 0 ||
 		v.DisconnectCause < 0 {
-		e = NoMandatoryAVP{}
+		e = InvalidAVP(DiameterMissingAvp)
 	}
 	return v, "", e
 }
@@ -500,7 +500,7 @@ func (v DPA) ToRaw(s string) RawMsg {
 
 // FromRaw make this value from RawMsg struct
 func (DPA) FromRaw(m RawMsg) (Answer, string, error) {
-	e := m.Validate(0, 282, false, false, false, false)
+	e := m.Validate(false, false, false, false)
 	if e != nil {
 		return nil, "", e
 	}
@@ -527,7 +527,7 @@ func (DPA) FromRaw(m RawMsg) (Answer, string, error) {
 	if v.ResultCode == 0 ||
 		len(v.OriginHost) == 0 ||
 		len(v.OriginRealm) == 0 {
-		e = NoMandatoryAVP{}
+		e = InvalidAVP(DiameterMissingAvp)
 	}
 	return v, "", e
 }
@@ -579,7 +579,7 @@ func (v DWR) ToRaw(s string) RawMsg {
 
 // FromRaw make this value from RawMsg struct
 func (DWR) FromRaw(m RawMsg) (Request, string, error) {
-	e := m.Validate(0, 280, true, false, false, false)
+	e := m.Validate(true, false, false, false)
 	if e != nil {
 		return nil, "", e
 	}
@@ -601,7 +601,7 @@ func (DWR) FromRaw(m RawMsg) (Request, string, error) {
 	}
 	if len(v.OriginHost) == 0 ||
 		len(v.OriginRealm) == 0 {
-		e = NoMandatoryAVP{}
+		e = InvalidAVP(DiameterMissingAvp)
 	}
 	return v, "", e
 }
@@ -675,7 +675,7 @@ func (v DWA) ToRaw(s string) RawMsg {
 
 // FromRaw make this value from RawMsg struct
 func (DWA) FromRaw(m RawMsg) (Answer, string, error) {
-	e := m.Validate(0, 280, false, false, false, false)
+	e := m.Validate(false, false, false, false)
 	if e != nil {
 		return nil, "", e
 	}
@@ -704,7 +704,7 @@ func (DWA) FromRaw(m RawMsg) (Answer, string, error) {
 	if v.ResultCode == 0 ||
 		len(v.OriginHost) == 0 ||
 		len(v.OriginRealm) == 0 {
-		e = NoMandatoryAVP{}
+		e = InvalidAVP(DiameterMissingAvp)
 	}
 	return v, "", e
 }

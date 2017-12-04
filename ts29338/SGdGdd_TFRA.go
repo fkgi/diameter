@@ -92,7 +92,7 @@ func (v TFR) ToRaw(s string) dia.RawMsg {
 		AVP: make([]dia.RawAVP, 0, 15)}
 
 	m.AVP = append(m.AVP, dia.SetSessionID(s))
-	m.AVP = append(m.AVP, dia.SetVendorSpecAppID(10415, 16777313))
+	m.AVP = append(m.AVP, dia.SetVendorSpecAppID(10415, m.AppID))
 	m.AVP = append(m.AVP, dia.SetAuthSessionState(false))
 
 	m.AVP = append(m.AVP, dia.SetOriginHost(v.OriginHost))
@@ -134,7 +134,7 @@ func (v TFR) ToRaw(s string) dia.RawMsg {
 // FromRaw make this value from dia.RawMsg struct
 func (TFR) FromRaw(m dia.RawMsg) (dia.Request, string, error) {
 	s := ""
-	e := m.Validate(16777313, 8388646, true, true, false, false)
+	e := m.Validate(true, true, false, false)
 	if e != nil {
 		return nil, s, e
 	}
@@ -184,7 +184,7 @@ func (TFR) FromRaw(m dia.RawMsg) (dia.Request, string, error) {
 		len(v.DestinationHost) == 0 || len(v.DestinationRealm) == 0 ||
 		v.IMSI.Length() == 0 || v.SCAddress.Length() == 0 ||
 		v.SMSPDU.OA.Addr == nil {
-		e = dia.NoMandatoryAVP{}
+		e = dia.InvalidAVP(dia.DiameterMissingAvp)
 	}
 	return v, s, e
 }
@@ -277,7 +277,7 @@ func (v TFA) ToRaw(s string) dia.RawMsg {
 		AVP: make([]dia.RawAVP, 0, 20)}
 
 	m.AVP = append(m.AVP, dia.SetSessionID(s))
-	m.AVP = append(m.AVP, dia.SetVendorSpecAppID(10415, 16777312))
+	m.AVP = append(m.AVP, dia.SetVendorSpecAppID(10415, m.AppID))
 	if v.ResultCode > 10000 {
 		m.AVP = append(m.AVP, dia.SetExperimentalResult(v.ResultCode))
 	} else {
@@ -305,7 +305,7 @@ func (v TFA) ToRaw(s string) dia.RawMsg {
 // FromRaw make this value from dia.RawMsg struct
 func (TFA) FromRaw(m dia.RawMsg) (dia.Answer, string, error) {
 	s := ""
-	e := m.Validate(16777313, 8388646, false, true, false, false)
+	e := m.Validate(false, true, false, false)
 	if e != nil {
 		return nil, s, e
 	}
@@ -361,6 +361,10 @@ func (TFA) FromRaw(m dia.RawMsg) (dia.Answer, string, error) {
 				return nil, s, e
 			}
 		}
+	}
+	if v.ResultCode == 0 ||
+		len(v.OriginHost) == 0 || len(v.OriginRealm) == 0 {
+		e = dia.InvalidAVP(dia.DiameterMissingAvp)
 	}
 	return v, s, e
 }

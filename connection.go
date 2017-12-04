@@ -10,7 +10,6 @@ import (
 var (
 	TxBuffer = 65535
 	RxBuffer = 65535
-	//	Workers  = 1
 
 	VendorID         uint32 = 41102
 	ProductName             = "yatagarasu"
@@ -202,19 +201,13 @@ func (c *Conn) Send(m Request, d time.Duration) Answer {
 	}
 
 	if app, ok := supportedApps[a.AppID]; !ok {
-		// ToDo
-		// invalid application handling
 	} else if ans, ok := app.ans[a.Code]; !ok {
-		// ToDo
-		// invalid code handling
-	} else {
-		ack, _, e := ans.FromRaw(a)
-		if e != nil {
-			// ToDo
-			// invalid message handling
-			ack = m.Failed(DiameterUnableToComply)
-		}
+	} else if ack, _, e := ans.FromRaw(a); e == nil {
 		return ack
+	} else if avperr, ok := e.(InvalidAVP); ok {
+		return m.Failed(uint32(avperr))
+	} else {
+		return m.Failed(DiameterUnableToComply)
 	}
 
 	if app, ok := supportedApps[0xffffffff]; !ok {
@@ -256,8 +249,11 @@ func (c *Conn) Recieve() (Request, func(Answer), error) {
 		c.notify <- eventSndMsg{a}
 	}
 	if e != nil {
-		ans := req.Failed(DiameterUnableToComply)
-		f(ans)
+		if avperr, ok := e.(InvalidAVP); ok {
+			f(req.Failed(uint32(avperr)))
+		} else {
+			f(req.Failed(DiameterUnableToComply))
+		}
 		return r, nil, e
 	}
 	return r, f, nil

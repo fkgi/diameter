@@ -1,46 +1,25 @@
 package diameter
 
 import "fmt"
-import "strconv"
 
 // UnknownAVPType is error of invalid AVP type
-type UnknownAVPType struct {
-}
+type UnknownAVPType struct{}
 
 func (e UnknownAVPType) Error() string {
 	return "unknow AVP data type"
 }
 
-// UnknownApplicationID is error of invalid AVP type
-type UnknownApplicationID struct {
-}
-
-func (e UnknownApplicationID) Error() string {
-	return "unknow application id"
-}
-
-// UnknownCommand is error of invalid AVP type
-type UnknownCommand struct {
-}
-
-func (e UnknownCommand) Error() string {
-	return "unknow command code"
-}
-
 // InvalidMessage is error of invalid message
-type InvalidMessage struct {
-}
+type InvalidMessage uint32
 
 func (e InvalidMessage) Error() string {
-	return "invalid message data"
-}
-
-// NoMandatoryAVP is error of invalid avp
-type NoMandatoryAVP struct {
-}
-
-func (e NoMandatoryAVP) Error() string {
-	return "mandatory AVP not found"
+	switch uint32(e) {
+	case DiameterUnsupportedVersion:
+		return "unsupported verion"
+	case DiameterInvalidHdrBits:
+		return "invalid header bit"
+	}
+	return "invalid message"
 }
 
 // InvalidAVP is error of invalid AVP value
@@ -52,6 +31,8 @@ func (e InvalidAVP) Error() string {
 		return "invalid AVP Bits"
 	case DiameterInvalidAvpValue:
 		return "invalid AVP Value"
+	case DiameterMissingAvp:
+		return "missing mandatory AVP"
 	}
 	return "invalid AVP"
 }
@@ -71,7 +52,12 @@ type FailureAnswer struct {
 }
 
 func (e FailureAnswer) Error() string {
-	return "Answer message with failure: code=" + strconv.FormatInt(int64(e.Answer.Result()), 10)
+	r := e.Answer.Result()
+	if r > 10000 {
+		return fmt.Sprintf("Answer message with failure: code=%d (vendor=%d)",
+			r%10000, r/10000)
+	}
+	return fmt.Sprintf("Answer message with failure: code=%d", r)
 }
 
 // NotAcceptableEvent is error

@@ -104,7 +104,7 @@ func (v SRR) ToRaw(s string) dia.RawMsg {
 		AVP: make([]dia.RawAVP, 0, 15)}
 
 	m.AVP = append(m.AVP, dia.SetSessionID(s))
-	m.AVP = append(m.AVP, dia.SetVendorSpecAppID(10415, 16777312))
+	m.AVP = append(m.AVP, dia.SetVendorSpecAppID(10415, m.AppID))
 	m.AVP = append(m.AVP, dia.SetAuthSessionState(false))
 
 	m.AVP = append(m.AVP, dia.SetOriginHost(v.OriginHost))
@@ -144,7 +144,7 @@ func (v SRR) ToRaw(s string) dia.RawMsg {
 // FromRaw make this value from dia.RawMsg struct
 func (SRR) FromRaw(m dia.RawMsg) (dia.Request, string, error) {
 	s := ""
-	e := m.Validate(16777312, 8388647, true, true, false, false)
+	e := m.Validate(true, true, false, false)
 	if e != nil {
 		return nil, s, e
 	}
@@ -186,9 +186,9 @@ func (SRR) FromRaw(m dia.RawMsg) (dia.Request, string, error) {
 
 	if len(v.OriginHost) == 0 || len(v.OriginRealm) == 0 ||
 		len(v.DestinationRealm) == 0 || v.SCAddress.Length() == 0 {
-		e = dia.NoMandatoryAVP{}
+		e = dia.InvalidAVP(dia.DiameterMissingAvp)
 	} else if v.MSISDN.Length() == 0 && v.IMSI.Length() == 0 {
-		e = dia.NoMandatoryAVP{}
+		e = dia.InvalidAVP(dia.DiameterMissingAvp)
 	}
 	return v, s, e
 }
@@ -313,7 +313,7 @@ func (v SRA) ToRaw(s string) dia.RawMsg {
 		AVP: make([]dia.RawAVP, 0, 20)}
 
 	m.AVP = append(m.AVP, dia.SetSessionID(s))
-	m.AVP = append(m.AVP, dia.SetVendorSpecAppID(10415, 16777312))
+	m.AVP = append(m.AVP, dia.SetVendorSpecAppID(10415, m.AppID))
 	if v.ResultCode > 10000 {
 		m.AVP = append(m.AVP, dia.SetExperimentalResult(v.ResultCode))
 	} else {
@@ -376,7 +376,7 @@ func (v SRA) ToRaw(s string) dia.RawMsg {
 // FromRaw make this value from dia.RawMsg struct
 func (SRA) FromRaw(m dia.RawMsg) (dia.Answer, string, error) {
 	s := ""
-	e := m.Validate(16777312, 8388647, false, true, false, false)
+	e := m.Validate(false, true, false, false)
 	if e != nil {
 		return nil, s, e
 	}
@@ -434,13 +434,13 @@ func (SRA) FromRaw(m dia.RawMsg) (dia.Answer, string, error) {
 
 	if v.ResultCode == 0 ||
 		len(v.OriginHost) == 0 || len(v.OriginRealm) == 0 {
-		e = dia.NoMandatoryAVP{}
+		e = dia.InvalidAVP(dia.DiameterMissingAvp)
 	}
 	if v.ResultCode == dia.DiameterSuccess {
 		if v.IMSI.Length() == 0 {
-			e = dia.NoMandatoryAVP{}
+			e = dia.InvalidAVP(dia.DiameterMissingAvp)
 		} else if v.ServingNode[0].Address.Length() == 0 {
-			e = dia.NoMandatoryAVP{}
+			e = dia.InvalidAVP(dia.DiameterMissingAvp)
 		} else if v.ServingNode[1].Address.Length() != 0 &&
 			v.ServingNode[0].NodeType == v.ServingNode[1].NodeType {
 			e = dia.InvalidAVP(dia.DiameterInvalidAvpValue)

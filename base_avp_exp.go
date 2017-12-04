@@ -27,7 +27,7 @@ func GetVendorSpecAppID(a RawAVP) (vi, ai uint32, e error) {
 		}
 	}
 	if vi == 0 || ai == 0 {
-		e = NoMandatoryAVP{}
+		e = InvalidAVP(DiameterMissingAvp)
 	}
 	return
 }
@@ -243,7 +243,7 @@ func GetExperimentalResult(a RawAVP) (c uint32, e error) {
 		}
 	}
 	if c < 10000 || c%10000 == 0 {
-		e = NoMandatoryAVP{}
+		e = InvalidAVP(DiameterMissingAvp)
 	}
 	return
 }
