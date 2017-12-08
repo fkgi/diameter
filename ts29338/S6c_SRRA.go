@@ -312,13 +312,9 @@ func (v SRA) ToRaw(s string) dia.RawMsg {
 		Code: 8388647, AppID: 16777312,
 		AVP: make([]dia.RawAVP, 0, 20)}
 
+	m.AVP = append(m.AVP, dia.SetResultCode(v.ResultCode))
 	m.AVP = append(m.AVP, dia.SetSessionID(s))
 	m.AVP = append(m.AVP, dia.SetVendorSpecAppID(10415, m.AppID))
-	if v.ResultCode > 10000 {
-		m.AVP = append(m.AVP, dia.SetExperimentalResult(v.ResultCode))
-	} else {
-		m.AVP = append(m.AVP, dia.SetResultCode(v.ResultCode))
-	}
 	m.AVP = append(m.AVP, dia.SetAuthSessionState(false))
 	m.AVP = append(m.AVP, dia.SetOriginHost(v.OriginHost))
 	m.AVP = append(m.AVP, dia.SetOriginRealm(v.OriginRealm))
@@ -387,10 +383,8 @@ func (SRA) FromRaw(m dia.RawMsg) (dia.Answer, string, error) {
 		switch a.Code {
 		case 263:
 			s, e = dia.GetSessionID(a)
-		case 268:
+		case 268, 297:
 			v.ResultCode, e = dia.GetResultCode(a)
-		case 297:
-			v.ResultCode, e = dia.GetExperimentalResult(a)
 		case 264:
 			v.OriginHost, e = dia.GetOriginHost(a)
 		case 296:

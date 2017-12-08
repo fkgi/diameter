@@ -155,11 +155,7 @@ func (v GenericAns) ToRaw(s string) RawMsg {
 		Code: v.Code, AppID: v.AppID,
 		AVP: make([]RawAVP, 0, len(v.AVP)+6)}
 
-	if v.ResultCode > 10000 {
-		m.AVP = append(m.AVP, SetExperimentalResult(v.ResultCode))
-	} else {
-		m.AVP = append(m.AVP, SetResultCode(v.ResultCode))
-	}
+	m.AVP = append(m.AVP, SetResultCode(v.ResultCode))
 	m.AVP = append(m.AVP, SetSessionID(s))
 	m.AVP = append(m.AVP, SetVendorSpecAppID(v.VenID, v.AppID))
 	m.AVP = append(m.AVP, SetAuthSessionState(v.Stateful))
@@ -188,10 +184,8 @@ func (GenericAns) FromRaw(m RawMsg) (Answer, string, error) {
 		AVP: make([]RawAVP, 0, len(m.AVP))}
 	for _, a := range m.AVP {
 		switch a.Code {
-		case 268:
+		case 268, 297:
 			v.ResultCode, e = GetResultCode(a)
-		case 297:
-			v.ResultCode, e = GetExperimentalResult(a)
 		case 263:
 			s, e = GetSessionID(a)
 		case 260:
