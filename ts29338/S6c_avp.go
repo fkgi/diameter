@@ -36,7 +36,7 @@ func getMSISDN(a dia.RawAVP) (v teldata.E164, e error) {
 	if !a.FlgV || !a.FlgM || a.FlgP {
 		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(s); e == nil {
-		v, e = teldata.ToE164(*s)
+		v, e = teldata.B2E164(*s)
 	}
 	return
 }
@@ -274,21 +274,21 @@ func getSN(a dia.RawAVP) (t NodeType, d teldata.E164, n, r dia.Identity, e error
 			if !a.FlgV || !a.FlgM || a.FlgP {
 				e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 			} else if e = a.Decode(b); e == nil {
-				d, e = teldata.ToE164(*b)
+				d, e = teldata.B2E164(*b)
 				t = NodeSGSN
 			}
 		case 1645:
 			if !a.FlgV || !a.FlgM || a.FlgP {
 				e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 			} else if e = a.Decode(b); e == nil {
-				d, e = teldata.ToE164(*b)
+				d, e = teldata.B2E164(*b)
 				t = NodeMME
 			}
 		case 2403:
 			if !a.FlgV || !a.FlgM || a.FlgP {
 				e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 			} else if e = a.Decode(b); e == nil {
-				d, e = teldata.ToE164(*b)
+				d, e = teldata.B2E164(*b)
 				t = NodeMSC
 			}
 		}

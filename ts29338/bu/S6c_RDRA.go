@@ -32,7 +32,8 @@ type RDR struct {
 	DestinationHost  dia.Identity
 	DestinationRealm dia.Identity
 
-	MSISDN    teldata.E164
+	MSISDN teldata.E164
+	teldata.IMSI
 	SCAddress teldata.E164
 
 	Flags struct {

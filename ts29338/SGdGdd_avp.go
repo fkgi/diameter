@@ -63,7 +63,7 @@ func getMMENumberForMTSMS(a dia.RawAVP) (v teldata.E164, e error) {
 	if !a.FlgV || a.FlgM || a.FlgP {
 		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(s); e == nil {
-		v, e = teldata.ToE164(*s)
+		v, e = teldata.B2E164(*s)
 	}
 	return
 }
