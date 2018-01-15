@@ -64,11 +64,18 @@ func (v SRR) String() string {
 
 	fmt.Fprintf(w, "%sOrigin-Host       =%s\n", dia.Indent, v.OriginHost)
 	fmt.Fprintf(w, "%sOrigin-Realm      =%s\n", dia.Indent, v.OriginRealm)
-	fmt.Fprintf(w, "%sDestination-Host  =%s\n", dia.Indent, v.DestinationHost)
+	if len(v.DestinationHost) != 0 {
+		fmt.Fprintf(w, "%sDestination-Host  =%s\n", dia.Indent, v.DestinationHost)
+	} else {
+		fmt.Fprintf(w, "%sDestination-Host  =not present\n", dia.Indent)
+	}
 	fmt.Fprintf(w, "%sDestination-Realm =%s\n", dia.Indent, v.DestinationRealm)
 
-	fmt.Fprintf(w, "%sMSISDN            =%s\n", dia.Indent, v.MSISDN)
-	fmt.Fprintf(w, "%sIMSI              =%s\n", dia.Indent, v.IMSI)
+	if v.MSISDN.Length() == 0 && v.IMSI.Length() != 0 {
+		fmt.Fprintf(w, "%sIMSI              =%s\n", dia.Indent, v.IMSI)
+	} else {
+		fmt.Fprintf(w, "%sMSISDN            =%s\n", dia.Indent, v.MSISDN)
+	}
 	fmt.Fprintf(w, "%sSC Address        =%s\n", dia.Indent, v.SCAddress)
 
 	switch v.MTType {
@@ -274,8 +281,11 @@ func (v SRA) String() string {
 	fmt.Fprintf(w, "%sOrigin-Realm      =%s\n", dia.Indent, v.OriginRealm)
 
 	fmt.Fprintf(w, "%sIMSI              =%s\n", dia.Indent, v.IMSI)
-	for i := 0; i < 2; i++ {
-		switch v.ServingNode[i].NodeType {
+	for i, sn := range v.ServingNode {
+		if sn.Address.Length() == 0 {
+			continue
+		}
+		switch sn.NodeType {
 		case NodeSGSN:
 			fmt.Fprintf(w, "%sServing-Node#%d(SGSN)\n", dia.Indent, i+1)
 		case NodeMME:
@@ -283,24 +293,27 @@ func (v SRA) String() string {
 		case NodeMSC:
 			fmt.Fprintf(w, "%sServing-Node#%d(MSC)\n", dia.Indent, i+1)
 		}
-		fmt.Fprintf(w, "%s%sAddress =%s\n", dia.Indent, dia.Indent, v.ServingNode[i].Address)
-		fmt.Fprintf(w, "%s%sHost    =%s\n", dia.Indent, dia.Indent, v.ServingNode[i].Host)
-		fmt.Fprintf(w, "%s%sRealm   =%s\n", dia.Indent, dia.Indent, v.ServingNode[i].Realm)
-		fmt.Fprintf(w, "%s%sLMSI    =%x\n", dia.Indent, dia.Indent, v.ServingNode[i].LMSI)
+		fmt.Fprintf(w, "%s%sAddress =%s\n", dia.Indent, dia.Indent, sn.Address)
+		fmt.Fprintf(w, "%s%sHost    =%s\n", dia.Indent, dia.Indent, sn.Host)
+		fmt.Fprintf(w, "%s%sRealm   =%s\n", dia.Indent, dia.Indent, sn.Realm)
+		fmt.Fprintf(w, "%s%sLMSI    =%x\n", dia.Indent, dia.Indent, sn.LMSI)
 	}
 
-	fmt.Fprintf(w, "%sMWD information for Inform-SC\n", dia.Indent)
-	fmt.Fprintf(w, "%s%sMSISDN in MWD     =%s\n", dia.Indent, dia.Indent, v.MWDStat.MSISDN)
-	fmt.Fprintf(w, "%s%sno SCAddr in MWD  =%t\n", dia.Indent, dia.Indent, v.MWDStat.NoSCAddr)
-	fmt.Fprintf(w, "%s%sMNRF              =%t\n", dia.Indent, dia.Indent, v.MWDStat.MNRF)
-	fmt.Fprintf(w, "%s%sMCEF              =%t\n", dia.Indent, dia.Indent, v.MWDStat.MCEF)
-	fmt.Fprintf(w, "%s%sMNRG              =%t\n", dia.Indent, dia.Indent, v.MWDStat.MNRG)
+	if v.MWDStat.MSISDN != nil || v.MWDStat.NoSCAddr || v.MWDStat.MNRF || v.MWDStat.MCEF || v.MWDStat.MNRG {
+		fmt.Fprintf(w, "%sMWD information for Inform-SC\n", dia.Indent)
+		fmt.Fprintf(w, "%s%sMSISDN in MWD     =%s\n", dia.Indent, dia.Indent, v.MWDStat.MSISDN)
+		fmt.Fprintf(w, "%s%sno SCAddr in MWD  =%t\n", dia.Indent, dia.Indent, v.MWDStat.NoSCAddr)
+		fmt.Fprintf(w, "%s%sMNRF              =%t\n", dia.Indent, dia.Indent, v.MWDStat.MNRF)
+		fmt.Fprintf(w, "%s%sMCEF              =%t\n", dia.Indent, dia.Indent, v.MWDStat.MCEF)
+		fmt.Fprintf(w, "%s%sMNRG              =%t\n", dia.Indent, dia.Indent, v.MWDStat.MNRG)
+	}
 
-	fmt.Fprintf(w, "%sAbsent User Diagnostics for SM\n", dia.Indent)
-	fmt.Fprintf(w, "%s%sMME  =%d\n", dia.Indent, dia.Indent, v.AbsentUserDiag.MME)
-	fmt.Fprintf(w, "%s%sMSC  =%d\n", dia.Indent, dia.Indent, v.AbsentUserDiag.MSC)
-	fmt.Fprintf(w, "%s%sSGSN =%d\n", dia.Indent, dia.Indent, v.AbsentUserDiag.SGSN)
-
+	if v.AbsentUserDiag.MME != NoAbsentDiag || v.AbsentUserDiag.MSC != NoAbsentDiag || v.AbsentUserDiag.SGSN != NoAbsentDiag {
+		fmt.Fprintf(w, "%sAbsent User Diagnostics for SM\n", dia.Indent)
+		fmt.Fprintf(w, "%s%sMME  =%d\n", dia.Indent, dia.Indent, v.AbsentUserDiag.MME)
+		fmt.Fprintf(w, "%s%sMSC  =%d\n", dia.Indent, dia.Indent, v.AbsentUserDiag.MSC)
+		fmt.Fprintf(w, "%s%sSGSN =%d\n", dia.Indent, dia.Indent, v.AbsentUserDiag.SGSN)
+	}
 	return w.String()
 }
 
@@ -351,7 +364,7 @@ func (v SRA) ToRaw(s string) dia.RawMsg {
 		}
 	}
 	if v.MWDStat.MSISDN.Length() != 0 {
-		m.AVP = append(m.AVP, setUserIdentifier(v.MWDStat.MSISDN))
+		m.AVP = append(m.AVP, setUserIdentifier("", v.MWDStat.MSISDN))
 	}
 	if v.MWDStat.NoSCAddr || v.MWDStat.MNRF || v.MWDStat.MCEF || v.MWDStat.MNRG {
 		m.AVP = append(m.AVP, setMWDStatus(
@@ -393,7 +406,7 @@ func (SRA) FromRaw(m dia.RawMsg) (dia.Answer, string, error) {
 		case 1:
 			v.IMSI, e = getUserName(a)
 		case 3102:
-			v.MWDStat.MSISDN, e = getUserIdentifier(a)
+			_, v.MWDStat.MSISDN, e = getUserIdentifier(a)
 		case 2401:
 			v.ServingNode[0].NodeType, v.ServingNode[0].Address,
 				v.ServingNode[0].Host, v.ServingNode[0].Realm, e = getServingNode(a)

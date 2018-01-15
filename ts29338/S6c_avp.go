@@ -3,6 +3,7 @@ package ts29338
 import (
 	"bytes"
 	"encoding/binary"
+	"time"
 
 	dia "github.com/fkgi/diameter"
 	"github.com/fkgi/sms"
@@ -350,28 +351,34 @@ func getLMSI(a dia.RawAVP) (v uint32, e error) {
 	return
 }
 
-func setUserIdentifier(v teldata.E164) dia.RawAVP {
+func setUserIdentifier(i teldata.IMSI, m teldata.E164) dia.RawAVP {
 	a := dia.RawAVP{Code: 3102, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
-	t := []dia.RawAVP{
-		dia.RawAVP{Code: 701, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}}
-	t[0].Encode(v.Bytes())
+	t := make([]dia.RawAVP, 1)
+	if m.Length() != 0 {
+		t[0] = setMSISDN(m)
+	} else if i.Length() != 0 {
+		t[0] = setUserName(i)
+	} else {
+		t[0] = setMSISDN([]byte{})
+	}
 	a.Encode(t)
 	return a
 }
 
-func getUserIdentifier(a dia.RawAVP) (v teldata.E164, e error) {
+func getUserIdentifier(a dia.RawAVP) (i teldata.IMSI, m teldata.E164, e error) {
 	o := []dia.RawAVP{}
 	if !a.FlgV || !a.FlgM || a.FlgP {
 		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(&o); e == nil {
 		for _, a := range o {
-			if a.Code != 701 {
-				continue
+			switch a.Code {
+			case 1:
+				i, e = getUserName(a)
+			case 701:
+				m, e = getMSISDN(a)
 			}
-			if !a.FlgV || !a.FlgM || a.FlgP {
-				e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
-			} else {
-				a.Decode(&v)
+			if e != nil {
+				return
 			}
 		}
 	}
@@ -451,6 +458,42 @@ const (
 	// TempUnavailable is "the MS is temporarily unavailable"
 	TempUnavailable
 )
+
+func (a AbsentDiag) String() string {
+	switch a {
+	case NoAbsentDiag:
+		return "no diag data"
+	case NoPagingRespMSC:
+		return "no paging response via the MSC"
+	case IMSIDetached:
+		return "IMSI detached"
+	case RoamingRestrict:
+		return "roaming restriction"
+	case DeregisteredNonGPRS:
+		return "deregistered in the HLR for non GPRS"
+	case PurgedNonGPRS:
+		return "MS purged for non GPRS"
+	case NoPagingRespSGSN:
+		return "no paging response via the SGSN"
+	case GPRSDetached:
+		return "GPRS detached"
+	case DeregisteredGPRS:
+		return "deregistered in the HLR for GPRS"
+	case PurgedGPRS:
+		return "MS purged for GPRS"
+	case UnidentifiedSubsMSC:
+		return "Unidentified subscriber via the MSC"
+	case UnidentifiedSubsSGSN:
+		return "Unidentified subscriber via the SGSN"
+	case DeregisteredIMS:
+		return "deregistered in the HSS/HLR for IMS"
+	case NoRespIPSMGW:
+		return "no response via the IP-SM-GW"
+	case TempUnavailable:
+		return "the MS is temporarily unavailable"
+	}
+	return ""
+}
 
 // MMEAbsentUserDiagnosticSM AVP shall indicate the diagnostic
 // explaining the absence of the user given by the MME.
@@ -683,245 +726,180 @@ func getAbsentUserDiagnosticSM(a dia.RawAVP) (v AbsentDiag, e error) {
 	return
 }
 
-/*
-// SMDeliveryOutcome AVP contains the result of the SM delivery.
-type SMDeliveryOutcome struct {
-	E dia.Enumerated
-	I uint32
-}
-
-// ToRaw return AVP struct of this value
-func (v *SMDeliveryOutcome) ToRaw() dia.RawAVP {
-	a := dia.RawAVP{Code: 3316, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
-	// a.Encode()
-	return a
-}
-
-// MMESMDeliveryOutcome AVP shall indicate the outcome of
-// the SM delivery for setting the message waiting data
-// in the HSS when the SM delivery is with an MME.
-type MMESMDeliveryOutcome struct {
-	SMDeliveryCause        SMDeliveryCause
-	AbsentUserDiagnosticSM AbsentUserDiagnosticSM
-}
-
-// ToRaw return AVP struct of this value
-func (v *MMESMDeliveryOutcome) ToRaw() dia.RawAVP {
-	a := dia.RawAVP{Code: 3317, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
-	if v != nil {
-		t := []dia.RawAVP{
-			v.SMDeliveryCause.ToRaw(),
-			v.AbsentUserDiagnosticSM.ToRaw()}
-		a.Encode(dia.GroupedAVP(t))
-	}
-	return a
-}
-
-// MSCSMDeliveryOutcome AVP shall indicate the outcome of
-// the SM delivery for setting the message waiting data
-// in the HSS when the SM delivery is with an MSC.
-type MSCSMDeliveryOutcome struct {
-	SMDeliveryCause        SMDeliveryCause
-	AbsentUserDiagnosticSM AbsentUserDiagnosticSM
-}
-
-// ToRaw return AVP struct of this value
-func (v *MSCSMDeliveryOutcome) ToRaw() dia.RawAVP {
-	a := dia.RawAVP{Code: 3318, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
-	if v != nil {
-		t := []dia.RawAVP{
-			v.SMDeliveryCause.ToRaw(),
-			v.AbsentUserDiagnosticSM.ToRaw()}
-		a.Encode(dia.GroupedAVP(t))
-	}
-	return a
-}
-
-// SGSNSMDeliveryOutcome AVP shall indicate the outcome of
-// the SM delivery for setting the message waiting data
-// in the HSS when the SM delivery is with an SGSN.
-type SGSNSMDeliveryOutcome struct {
-	SMDeliveryCause        SMDeliveryCause
-	AbsentUserDiagnosticSM AbsentUserDiagnosticSM
-}
-
-// ToRaw return AVP struct of this value
-func (v *SGSNSMDeliveryOutcome) ToRaw() dia.RawAVP {
-	a := dia.RawAVP{Code: 3319, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
-	if v != nil {
-		t := []dia.RawAVP{
-			v.SMDeliveryCause.ToRaw(),
-			v.AbsentUserDiagnosticSM.ToRaw()}
-		a.Encode(dia.GroupedAVP(t))
-	}
-	return a
-}
-
-// IPSMGWSMDeliveryOutcome AVP shall indicate the outcome of
-// the SM delivery for setting the message waiting data
-// when the SM delivery is with an IP-SM-GW.
-type IPSMGWSMDeliveryOutcome struct {
-	SMDeliveryCause        SMDeliveryCause
-	AbsentUserDiagnosticSM AbsentUserDiagnosticSM
-}
-
-// ToRaw return AVP struct of this value
-func (v *IPSMGWSMDeliveryOutcome) ToRaw() dia.RawAVP {
-	a := dia.RawAVP{Code: 3320, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
-	if v != nil {
-		t := []dia.RawAVP{
-			v.SMDeliveryCause.ToRaw(),
-			v.AbsentUserDiagnosticSM.ToRaw()}
-		a.Encode(dia.GroupedAVP(t))
-	}
-	return a
-}
-
-// SMDeliveryCause AVP shall indicate the cause of
-// the SMP delivery result.
-type SMDeliveryCause dia.Enumerated
+// SMDeliveryCause AVP value
+type SMDeliveryCause int
 
 const (
+	// NoOutcome indicate DeliveryOutcome AVP is not present
+	NoOutcome SMDeliveryCause = iota
 	// UeMemoryCapacityExceeded is Enumerated value 0
-	UeMemoryCapacityExceeded SMDeliveryCause = 0
+	UeMemoryCapacityExceeded
 	// AbsentUser is Enumerated value 1
-	AbsentUser SMDeliveryCause = 1
+	AbsentUser
 	// SuccessfulTransfer is Enumerated value 2
-	SuccessfulTransfer SMDeliveryCause = 2
+	SuccessfulTransfer
 )
 
-// ToRaw return AVP struct of this value
-func (v *SMDeliveryCause) ToRaw() dia.RawAVP {
-	a := dia.RawAVP{Code: 3321, VenID: 10415,
-		FlgV: true, FlgM: true, FlgP: false}
-	if v != nil {
-		a.Encode(dia.Enumerated(*v))
+func setSMDeliveryOutcome(ec, cc, nc SMDeliveryCause, ed, cd, nd AbsentDiag) dia.RawAVP {
+	a := dia.RawAVP{Code: 3316, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
+	t := make([]dia.RawAVP, 0, 2)
+	if ec != NoOutcome {
+		t = append(t, setNodeOutcome(3317, ec, ed))
+	} else if cc != NoOutcome {
+		t = append(t, setNodeOutcome(3318, cc, cd))
+	}
+	if nc != NoOutcome {
+		t = append(t, setNodeOutcome(3319, nc, nd))
+	}
+	if len(t) == 0 {
+		t = append(t, setNodeOutcome(3317, SuccessfulTransfer, NoAbsentDiag))
 	}
 	return a
 }
 
-// FromRaw get AVP value
-func (v *SMDeliveryCause) FromRaw(a dia.RawAVP) (e error) {
-	if e = a.Validate(10415, 3321, true, true, false); e != nil {
-		return
+func setNodeOutcome(code uint32, cause SMDeliveryCause, diag AbsentDiag) dia.RawAVP {
+	a := dia.RawAVP{Code: code, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
+	t := make([]dia.RawAVP, 1, 2)
+	t[0] = dia.RawAVP{Code: 3321, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
+	switch cause {
+	case UeMemoryCapacityExceeded:
+		t[0].Encode(dia.Enumerated(0))
+	case AbsentUser:
+		t[0].Encode(dia.Enumerated(1))
+		t = append(t, dia.RawAVP{Code: 3322, VenID: 10415, FlgV: true, FlgM: true, FlgP: false})
+		t[1].Encode(uint32(diag))
+	case SuccessfulTransfer:
+		t[0].Encode(dia.Enumerated(2))
 	}
-	s := new(dia.Enumerated)
-	if e = a.Decode(s); e != nil {
-		return
+	a.Encode(t)
+	return a
+}
+
+func getSMDeliveryOutcome(a dia.RawAVP) (
+	ec, cc, nc SMDeliveryCause, ed, cd, nd AbsentDiag, e error) {
+	o := []dia.RawAVP{}
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+	} else if e = a.Decode(&o); e == nil {
+		for _, a := range o {
+			switch a.Code {
+			case 3317:
+				ec, ed, e = getNodeOutcome(a)
+			case 3318:
+				cc, cd, e = getNodeOutcome(a)
+			case 3319:
+				nc, nd, e = getNodeOutcome(a)
+			}
+			if e != nil {
+				return
+			}
+		}
+		if ec != NoOutcome && cc != NoOutcome {
+			e = dia.InvalidAVP(dia.DiameterInvalidAvpValue)
+		}
 	}
-	*v = SMDeliveryCause(*s)
 	return
 }
 
+func getNodeOutcome(a dia.RawAVP) (c SMDeliveryCause, d AbsentDiag, e error) {
+	o := []dia.RawAVP{}
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+	} else if e = a.Decode(&o); e == nil {
+		for _, a := range o {
+			switch a.Code {
+			case 3321:
+				var n dia.Enumerated
+				if !a.FlgV || !a.FlgM || a.FlgP {
+					e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+				} else if e = a.Decode(&n); e != nil {
+				} else if n == 0 {
+					c = UeMemoryCapacityExceeded
+				} else if n == 1 {
+					c = AbsentUser
+				} else if n == 2 {
+					c = SuccessfulTransfer
+				}
+			case 3322:
+				var n uint32
+				if !a.FlgV || !a.FlgM || a.FlgP {
+					e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+				} else if e = a.Decode(&n); e == nil {
+					d = AbsentDiag(n)
+				}
+			}
+			if e != nil {
+				return
+			}
+		}
+	}
+	return
+}
 
-// RDRFlags AVP contain a bit mask.
-// SingleAttemptDelivery indicates that only one delivery attempt
+// RDR-Flags AVP contain a bit mask.
+// Single-Attempt-Delivery indicates that only one delivery attempt
 // shall be performed for this particular SM.
-type RDRFlags struct {
-	SingleAttemptDelivery bool
-}
-
-// ToRaw return AVP struct of this value
-func (v *RDRFlags) ToRaw() dia.RawAVP {
-	a := dia.RawAVP{Code: 3323, VenID: 10415,
-		FlgV: true, FlgM: false, FlgP: false}
-	if v != nil {
-		i := uint32(0)
-		if v.SingleAttemptDelivery {
-			i = i | 0x00000001
-		}
-		a.Encode(i)
+func setRDRFlags(s bool) (a dia.RawAVP) {
+	a = dia.RawAVP{Code: 3323, VenID: 10415, FlgV: true, FlgM: false, FlgP: false}
+	i := uint32(0)
+	if s {
+		i = i | 0x00000001
 	}
-	return a
-}
-
-// FromRaw get AVP value
-func (v *RDRFlags) FromRaw(a dia.RawAVP) (e error) {
-	if e = a.Validate(10415, 3323, true, false, false); e != nil {
-		return
-	}
-	s := new(uint32)
-	if e = a.Decode(s); e != nil {
-		return
-	}
-	*v = RDRFlags{
-		SingleAttemptDelivery: (*s)&0x00000001 == 0x00000001}
+	a.Encode(i)
 	return
 }
 
-// MaximumUEAvailabilityTime AVP shall contain the timestamp (in UTC)
+func getRDRFlags(a dia.RawAVP) (s bool, e error) {
+	v := new(uint32)
+	if !a.FlgV || a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+	} else if e = a.Decode(v); e == nil {
+		s = (*v)&0x00000001 == 0x00000001
+	}
+	return
+}
+
+// Maximum-UE-Availability-Time AVP shall contain the timestamp (in UTC)
 // until which a UE using a power saving mechanism
-// (such as extended idle mode DRX) is expected to be reachable
-// for SM Delivery.
-type MaximumUEAvailabilityTime time.Time
-
-// ToRaw return AVP struct of this value
-func (v *MaximumUEAvailabilityTime) ToRaw() dia.RawAVP {
-	a := dia.RawAVP{Code: 3329, VenID: 10415,
-		FlgV: true, FlgM: false, FlgP: false}
-	if v != nil {
-		a.Encode(time.Time(*v))
-	}
+// (such as extended idle mode DRX) is expected to be reachable for SM Delivery.
+func setMaximumUEAvailabilityTime(v time.Time) (a dia.RawAVP) {
+	a = dia.RawAVP{Code: 3329, VenID: 10415, FlgV: true, FlgM: false, FlgP: false}
+	a.Encode(v)
 	return a
 }
 
-// FromRaw get AVP value
-func (v *MaximumUEAvailabilityTime) FromRaw(a dia.RawAVP) (e error) {
-	if e = a.Validate(10415, 3329, true, false, false); e != nil {
-		return
+func getMaximumUEAvailabilityTime(a dia.RawAVP) (v time.Time, e error) {
+	if !a.FlgV || a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	}
-	s := new(time.Time)
-	if e = a.Decode(s); e != nil {
-		return
-	}
-	*v = MaximumUEAvailabilityTime(*s)
+	e = a.Decode(&v)
 	return
 }
 
-// SMSGMSCAlertEvent AVP shall contain a bit mask.
-// UEAvailableForMTSMS shall indicate that the UE is
-// now available for MT SMS
-// UEUnderNewServingNode shall indicate that the UE has moved
+// SM-SGMSC-Alert-Event AVP shall contain a bit mask.
+// UE-Available-For-MT-SMS shall indicate that the UE is now available for MT SMS
+// UE-Under-New-Serving-Node shall indicate that the UE has moved
 // under the coverage of another MME or SGSN.
-type SMSGMSCAlertEvent struct {
-	UEAvailableForMTSMS   bool
-	UEUnderNewServingNode bool
-}
-
-// ToRaw return AVP struct of this value
-func (v *SMSGMSCAlertEvent) ToRaw() dia.RawAVP {
-	a := dia.RawAVP{Code: 3333, VenID: 10415,
-		FlgV: true, FlgM: false, FlgP: false}
-	if v != nil {
-		i := uint32(0)
-		if v.UEAvailableForMTSMS {
-			i = i | 0x00000001
-		}
-		if v.UEUnderNewServingNode {
-			i = i | 0x00000002
-		}
-		a.Encode(i)
+func setSMSGMSCAlertEvent(av, nn bool) (a dia.RawAVP) {
+	a = dia.RawAVP{Code: 3333, VenID: 10415, FlgV: true, FlgM: false, FlgP: false}
+	i := uint32(0)
+	if av {
+		i = i | 0x00000001
 	}
+	if nn {
+		i = i | 0x00000002
+	}
+	a.Encode(i)
 	return a
 }
 
-// FromRaw get AVP value
-func (v *SMSGMSCAlertEvent) FromRaw(a dia.RawAVP) (e error) {
-	if e = a.Validate(10415, 3333, true, false, false); e != nil {
-		return
-	}
+func getSMSGMSCAlertEvent(a dia.RawAVP) (av, nn bool, e error) {
 	s := new(uint32)
-	if e = a.Decode(s); e != nil {
-		return
+	if !a.FlgV || a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+	} else if e = a.Decode(s); e == nil {
+		av = (*s)&0x00000001 == 0x00000001
+		nn = (*s)&0x00000002 == 0x00000002
 	}
-	*v = SMSGMSCAlertEvent{
-		UEAvailableForMTSMS:   (*s)&0x00000001 == 0x00000001,
-		UEUnderNewServingNode: (*s)&0x00000002 == 0x00000002}
 	return
 }
-*/

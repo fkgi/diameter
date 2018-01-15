@@ -72,14 +72,22 @@ func (v TFR) String() string {
 	fmt.Fprintf(w, "%sSMS Data Unit     =%s\n", dia.Indent, v.SMSPDU.String())
 	fmt.Fprintf(w, "%sMore SM to sent   =%t\n", dia.Indent, v.Flags.MMS)
 
-	fmt.Fprintf(w, "%sMME Address       =%s\n", dia.Indent, v.MMEAddress)
-	fmt.Fprintf(w, "%sSGSN Address      =%s\n", dia.Indent, v.SGSNAddress)
+	if v.MMEAddress.Length() != 0 {
+		fmt.Fprintf(w, "%sMME Address       =%s\n", dia.Indent, v.MMEAddress)
+	} else if v.SGSNAddress.Length() != 0 {
+		fmt.Fprintf(w, "%sSGSN Address      =%s\n", dia.Indent, v.SGSNAddress)
+	} else {
+		fmt.Fprintf(w, "%sMME Address       =not present\n", dia.Indent)
+	}
 
-	fmt.Fprintf(w, "%sDelivery Timer     =%d\n", dia.Indent, v.DeliveryTimer)
-	fmt.Fprintf(w, "%sDelivery Start Time=%s\n", dia.Indent, v.DeliveryStartTime)
-	fmt.Fprintf(w, "%sMax Retransmit Time=%s\n", dia.Indent, v.MaxRetransTime)
-	fmt.Fprintf(w, "%sSMS-GMSC Address   =%s\n", dia.Indent, v.SMSGMSCAddress)
-
+	if v.DeliveryTimer != 0 {
+		fmt.Fprintf(w, "%sDelivery Timer     =%d\n", dia.Indent, v.DeliveryTimer)
+		fmt.Fprintf(w, "%sDelivery Start Time=%s\n", dia.Indent, v.DeliveryStartTime)
+	}
+	if !v.MaxRetransTime.IsZero() {
+		fmt.Fprintf(w, "%sMax Retransmit Time=%s\n", dia.Indent, v.MaxRetransTime)
+		fmt.Fprintf(w, "%sSMS-GMSC Address   =%s\n", dia.Indent, v.SMSGMSCAddress)
+	}
 	return w.String()
 }
 
@@ -97,9 +105,7 @@ func (v TFR) ToRaw(s string) dia.RawMsg {
 
 	m.AVP = append(m.AVP, dia.SetOriginHost(v.OriginHost))
 	m.AVP = append(m.AVP, dia.SetOriginRealm(v.OriginRealm))
-	if len(v.DestinationHost) != 0 {
-		m.AVP = append(m.AVP, dia.SetDestinationHost(v.DestinationHost))
-	}
+	m.AVP = append(m.AVP, dia.SetDestinationHost(v.DestinationHost))
 	m.AVP = append(m.AVP, dia.SetDestinationRealm(v.DestinationRealm))
 
 	m.AVP = append(m.AVP, setUserName(v.IMSI))
@@ -108,9 +114,10 @@ func (v TFR) ToRaw(s string) dia.RawMsg {
 
 	if v.MMEAddress.Length() != 0 {
 		m.AVP = append(m.AVP, setMMENumberForMTSMS(v.MMEAddress))
-	}
-	if v.SGSNAddress.Length() != 0 {
+	} else if v.SGSNAddress.Length() != 0 {
 		m.AVP = append(m.AVP, setSGSNNumber(v.SGSNAddress))
+	} else {
+		m.AVP = append(m.AVP, setMMENumberForMTSMS(v.MMEAddress))
 	}
 	if v.Flags.MMS {
 		m.AVP = append(m.AVP, setTFRFlags(v.Flags.MMS))
@@ -118,9 +125,11 @@ func (v TFR) ToRaw(s string) dia.RawMsg {
 
 	if v.DeliveryTimer != 0 {
 		m.AVP = append(m.AVP, setSMDeliveryTimer(v.DeliveryTimer))
-	}
-	if !v.DeliveryStartTime.IsZero() {
-		m.AVP = append(m.AVP, setSMDeliveryStartTime(v.DeliveryStartTime))
+		if !v.DeliveryStartTime.IsZero() {
+			m.AVP = append(m.AVP, setSMDeliveryStartTime(v.DeliveryStartTime))
+		} else {
+			m.AVP = append(m.AVP, setSMDeliveryStartTime(time.Now()))
+		}
 	}
 	if !v.MaxRetransTime.IsZero() {
 		m.AVP = append(m.AVP, setMaximumRetransmissionTime(v.MaxRetransTime))
@@ -186,6 +195,10 @@ func (TFR) FromRaw(m dia.RawMsg) (dia.Request, string, error) {
 		v.SMSPDU.OA.Addr == nil {
 		e = dia.InvalidAVP(dia.DiameterMissingAvp)
 	}
+
+	if v.MMEAddress.Length() == 0 && v.SGSNAddress.Length() == 0 {
+		e = dia.InvalidAVP(dia.DiameterMissingAvp)
+	}
 	return v, s, e
 }
 
@@ -246,25 +259,30 @@ func (v TFA) String() string {
 
 	fmt.Fprintf(w, "%sSMS Data Unit     =%s\n", dia.Indent, v.SMSPDU.String())
 
-	fmt.Fprintf(w, "%sAbsent User Diag  =%d\n", dia.Indent, v.AbsentUserDiag)
-	switch v.DeliveryFailureCause {
-	case CauseMemoryCapacityExceeded:
-		fmt.Fprintf(w, "%sFailure Cause     =MEMORY_CAPACITY_EXCEEDED\n", dia.Indent)
-	case CauseEquipmentProtocolError:
-		fmt.Fprintf(w, "%sFailure Cause     =EQUIPMENT_PROTOCOL_ERROR\n", dia.Indent)
-	case CauseEquipmentNotSMEquipped:
-		fmt.Fprintf(w, "%sFailure Cause     =EQUIPMENT_NOT_SM-EQUIPPED\n", dia.Indent)
-	case CauseUnknownServiceCenter:
-		fmt.Fprintf(w, "%sFailure Cause     =UNKNOWN_SERVICE_CENTRE\n", dia.Indent)
-	case CauseSCCongestion:
-		fmt.Fprintf(w, "%sFailure Cause     =SC-CONGESTION\n", dia.Indent)
-	case CauseInvalidSMEAddress:
-		fmt.Fprintf(w, "%sFailure Cause     =INVALID_SME-ADDRESS\n", dia.Indent)
-	case CauseUserNotSCUser:
-		fmt.Fprintf(w, "%sFailure Cause     =USER_NOT_SC-USER\n", dia.Indent)
+	if v.ResultCode == DiameterErrorAbsentUser && v.AbsentUserDiag != NoAbsentDiag {
+		fmt.Fprintf(w, "%sAbsent User Diag  =%d\n", dia.Indent, v.AbsentUserDiag)
 	}
-	fmt.Fprintf(w, "%sRequested Retrans Time=%s\n", dia.Indent, v.ReqRetransTime)
-
+	if v.ResultCode == DiameterErrorSmDeliveryFailure {
+		switch v.DeliveryFailureCause {
+		case CauseMemoryCapacityExceeded:
+			fmt.Fprintf(w, "%sFailure Cause     =MEMORY_CAPACITY_EXCEEDED\n", dia.Indent)
+		case CauseEquipmentProtocolError:
+			fmt.Fprintf(w, "%sFailure Cause     =EQUIPMENT_PROTOCOL_ERROR\n", dia.Indent)
+		case CauseEquipmentNotSMEquipped:
+			fmt.Fprintf(w, "%sFailure Cause     =EQUIPMENT_NOT_SM-EQUIPPED\n", dia.Indent)
+		case CauseUnknownServiceCenter:
+			fmt.Fprintf(w, "%sFailure Cause     =UNKNOWN_SERVICE_CENTRE\n", dia.Indent)
+		case CauseSCCongestion:
+			fmt.Fprintf(w, "%sFailure Cause     =SC-CONGESTION\n", dia.Indent)
+		case CauseInvalidSMEAddress:
+			fmt.Fprintf(w, "%sFailure Cause     =INVALID_SME-ADDRESS\n", dia.Indent)
+		case CauseUserNotSCUser:
+			fmt.Fprintf(w, "%sFailure Cause     =USER_NOT_SC-USER\n", dia.Indent)
+		}
+	}
+	if v.ResultCode == DiameterErrorAbsentUser && !v.ReqRetransTime.IsZero() {
+		fmt.Fprintf(w, "%sRequested Retrans Time=%s\n", dia.Indent, v.ReqRetransTime)
+	}
 	return w.String()
 }
 
