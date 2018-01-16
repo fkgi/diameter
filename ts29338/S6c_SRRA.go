@@ -259,9 +259,9 @@ type SRA struct {
 		MNRG     bool
 	}
 	AbsentUserDiag struct { // for Inform-SC
-		MME  AbsentDiag
-		MSC  AbsentDiag
-		SGSN AbsentDiag
+		MME  sms.AbsentDiag
+		MSC  sms.AbsentDiag
+		SGSN sms.AbsentDiag
 	}
 
 	FailedAVP []dia.RawAVP
@@ -308,7 +308,7 @@ func (v SRA) String() string {
 		fmt.Fprintf(w, "%s%sMNRG              =%t\n", dia.Indent, dia.Indent, v.MWDStat.MNRG)
 	}
 
-	if v.AbsentUserDiag.MME != NoAbsentDiag || v.AbsentUserDiag.MSC != NoAbsentDiag || v.AbsentUserDiag.SGSN != NoAbsentDiag {
+	if v.AbsentUserDiag.MME != sms.NoAbsentDiag || v.AbsentUserDiag.MSC != sms.NoAbsentDiag || v.AbsentUserDiag.SGSN != sms.NoAbsentDiag {
 		fmt.Fprintf(w, "%sAbsent User Diagnostics for SM\n", dia.Indent)
 		fmt.Fprintf(w, "%s%sMME  =%d\n", dia.Indent, dia.Indent, v.AbsentUserDiag.MME)
 		fmt.Fprintf(w, "%s%sMSC  =%d\n", dia.Indent, dia.Indent, v.AbsentUserDiag.MSC)
@@ -370,13 +370,13 @@ func (v SRA) ToRaw(s string) dia.RawMsg {
 		m.AVP = append(m.AVP, setMWDStatus(
 			v.MWDStat.NoSCAddr, v.MWDStat.MNRF, v.MWDStat.MCEF, v.MWDStat.MNRG))
 	}
-	if v.AbsentUserDiag.MME != NoAbsentDiag {
+	if v.AbsentUserDiag.MME != sms.NoAbsentDiag {
 		m.AVP = append(m.AVP, setMMEAbsentUserDiagnosticSM(v.AbsentUserDiag.MME))
 	}
-	if v.AbsentUserDiag.MSC != NoAbsentDiag {
+	if v.AbsentUserDiag.MSC != sms.NoAbsentDiag {
 		m.AVP = append(m.AVP, setMSCAbsentUserDiagnosticSM(v.AbsentUserDiag.MSC))
 	}
-	if v.AbsentUserDiag.SGSN != NoAbsentDiag {
+	if v.AbsentUserDiag.SGSN != sms.NoAbsentDiag {
 		m.AVP = append(m.AVP, setSGSNAbsentUserDiagnosticSM(v.AbsentUserDiag.SGSN))
 	}
 	return m

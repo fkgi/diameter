@@ -239,7 +239,7 @@ type TFA struct {
 
 	SMSPDU sms.DeliverReport
 
-	AbsentUserDiag AbsentDiag
+	sms.AbsentDiag
 	DeliveryFailureCause
 	ReqRetransTime time.Time
 
@@ -259,8 +259,8 @@ func (v TFA) String() string {
 
 	fmt.Fprintf(w, "%sSMS Data Unit     =%s\n", dia.Indent, v.SMSPDU.String())
 
-	if v.ResultCode == DiameterErrorAbsentUser && v.AbsentUserDiag != NoAbsentDiag {
-		fmt.Fprintf(w, "%sAbsent User Diag  =%d\n", dia.Indent, v.AbsentUserDiag)
+	if v.ResultCode == DiameterErrorAbsentUser && v.AbsentDiag != sms.NoAbsentDiag {
+		fmt.Fprintf(w, "%sAbsent User Diag  =%d\n", dia.Indent, v.AbsentDiag)
 	}
 	if v.ResultCode == DiameterErrorSmDeliveryFailure {
 		switch v.DeliveryFailureCause {
@@ -306,7 +306,7 @@ func (v TFA) ToRaw(s string) dia.RawMsg {
 	case dia.DiameterSuccess:
 		m.AVP = append(m.AVP, setSMRPUI(&v.SMSPDU))
 	case DiameterErrorAbsentUser:
-		m.AVP = append(m.AVP, setAbsentUserDiagnosticSM(v.AbsentUserDiag))
+		m.AVP = append(m.AVP, setAbsentUserDiagnosticSM(v.AbsentDiag))
 		if !v.ReqRetransTime.IsZero() {
 			m.AVP = append(m.AVP, setRequestedRetransmissionTime(v.ReqRetransTime))
 		}
@@ -356,7 +356,7 @@ func (TFA) FromRaw(m dia.RawMsg) (dia.Answer, string, error) {
 		for _, a := range m.AVP {
 			switch a.Code {
 			case 3322:
-				v.AbsentUserDiag, e = getAbsentUserDiagnosticSM(a)
+				v.AbsentDiag, e = getAbsentUserDiagnosticSM(a)
 			case 3331:
 				v.ReqRetransTime, e = getRequestedRetransmissionTime(a)
 			}

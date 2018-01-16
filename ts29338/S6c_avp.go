@@ -423,121 +423,49 @@ func getMWDStatus(a dia.RawAVP) (sca, mnrf, mcef, mnrg bool, e error) {
 	return
 }
 
-// AbsentDiag indicate Absent-User-Diagnostic-SM
-type AbsentDiag int
-
-const (
-	// NoAbsentDiag is "no diag data"
-	NoAbsentDiag AbsentDiag = iota
-	// NoPagingRespMSC is "no paging response via the MSC"
-	NoPagingRespMSC
-	// IMSIDetached is "IMSI detached"
-	IMSIDetached
-	// RoamingRestrict is "roaming restriction"
-	RoamingRestrict
-	// DeregisteredNonGPRS is "deregistered in the HLR for non GPRS"
-	DeregisteredNonGPRS
-	// PurgedNonGPRS is "MS purged for non GPRS"
-	PurgedNonGPRS
-	// NoPagingRespSGSN is "no paging response via the SGSN"
-	NoPagingRespSGSN
-	// GPRSDetached is "GPRS detached"
-	GPRSDetached
-	// DeregisteredGPRS is "deregistered in the HLR for GPRS"
-	DeregisteredGPRS
-	// PurgedGPRS is "MS purged for GPRS"
-	PurgedGPRS
-	// UnidentifiedSubsMSC is "Unidentified subscriber via the MSC"
-	UnidentifiedSubsMSC
-	// UnidentifiedSubsSGSN is "Unidentified subscriber via the SGSN"
-	UnidentifiedSubsSGSN
-	// DeregisteredIMS is "deregistered in the HSS/HLR for IMS"
-	DeregisteredIMS
-	// NoRespIPSMGW is "no response via the IP-SM-GW"
-	NoRespIPSMGW
-	// TempUnavailable is "the MS is temporarily unavailable"
-	TempUnavailable
-)
-
-func (a AbsentDiag) String() string {
-	switch a {
-	case NoAbsentDiag:
-		return "no diag data"
-	case NoPagingRespMSC:
-		return "no paging response via the MSC"
-	case IMSIDetached:
-		return "IMSI detached"
-	case RoamingRestrict:
-		return "roaming restriction"
-	case DeregisteredNonGPRS:
-		return "deregistered in the HLR for non GPRS"
-	case PurgedNonGPRS:
-		return "MS purged for non GPRS"
-	case NoPagingRespSGSN:
-		return "no paging response via the SGSN"
-	case GPRSDetached:
-		return "GPRS detached"
-	case DeregisteredGPRS:
-		return "deregistered in the HLR for GPRS"
-	case PurgedGPRS:
-		return "MS purged for GPRS"
-	case UnidentifiedSubsMSC:
-		return "Unidentified subscriber via the MSC"
-	case UnidentifiedSubsSGSN:
-		return "Unidentified subscriber via the SGSN"
-	case DeregisteredIMS:
-		return "deregistered in the HSS/HLR for IMS"
-	case NoRespIPSMGW:
-		return "no response via the IP-SM-GW"
-	case TempUnavailable:
-		return "the MS is temporarily unavailable"
-	}
-	return ""
-}
-
 // MMEAbsentUserDiagnosticSM AVP shall indicate the diagnostic
 // explaining the absence of the user given by the MME.
-func setMMEAbsentUserDiagnosticSM(v AbsentDiag) (a dia.RawAVP) {
+func setMMEAbsentUserDiagnosticSM(v sms.AbsentDiag) (a dia.RawAVP) {
 	a = dia.RawAVP{Code: 3313, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 	switch v {
-	case NoPagingRespMSC:
+	case sms.NoPagingRespMSC:
 		a.Encode(uint32(0))
-	case IMSIDetached:
+	case sms.IMSIDetached:
 		a.Encode(uint32(1))
-	case RoamingRestrict:
+	case sms.RoamingRestrict:
 		a.Encode(uint32(2))
-	case DeregisteredNonGPRS:
+	case sms.DeregisteredNonGPRS:
 		a.Encode(uint32(3))
-	case PurgedNonGPRS:
+	case sms.PurgedNonGPRS:
 		a.Encode(uint32(4))
-	case UnidentifiedSubsMSC:
+	case sms.UnidentifiedSubsMSC:
 		a.Encode(uint32(9))
-	case TempUnavailable:
+	case sms.TempUnavailable:
 		a.Encode(uint32(13))
 	}
 	return
 }
 
-func getMMEAbsentUserDiagnosticSM(a dia.RawAVP) (v AbsentDiag, e error) {
+func getMMEAbsentUserDiagnosticSM(a dia.RawAVP) (v sms.AbsentDiag, e error) {
 	s := new(uint32)
 	if !a.FlgV || !a.FlgM || a.FlgP {
 		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(s); e == nil {
 		switch *s {
 		case 0:
-			v = NoPagingRespMSC
+			v = sms.NoPagingRespMSC
 		case 1:
-			v = IMSIDetached
+			v = sms.IMSIDetached
 		case 2:
-			v = RoamingRestrict
+			v = sms.RoamingRestrict
 		case 3:
-			v = DeregisteredNonGPRS
+			v = sms.DeregisteredNonGPRS
 		case 4:
-			v = PurgedNonGPRS
+			v = sms.PurgedNonGPRS
 		case 9:
-			v = UnidentifiedSubsMSC
+			v = sms.UnidentifiedSubsMSC
 		case 13:
-			v = TempUnavailable
+			v = sms.TempUnavailable
 		default:
 			e = dia.InvalidAVP(dia.DiameterInvalidAvpValue)
 		}
@@ -547,47 +475,47 @@ func getMMEAbsentUserDiagnosticSM(a dia.RawAVP) (v AbsentDiag, e error) {
 
 // MSCAbsentUserDiagnosticSM AVP shall indicate the diagnostic
 // explaining the absence of the user given by the MSC.
-func setMSCAbsentUserDiagnosticSM(v AbsentDiag) (a dia.RawAVP) {
+func setMSCAbsentUserDiagnosticSM(v sms.AbsentDiag) (a dia.RawAVP) {
 	a = dia.RawAVP{Code: 3314, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 	switch v {
-	case NoPagingRespMSC:
+	case sms.NoPagingRespMSC:
 		a.Encode(uint32(0))
-	case IMSIDetached:
+	case sms.IMSIDetached:
 		a.Encode(uint32(1))
-	case RoamingRestrict:
+	case sms.RoamingRestrict:
 		a.Encode(uint32(2))
-	case DeregisteredNonGPRS:
+	case sms.DeregisteredNonGPRS:
 		a.Encode(uint32(3))
-	case PurgedNonGPRS:
+	case sms.PurgedNonGPRS:
 		a.Encode(uint32(4))
-	case UnidentifiedSubsMSC:
+	case sms.UnidentifiedSubsMSC:
 		a.Encode(uint32(9))
-	case TempUnavailable:
+	case sms.TempUnavailable:
 		a.Encode(uint32(13))
 	}
 	return
 }
 
-func getMSCAbsentUserDiagnosticSM(a dia.RawAVP) (v AbsentDiag, e error) {
+func getMSCAbsentUserDiagnosticSM(a dia.RawAVP) (v sms.AbsentDiag, e error) {
 	s := new(uint32)
 	if !a.FlgV || !a.FlgM || a.FlgP {
 		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(s); e == nil {
 		switch *s {
 		case 0:
-			v = NoPagingRespMSC
+			v = sms.NoPagingRespMSC
 		case 1:
-			v = IMSIDetached
+			v = sms.IMSIDetached
 		case 2:
-			v = RoamingRestrict
+			v = sms.RoamingRestrict
 		case 3:
-			v = DeregisteredNonGPRS
+			v = sms.DeregisteredNonGPRS
 		case 4:
-			v = PurgedNonGPRS
+			v = sms.PurgedNonGPRS
 		case 9:
-			v = UnidentifiedSubsMSC
+			v = sms.UnidentifiedSubsMSC
 		case 13:
-			v = TempUnavailable
+			v = sms.TempUnavailable
 		default:
 			e = dia.InvalidAVP(dia.DiameterInvalidAvpValue)
 		}
@@ -597,51 +525,51 @@ func getMSCAbsentUserDiagnosticSM(a dia.RawAVP) (v AbsentDiag, e error) {
 
 // SGSNAbsentUserDiagnosticSM AVP shall indicate the diagnostic
 // explaining the absence of the user given by the SGSN.
-func setSGSNAbsentUserDiagnosticSM(v AbsentDiag) (a dia.RawAVP) {
+func setSGSNAbsentUserDiagnosticSM(v sms.AbsentDiag) (a dia.RawAVP) {
 	a = dia.RawAVP{Code: 3315, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 	switch v {
-	case IMSIDetached:
+	case sms.IMSIDetached:
 		a.Encode(uint32(1))
-	case RoamingRestrict:
+	case sms.RoamingRestrict:
 		a.Encode(uint32(2))
-	case NoPagingRespSGSN:
+	case sms.NoPagingRespSGSN:
 		a.Encode(uint32(5))
-	case GPRSDetached:
+	case sms.GPRSDetached:
 		a.Encode(uint32(6))
-	case DeregisteredGPRS:
+	case sms.DeregisteredGPRS:
 		a.Encode(uint32(7))
-	case PurgedGPRS:
+	case sms.PurgedGPRS:
 		a.Encode(uint32(8))
-	case UnidentifiedSubsSGSN:
+	case sms.UnidentifiedSubsSGSN:
 		a.Encode(uint32(10))
-	case TempUnavailable:
+	case sms.TempUnavailable:
 		a.Encode(uint32(13))
 	}
 	return
 }
 
-func getSGSNAbsentUserDiagnosticSM(a dia.RawAVP) (v AbsentDiag, e error) {
+func getSGSNAbsentUserDiagnosticSM(a dia.RawAVP) (v sms.AbsentDiag, e error) {
 	s := new(uint32)
 	if !a.FlgV || !a.FlgM || a.FlgP {
 		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(s); e == nil {
 		switch *s {
 		case 1:
-			v = IMSIDetached
+			v = sms.IMSIDetached
 		case 2:
-			v = RoamingRestrict
+			v = sms.RoamingRestrict
 		case 5:
-			v = NoPagingRespSGSN
+			v = sms.NoPagingRespSGSN
 		case 6:
-			v = GPRSDetached
+			v = sms.GPRSDetached
 		case 7:
-			v = DeregisteredGPRS
+			v = sms.DeregisteredGPRS
 		case 8:
-			v = PurgedGPRS
+			v = sms.PurgedGPRS
 		case 10:
-			v = UnidentifiedSubsSGSN
+			v = sms.UnidentifiedSubsSGSN
 		case 13:
-			v = TempUnavailable
+			v = sms.TempUnavailable
 		default:
 			e = dia.InvalidAVP(dia.DiameterInvalidAvpValue)
 		}
@@ -650,75 +578,75 @@ func getSGSNAbsentUserDiagnosticSM(a dia.RawAVP) (v AbsentDiag, e error) {
 }
 
 // AbsentUserDiagnosticSM AVP shall indicate the diagnostic explaining the absence of the subscriber.
-func setAbsentUserDiagnosticSM(v AbsentDiag) (a dia.RawAVP) {
+func setAbsentUserDiagnosticSM(v sms.AbsentDiag) (a dia.RawAVP) {
 	a = dia.RawAVP{Code: 3322, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 	switch v {
-	case NoPagingRespMSC:
+	case sms.NoPagingRespMSC:
 		a.Encode(uint32(0))
-	case IMSIDetached:
+	case sms.IMSIDetached:
 		a.Encode(uint32(1))
-	case RoamingRestrict:
+	case sms.RoamingRestrict:
 		a.Encode(uint32(2))
-	case DeregisteredNonGPRS:
+	case sms.DeregisteredNonGPRS:
 		a.Encode(uint32(3))
-	case PurgedNonGPRS:
+	case sms.PurgedNonGPRS:
 		a.Encode(uint32(4))
-	case NoPagingRespSGSN:
+	case sms.NoPagingRespSGSN:
 		a.Encode(uint32(5))
-	case GPRSDetached:
+	case sms.GPRSDetached:
 		a.Encode(uint32(6))
-	case DeregisteredGPRS:
+	case sms.DeregisteredGPRS:
 		a.Encode(uint32(7))
-	case PurgedGPRS:
+	case sms.PurgedGPRS:
 		a.Encode(uint32(8))
-	case UnidentifiedSubsMSC:
+	case sms.UnidentifiedSubsMSC:
 		a.Encode(uint32(9))
-	case UnidentifiedSubsSGSN:
+	case sms.UnidentifiedSubsSGSN:
 		a.Encode(uint32(10))
-	case DeregisteredIMS:
+	case sms.DeregisteredIMS:
 		a.Encode(uint32(11))
-	case NoRespIPSMGW:
+	case sms.NoRespIPSMGW:
 		a.Encode(uint32(12))
-	case TempUnavailable:
+	case sms.TempUnavailable:
 		a.Encode(uint32(13))
 	}
 	return
 }
 
-func getAbsentUserDiagnosticSM(a dia.RawAVP) (v AbsentDiag, e error) {
+func getAbsentUserDiagnosticSM(a dia.RawAVP) (v sms.AbsentDiag, e error) {
 	s := new(uint32)
 	if !a.FlgV || !a.FlgM || a.FlgP {
 		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(s); e == nil {
 		switch *s {
 		case 0:
-			v = NoPagingRespMSC
+			v = sms.NoPagingRespMSC
 		case 1:
-			v = IMSIDetached
+			v = sms.IMSIDetached
 		case 2:
-			v = RoamingRestrict
+			v = sms.RoamingRestrict
 		case 3:
-			v = DeregisteredNonGPRS
+			v = sms.DeregisteredNonGPRS
 		case 4:
-			v = PurgedNonGPRS
+			v = sms.PurgedNonGPRS
 		case 5:
-			v = NoPagingRespSGSN
+			v = sms.NoPagingRespSGSN
 		case 6:
-			v = GPRSDetached
+			v = sms.GPRSDetached
 		case 7:
-			v = DeregisteredGPRS
+			v = sms.DeregisteredGPRS
 		case 8:
-			v = PurgedGPRS
+			v = sms.PurgedGPRS
 		case 9:
-			v = UnidentifiedSubsMSC
+			v = sms.UnidentifiedSubsMSC
 		case 10:
-			v = UnidentifiedSubsSGSN
+			v = sms.UnidentifiedSubsSGSN
 		case 11:
-			v = DeregisteredIMS
+			v = sms.DeregisteredIMS
 		case 12:
-			v = NoRespIPSMGW
+			v = sms.NoRespIPSMGW
 		case 13:
-			v = TempUnavailable
+			v = sms.TempUnavailable
 		default:
 			e = dia.InvalidAVP(dia.DiameterInvalidAvpValue)
 		}
@@ -740,7 +668,7 @@ const (
 	SuccessfulTransfer
 )
 
-func setSMDeliveryOutcome(ec, cc, nc SMDeliveryCause, ed, cd, nd AbsentDiag) dia.RawAVP {
+func setSMDeliveryOutcome(ec, cc, nc SMDeliveryCause, ed, cd, nd sms.AbsentDiag) dia.RawAVP {
 	a := dia.RawAVP{Code: 3316, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 	t := make([]dia.RawAVP, 0, 2)
 	if ec != NoOutcome {
@@ -752,12 +680,12 @@ func setSMDeliveryOutcome(ec, cc, nc SMDeliveryCause, ed, cd, nd AbsentDiag) dia
 		t = append(t, setNodeOutcome(3319, nc, nd))
 	}
 	if len(t) == 0 {
-		t = append(t, setNodeOutcome(3317, SuccessfulTransfer, NoAbsentDiag))
+		t = append(t, setNodeOutcome(3317, SuccessfulTransfer, sms.NoAbsentDiag))
 	}
 	return a
 }
 
-func setNodeOutcome(code uint32, cause SMDeliveryCause, diag AbsentDiag) dia.RawAVP {
+func setNodeOutcome(code uint32, cause SMDeliveryCause, diag sms.AbsentDiag) dia.RawAVP {
 	a := dia.RawAVP{Code: code, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 	t := make([]dia.RawAVP, 1, 2)
 	t[0] = dia.RawAVP{Code: 3321, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
@@ -776,7 +704,7 @@ func setNodeOutcome(code uint32, cause SMDeliveryCause, diag AbsentDiag) dia.Raw
 }
 
 func getSMDeliveryOutcome(a dia.RawAVP) (
-	ec, cc, nc SMDeliveryCause, ed, cd, nd AbsentDiag, e error) {
+	ec, cc, nc SMDeliveryCause, ed, cd, nd sms.AbsentDiag, e error) {
 	o := []dia.RawAVP{}
 	if !a.FlgV || !a.FlgM || a.FlgP {
 		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
@@ -801,7 +729,7 @@ func getSMDeliveryOutcome(a dia.RawAVP) (
 	return
 }
 
-func getNodeOutcome(a dia.RawAVP) (c SMDeliveryCause, d AbsentDiag, e error) {
+func getNodeOutcome(a dia.RawAVP) (c SMDeliveryCause, d sms.AbsentDiag, e error) {
 	o := []dia.RawAVP{}
 	if !a.FlgV || !a.FlgM || a.FlgP {
 		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
@@ -825,7 +753,7 @@ func getNodeOutcome(a dia.RawAVP) (c SMDeliveryCause, d AbsentDiag, e error) {
 				if !a.FlgV || !a.FlgM || a.FlgP {
 					e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 				} else if e = a.Decode(&n); e == nil {
-					d = AbsentDiag(n)
+					d = sms.AbsentDiag(n)
 				}
 			}
 			if e != nil {

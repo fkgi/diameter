@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	dia "github.com/fkgi/diameter"
+	"github.com/fkgi/sms"
 	"github.com/fkgi/teldata"
 )
 
@@ -42,15 +43,15 @@ type RDR struct {
 	DeliveryOutcome struct {
 		MME struct {
 			SMDeliveryCause
-			AbsentDiag
+			sms.AbsentDiag
 		}
 		MSC struct {
 			SMDeliveryCause
-			AbsentDiag
+			sms.AbsentDiag
 		}
 		SGSN struct {
 			SMDeliveryCause
-			AbsentDiag
+			sms.AbsentDiag
 		}
 	}
 	Flags struct {
