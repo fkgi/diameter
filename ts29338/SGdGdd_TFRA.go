@@ -257,10 +257,12 @@ func (v TFA) String() string {
 	fmt.Fprintf(w, "%sOrigin-Host       =%s\n", dia.Indent, v.OriginHost)
 	fmt.Fprintf(w, "%sOrigin-Realm      =%s\n", dia.Indent, v.OriginRealm)
 
-	fmt.Fprintf(w, "%sSMS Data Unit     =%s\n", dia.Indent, v.SMSPDU.String())
+	if v.ResultCode == dia.DiameterSuccess {
+		fmt.Fprintf(w, "%sSMS Data Unit     =%s\n", dia.Indent, v.SMSPDU.String())
+	}
 
 	if v.ResultCode == DiameterErrorAbsentUser && v.AbsentDiag != sms.NoAbsentDiag {
-		fmt.Fprintf(w, "%sAbsent User Diag  =%d\n", dia.Indent, v.AbsentDiag)
+		fmt.Fprintf(w, "%sAbsent User Diag  =%s\n", dia.Indent, v.AbsentDiag.String())
 	}
 	if v.ResultCode == DiameterErrorSmDeliveryFailure {
 		switch v.DeliveryFailureCause {
@@ -268,6 +270,7 @@ func (v TFA) String() string {
 			fmt.Fprintf(w, "%sFailure Cause     =MEMORY_CAPACITY_EXCEEDED\n", dia.Indent)
 		case CauseEquipmentProtocolError:
 			fmt.Fprintf(w, "%sFailure Cause     =EQUIPMENT_PROTOCOL_ERROR\n", dia.Indent)
+			fmt.Fprintf(w, "%sSMS Data Unit     =%s\n", dia.Indent, v.SMSPDU.String())
 		case CauseEquipmentNotSMEquipped:
 			fmt.Fprintf(w, "%sFailure Cause     =EQUIPMENT_NOT_SM-EQUIPPED\n", dia.Indent)
 		case CauseUnknownServiceCenter:
