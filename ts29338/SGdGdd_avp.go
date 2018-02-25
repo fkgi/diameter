@@ -10,16 +10,16 @@ import (
 
 func setSCAddress(v teldata.E164) (a dia.RawAVP) {
 	a = dia.RawAVP{Code: 3300, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
-	a.Encode(v.String())
+	a.Encode(v.Bytes())
 	return
 }
 
 func getSCAddress(a dia.RawAVP) (v teldata.E164, e error) {
-	s := new(string)
+	s := new([]byte)
 	if !a.FlgV || !a.FlgM || a.FlgP {
 		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else if e = a.Decode(s); e == nil {
-		v, e = teldata.ParseE164(*s)
+		v, e = teldata.B2E164(*s)
 	}
 	return
 }
