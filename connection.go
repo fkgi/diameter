@@ -233,12 +233,9 @@ func (c *Conn) Recieve() (Request, func(Answer), error) {
 		req, _ = app.req[m.Code]
 	}
 
-	if req != nil {
-	} else if app, ok := supportedApps[0xffffffff]; ok {
-		req, _ = app.req[0]
-	}
 	if req == nil {
-		return nil, nil, ConnectionRefused{}
+		app, _ := supportedApps[0xffffffff]
+		req, _ = app.req[0]
 	}
 
 	r, sid, e := req.FromRaw(m)
@@ -282,7 +279,7 @@ func (c *Conn) watchdog() {
 
 // Close stop state machine
 func (c *Conn) Close(d time.Duration) {
-	if c.state != open {
+	if c == nil || c.state != open {
 		return
 	}
 
@@ -314,4 +311,9 @@ func (c *Conn) LocalAddr() net.Addr {
 // PeerAddr returns transport connection of state machine
 func (c *Conn) PeerAddr() net.Addr {
 	return c.con.RemoteAddr()
+}
+
+// State returns state machine state
+func (c *Conn) State() string {
+	return c.state.String()
 }

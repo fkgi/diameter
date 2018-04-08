@@ -14,7 +14,6 @@ func defaultMakeCER(c *Conn) CER {
 	s, _, _ = net.SplitHostPort(s)
 	for _, i := range strings.Split(s, "/") {
 		ips = append(ips, net.ParseIP(i))
-		println(net.ParseIP(i) == nil)
 	}
 
 	return CER{
