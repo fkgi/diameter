@@ -83,9 +83,7 @@ func Dial(p Peer, c net.Conn, d time.Duration) (*Conn, error) {
 	})
 
 	ack := <-ch
-	if !t.Stop() {
-		<-t.C
-	}
+	t.Stop()
 
 	if ack.Code == 0 {
 		return nil, ConnectionRefused{}
@@ -197,9 +195,7 @@ func (c *Conn) Send(m Request, d time.Duration) Answer {
 	})
 
 	a := <-ch
-	if !t.Stop() {
-		<-t.C
-	}
+	t.Stop()
 	if a.Code == 0 {
 		return m.Failed(DiameterUnableToDeliver)
 	}
@@ -278,9 +274,7 @@ func (c *Conn) watchdog() {
 	})
 
 	<-ch
-	if !t.Stop() {
-		<-t.C
-	}
+	t.Stop()
 }
 
 // Close stop state machine
@@ -306,9 +300,7 @@ func (c *Conn) Close(d time.Duration) {
 	})
 
 	<-ch
-	if !t.Stop() {
-		<-t.C
-	}
+	t.Stop()
 }
 
 // LocalAddr returns transport connection of state machine

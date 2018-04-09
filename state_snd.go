@@ -117,9 +117,7 @@ func (v eventStop) exec(c *Conn) error {
 	}
 
 	c.state = closing
-	if !c.wdTimer.Stop() {
-		<-c.wdTimer.C
-	}
+	c.wdTimer.Stop()
 
 	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
 	_, e := v.m.WriteTo(c.con)

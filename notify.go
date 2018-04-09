@@ -27,11 +27,14 @@ type StateUpdate struct {
 
 func (e StateUpdate) String() string {
 	w := new(bytes.Buffer)
-	fmt.Fprintf(w,
-		"state change %s -> %s with event %s on connection %s - %s",
-		e.oldStat, e.newStat, e.stateEvent, Host, e.conn.Peer)
+	fmt.Fprintf(w, "Event %s: Peer %s", e.stateEvent, e.conn.Peer)
+	if e.oldStat != e.newStat {
+		fmt.Fprintf(w, ": State %s -> %s", e.oldStat, e.newStat)
+	} else {
+		fmt.Fprintf(w, ": State %s", e.oldStat)
+	}
 	if e.Err != nil {
-		fmt.Fprintf(w, " failed: %s", e.Err)
+		fmt.Fprintf(w, ": Failed: %s", e.Err)
 	}
 	return w.String()
 }
@@ -48,9 +51,9 @@ func msgHandleLog(x, r bool, c *Conn, e error, req, ans string) string {
 	} else {
 		fmt.Fprintf(w, ans)
 	}
-	fmt.Fprintf(w, " (%s -> %s)", Host, c.Peer)
+	fmt.Fprintf(w, " (%s)", c.Peer)
 	if e != nil {
-		fmt.Fprintf(w, ": failed: %s", e)
+		fmt.Fprintf(w, ": Failed: %s", e)
 	}
 	return w.String()
 }
