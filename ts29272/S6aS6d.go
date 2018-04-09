@@ -1,11 +1,11 @@
 package ts29272
 
+/*
 import (
 	"github.com/fkgi/diameter/msg"
 	"github.com/fkgi/teldata"
 )
 
-/*
 const v3gpp uint32 = 10415
 
 const (
@@ -141,7 +141,6 @@ var UESRVCCCapabilityValue = struct {
 	UeSrvccSupported    msg.Enumerated
 }{0, 1}
 
-*/
 
 // SGSNNumber AVP
 type SGSNNumber teldata.TBCD
@@ -171,7 +170,6 @@ func (v *SGSNNumber) FromRaw(a msg.RawAVP) (e error) {
 	return
 }
 
-/*
 // HomogeneousSupportOfIMSVoiceOverPSSessions AVP
 func HomogeneousSupportOfIMSVoiceOverPSSessions(e msg.Enumerated) msg.RawAVP {
 	a := msg.RawAVP{Code: uint32(1493), FlgV: true, FlgM: false, FlgP: false, VenID: uint32(10415)}
@@ -219,7 +217,6 @@ func EquivalentPLMNList(plmns [][2]string) msg.RawAVP {
 	a.ToRaw(msg.GroupedAVP(t))
 	return a
 }
-*/
 
 // MMENumberForMTSMS AVP
 type MMENumberForMTSMS teldata.TBCD
@@ -249,7 +246,6 @@ func (v *MMENumberForMTSMS) FromRaw(a msg.RawAVP) (e error) {
 	return
 }
 
-/*
 const (
 	// SmsRegistrationRequired is Enumerated value 0
 	SmsRegistrationRequired msg.Enumerated = 0

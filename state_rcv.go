@@ -128,6 +128,9 @@ func (v eventRcvDWR) exec(c *Conn) error {
 		e = FailureAnswer{dwa}
 	}
 	if e == nil {
+		if !c.wdTimer.Stop() {
+			<-c.wdTimer.C
+		}
 		c.wdTimer.Reset(c.Peer.WDInterval)
 	}
 
@@ -165,6 +168,9 @@ func (v eventRcvDWA) exec(c *Conn) error {
 		} else {
 			e = FailureAnswer{dwa}
 		}
+	}
+	if !c.wdTimer.Stop() {
+		<-c.wdTimer.C
 	}
 	c.wdTimer.Reset(c.Peer.WDInterval)
 
@@ -206,7 +212,9 @@ func (v eventRcvDPR) exec(c *Conn) error {
 		m.FlgE = true
 	} else {
 		c.state = closing
-		c.wdTimer.Stop()
+		if !c.wdTimer.Stop() {
+			<-c.wdTimer.C
+		}
 		c.wdTimer = time.AfterFunc(TransportTimeout, func() {
 			c.con.Close()
 		})
@@ -301,6 +309,9 @@ func (v eventRcvMsg) exec(c *Conn) (e error) {
 		}
 		delete(c.sndstack, v.m.HbHID)
 		ch <- v.m
+	}
+	if !c.wdTimer.Stop() {
+		<-c.wdTimer.C
 	}
 	c.wdTimer.Reset(c.Peer.WDInterval)
 

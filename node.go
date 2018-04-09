@@ -66,8 +66,7 @@ func init() {
 }
 
 // AddSupportedMessage add supported application message
-func AddSupportedMessage(v, a, c uint32,
-	req Request, ans Answer) {
+func AddSupportedMessage(v, a, c uint32, req Request, ans Answer) {
 
 	if _, ok := supportedApps[a]; !ok {
 		supportedApps[a] = appSet{
