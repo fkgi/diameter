@@ -1,6 +1,8 @@
 package diameter
 
 import (
+	"bytes"
+	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -28,6 +30,48 @@ type Conn struct {
 	con      net.Conn
 	sndstack map[uint32]chan RawMsg
 	rcvstack chan RawMsg
+
+	Since        time.Time
+	RxReq        uint64
+	Reject       uint64
+	Tx1xxx       uint64
+	Tx2xxx       uint64
+	Tx3xxx       uint64
+	Tx4xxx       uint64
+	Tx5xxx       uint64
+	TxEtc        uint64
+	TxReq        uint64
+	TxReqFail    uint64
+	TxReqTimeout uint64
+	Rx1xxx       uint64
+	Rx2xxx       uint64
+	Rx3xxx       uint64
+	Rx4xxx       uint64
+	Rx5xxx       uint64
+	RxEtc        uint64
+}
+
+func (c *Conn) String() string {
+	w := new(bytes.Buffer)
+
+	fmt.Fprintf(w, "%sPeer          =%s\n", Indent, c.Peer)
+	fmt.Fprintf(w, "%sUptime        =%s\n",
+		Indent, time.Now().Sub(c.Since).String())
+	fmt.Fprintf(w, "%sRxReqCount    =%d\n", Indent, c.RxReq)
+	fmt.Fprintf(w, "%sRejectCount   =%d\n", Indent, c.Reject)
+	fmt.Fprintf(w, "%sTx1xxxCount   =%d\n", Indent, c.Tx1xxx)
+
+	return w.String()
+}
+
+// RxQueue returns length of Rx queue
+func (c *Conn) RxQueue() int {
+	return len(c.rcvstack)
+}
+
+// TxQueue returns length of Tx queue
+func (c *Conn) TxQueue() int {
+	return len(c.sndstack)
 }
 
 // Dial make new Conn that use specified peernode and connection

@@ -14,7 +14,9 @@ func (eventRcvCER) String() string {
 }
 
 func (v eventRcvCER) exec(c *Conn) error {
+	c.RxReq++
 	if c.state != waitCER {
+		c.Reject++
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
@@ -24,6 +26,7 @@ func (v eventRcvCER) exec(c *Conn) error {
 	if e != nil {
 		// ToDo
 		// make error answer for undecodable CER
+		c.Reject++
 		c.con.Close()
 		return e
 	}
@@ -44,6 +47,7 @@ func (v eventRcvCER) exec(c *Conn) error {
 	if e == nil {
 		c.state = open
 		c.wdTimer = time.AfterFunc(c.Peer.WDInterval, c.watchdog)
+		c.Since = time.Now()
 	}
 
 	Notify(CapabilityExchangeEvent{tx: true, req: false, conn: c, Err: e})
@@ -78,6 +82,7 @@ func (v eventRcvCEA) exec(c *Conn) error {
 		if cea.Result() == DiameterSuccess {
 			c.state = open
 			c.wdTimer = time.AfterFunc(c.Peer.WDInterval, c.watchdog)
+			c.Since = time.Now()
 		} else {
 			e = FailureAnswer{cea}
 		}
@@ -101,7 +106,9 @@ func (eventRcvDWR) String() string {
 }
 
 func (v eventRcvDWR) exec(c *Conn) error {
+	c.RxReq++
 	if c.state != open {
+		c.Reject++
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
@@ -111,6 +118,7 @@ func (v eventRcvDWR) exec(c *Conn) error {
 	if e != nil {
 		// ToDo
 		// make error answer for undecodable CER
+		c.Reject++
 		return e
 	}
 
@@ -187,7 +195,9 @@ func (eventRcvDPR) String() string {
 }
 
 func (v eventRcvDPR) exec(c *Conn) error {
+	c.RxReq++
 	if c.state != open {
+		c.Reject++
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
@@ -197,6 +207,7 @@ func (v eventRcvDPR) exec(c *Conn) error {
 	if e != nil {
 		// ToDo
 		// make error answer for undecodable CER
+		c.Reject++
 		return e
 	}
 
@@ -209,6 +220,7 @@ func (v eventRcvDPR) exec(c *Conn) error {
 	} else {
 		c.state = closing
 		c.wdTimer.Stop()
+		c.Since = time.Time{}
 		c.wdTimer = time.AfterFunc(TransportTimeout, func() {
 			c.con.Close()
 		})
@@ -267,11 +279,14 @@ func (eventRcvMsg) String() string {
 }
 
 func (v eventRcvMsg) exec(c *Conn) (e error) {
-	if c.state != open {
-		return NotAcceptableEvent{stateEvent: v, state: c.state}
-	}
 
 	if v.m.FlgR {
+		c.RxReq++
+		if c.state != open {
+			c.Reject++
+			return NotAcceptableEvent{stateEvent: v, state: c.state}
+		}
+
 		var cause uint32
 
 		if app, ok := supportedApps[v.m.AppID]; !ok {
@@ -297,6 +312,10 @@ func (v eventRcvMsg) exec(c *Conn) (e error) {
 			c.rcvstack <- v.m
 		}
 	} else {
+		if c.state != open {
+			return NotAcceptableEvent{stateEvent: v, state: c.state}
+		}
+
 		ch, ok := c.sndstack[v.m.HbHID]
 		if !ok {
 			return

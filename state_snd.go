@@ -64,6 +64,7 @@ func (v eventConnect) exec(c *Conn) error {
 	}
 	c.state = waitCEA
 
+	c.TxReq++
 	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
 	_, e := v.m.WriteTo(c.con)
 	Notify(CapabilityExchangeEvent{tx: true, req: true, conn: c, Err: e})
@@ -93,6 +94,7 @@ func (v eventWatchdog) exec(c *Conn) error {
 		return WatchdogExpired{}
 	}
 
+	c.TxReq++
 	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
 	_, e := v.m.WriteTo(c.con)
 	Notify(WatchdogEvent{tx: true, req: true, conn: c, Err: e})
@@ -118,7 +120,9 @@ func (v eventStop) exec(c *Conn) error {
 
 	c.state = closing
 	c.wdTimer.Stop()
+	c.Since = time.Time{}
 
+	c.TxReq++
 	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
 	_, e := v.m.WriteTo(c.con)
 	Notify(PurgeEvent{tx: true, req: true, conn: c, Err: e})
@@ -138,6 +142,7 @@ func (eventPeerDisc) String() string {
 func (v eventPeerDisc) exec(c *Conn) error {
 	c.con.Close()
 	c.state = closed
+	c.Since = time.Time{}
 
 	for _, ch := range c.sndstack {
 		ch <- RawMsg{}
@@ -161,6 +166,7 @@ func (v eventSndMsg) exec(c *Conn) error {
 		return NotAcceptableEvent{stateEvent: v, state: c.state}
 	}
 
+	c.TxReq++
 	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
 	_, e := v.m.WriteTo(c.con)
 	Notify(MessageEvent{tx: true, req: v.m.FlgR, conn: c, Err: e})
