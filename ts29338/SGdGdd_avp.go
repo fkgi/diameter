@@ -51,6 +51,26 @@ func getSMRPUIasDeliverReport(a dia.RawAVP) (v sms.DeliverReport, e error) {
 	return
 }
 
+func getSMRPUIasSubmit(a dia.RawAVP) (v sms.Submit, e error) {
+	s := new([]byte)
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+	} else if e = a.Decode(s); e == nil {
+		e = v.Decode(*s)
+	}
+	return
+}
+
+func getSMRPUIasSubmitReport(a dia.RawAVP) (v sms.SubmitReport, e error) {
+	s := new([]byte)
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+	} else if e = a.Decode(s); e == nil {
+		e = v.Decode(*s)
+	}
+	return
+}
+
 // MMENumberForMTSMS AVP from ts29.272
 func setMMENumberForMTSMS(v teldata.E164) (a dia.RawAVP) {
 	a = dia.RawAVP{Code: 1645, VenID: 10415, FlgV: true, FlgM: false, FlgP: false}
@@ -206,6 +226,85 @@ func getSMDeliveryFailureCause(a dia.RawAVP) (c DeliveryFailureCause, d sms.Deli
 	return
 }
 
+func setSMSubmissionFailureCause(c DeliveryFailureCause, d sms.SubmitReport) (a dia.RawAVP) {
+	a = dia.RawAVP{Code: 3303, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
+	v := make([]dia.RawAVP, 1, 2)
+
+	// SM-Enumerated-Delivery-Failure-Cause
+	v[0] = dia.RawAVP{Code: 3304, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
+	switch c {
+	case CauseMemoryCapacityExceeded:
+		v[0].Encode(dia.Enumerated(0))
+	case CauseEquipmentProtocolError:
+		v[0].Encode(dia.Enumerated(1))
+	case CauseEquipmentNotSMEquipped:
+		v[0].Encode(dia.Enumerated(2))
+	case CauseUnknownServiceCenter:
+		v[0].Encode(dia.Enumerated(3))
+	case CauseSCCongestion:
+		v[0].Encode(dia.Enumerated(4))
+	case CauseInvalidSMEAddress:
+		v[0].Encode(dia.Enumerated(5))
+	case CauseUserNotSCUser:
+		v[0].Encode(dia.Enumerated(6))
+	}
+
+	// SM-Diagnostic-Info
+	if d.FCS != nil {
+		t := dia.RawAVP{Code: 3305, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
+		t.Encode(d.Encode())
+		v = append(v, t)
+	}
+
+	a.Encode(v)
+	return
+}
+
+func getSMSubmissionFailureCause(a dia.RawAVP) (c DeliveryFailureCause, d sms.SubmitReport, e error) {
+	o := []dia.RawAVP{}
+	if !a.FlgV || !a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+	} else {
+		e = a.Decode(&o)
+	}
+	for _, a := range o {
+		switch a.Code {
+		case 3304:
+			s := new(dia.Enumerated)
+			if !a.FlgV || !a.FlgM || a.FlgP {
+				e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+			} else if e = a.Decode(s); e == nil {
+				switch *s {
+				case 0:
+					c = CauseMemoryCapacityExceeded
+				case 1:
+					c = CauseEquipmentProtocolError
+				case 2:
+					c = CauseEquipmentNotSMEquipped
+				case 3:
+					c = CauseUnknownServiceCenter
+				case 4:
+					c = CauseSCCongestion
+				case 5:
+					c = CauseInvalidSMEAddress
+				case 6:
+					c = CauseUserNotSCUser
+				default:
+					e = dia.InvalidAVP(dia.DiameterInvalidAvpValue)
+				}
+			}
+		case 3305:
+			s := new([]byte)
+			if !a.FlgV || !a.FlgM || a.FlgP {
+				e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+			} else if e = a.Decode(s); e == nil {
+				e = d.Decode(*s)
+			}
+		}
+	}
+	return
+}
+
 // SMDeliveryTimer AVP contain the value in seconds of the timer for SM Delivery.
 func setSMDeliveryTimer(v uint32) (a dia.RawAVP) {
 	a = dia.RawAVP{Code: 3306, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
@@ -235,6 +334,29 @@ func getSMDeliveryStartTime(a dia.RawAVP) (v time.Time, e error) {
 		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
 	} else {
 		e = a.Decode(&v)
+	}
+	return
+}
+
+// OFRFlags AVP is bit mask.
+// This bit, when set, indicates that the OFR message is sent on the Gdd interface.
+// This bit, when cleared, indicates that the OFR message is sent on the SGd interface.
+func setOFRFlags(s bool) (a dia.RawAVP) {
+	a = dia.RawAVP{Code: 3328, VenID: 10415, FlgV: true, FlgM: false, FlgP: false}
+	i := uint32(0)
+	if s {
+		i = i | 0x00000001
+	}
+	a.Encode(i)
+	return
+}
+
+func getOFRFlags(a dia.RawAVP) (s bool, e error) {
+	v := new(uint32)
+	if !a.FlgV || a.FlgM || a.FlgP {
+		e = dia.InvalidAVP(dia.DiameterInvalidAvpBits)
+	} else if e = a.Decode(v); e == nil {
+		s = (*v)&0x00000001 == 0x00000001
 	}
 	return
 }
@@ -291,39 +413,6 @@ func getRequestedRetransmissionTime(a dia.RawAVP) (v time.Time, e error) {
 }
 
 /*
-// OFRFlags AVP is bit mask.
-// When s6as6d set, the OFR message is sent on the Gdd interface (source node is an SGSN).
-// When cleared, sent on the SGd interface (source node is an MME).
-type OFRFlags struct {
-	S6as6d bool
-}
-
-// ToRaw return AVP struct of this value
-func (v OFRFlags) ToRaw() diameter.RawAVP {
-	a := diameter.RawAVP{Code: 3328, VenID: 10415,
-		FlgV: true, FlgM: false, FlgP: false}
-	i := uint32(0)
-
-	if v.S6as6d {
-		i = i | 0x00000001
-	}
-
-	a.Encode(i)
-	return a
-}
-
-// GetOFRFlags get AVP value
-func GetOFRFlags(o diameter.GroupedAVP) (OFRFlags, bool) {
-	s := new(uint32)
-	if a, ok := o.Get(3328, 10415); ok {
-		a.Decode(s)
-	} else {
-		return OFRFlags{}, false
-	}
-	return OFRFlags{
-		S6as6d: (*s)&0x00000001 == 0x00000001}, true
-}
-
 // SMSMICorrelationID AVP ontain information identities used in the context
 // of MSISDN-less SMS delivery in IMS
 type SMSMICorrelationID struct {
@@ -384,63 +473,6 @@ func GetSMSMICorrelationID(o diameter.GroupedAVP) (SMSMICorrelationID, bool) {
 	}
 	return s, true
 }
-
-// UserIdentifier AVP from ts29.336
-type UserIdentifier ts29336.UserIdentifier
-
-// ToRaw return AVP struct of this value
-func (v UserIdentifier) ToRaw() diameter.RawAVP {
-	return ts29336.UserIdentifier(v).Encode()
-}
-
-// GetUserIdentifier get AVP value
-func GetUserIdentifier(o diameter.GroupedAVP) (UserIdentifier, bool) {
-	a, ok := ts29336.GetUserIdentifier(o)
-	return UserIdentifier(a), ok
-}
-
-// SupportedFeatures AVP from ts29.229
-type SupportedFeatures ts29229.SupportedFeatures
-
-// ToRaw return AVP struct of this value
-func (v SupportedFeatures) ToRaw() diameter.RawAVP {
-	return ts29229.SupportedFeatures(v).Encode()
-}
-
-// GetSupportedFeatures get AVP value
-func GetSupportedFeatures(o diameter.GroupedAVP) (SupportedFeatures, bool) {
-	a, ok := ts29229.GetSupportedFeatures(o)
-	return SupportedFeatures(a), ok
-}
-
-// FeatureListID AVP from ts29.229
-type FeatureListID ts29229.FeatureListID
-
-// ToRaw return AVP struct of this value
-func (v FeatureListID) ToRaw() diameter.RawAVP {
-	return ts29229.FeatureListID(v).Encode()
-}
-
-// GetFeatureListID get AVP value
-func GetFeatureListID(o diameter.GroupedAVP) (FeatureListID, bool) {
-	a, ok := ts29229.GetFeatureListID(o)
-	return FeatureListID(a), ok
-}
-
-// FeatureList AVP from ts29.229
-type FeatureList ts29229.FeatureList
-
-// ToRaw return AVP struct of this value
-func (v FeatureList) ToRaw() diameter.RawAVP {
-	return ts29229.FeatureList(v).Encode()
-}
-
-// GetFeatureList get AVP value
-func GetFeatureList(o diameter.GroupedAVP) (FeatureList, bool) {
-	a, ok := ts29229.GetFeatureList(o)
-	return FeatureList(a), ok
-}
-
 
 // ExternalIdentifier AVP from ts29.336
 type ExternalIdentifier ts29336.ExternalIdentifier

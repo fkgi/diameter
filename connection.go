@@ -54,12 +54,29 @@ type Conn struct {
 func (c *Conn) String() string {
 	w := new(bytes.Buffer)
 
-	fmt.Fprintf(w, "%sPeer          =%s\n", Indent, c.Peer)
-	fmt.Fprintf(w, "%sUptime        =%s\n",
+	fmt.Fprintf(w, "%sPeer                =%s\n", Indent, c.Peer)
+	fmt.Fprintf(w, "%sStatus              =%s\n", Indent, c.State())
+	fmt.Fprintf(w, "%sUptime              =%s\n",
 		Indent, time.Now().Sub(c.Since).String())
-	fmt.Fprintf(w, "%sRxReqCount    =%d\n", Indent, c.RxReq)
-	fmt.Fprintf(w, "%sRejectCount   =%d\n", Indent, c.Reject)
-	fmt.Fprintf(w, "%sTx1xxxCount   =%d\n", Indent, c.Tx1xxx)
+	fmt.Fprintf(w, "%sRx Request count    =%d\n", Indent, c.RxReq)
+	fmt.Fprintf(w, "%s%sReject count  =%d\n", Indent, Indent, c.Reject)
+	fmt.Fprintf(w, "%s%sTx 1xxx count =%d\n", Indent, Indent, c.Tx1xxx)
+	fmt.Fprintf(w, "%s%sTx 2xxx count =%d\n", Indent, Indent, c.Tx2xxx)
+	fmt.Fprintf(w, "%s%sTx 3xxx count =%d\n", Indent, Indent, c.Tx3xxx)
+	fmt.Fprintf(w, "%s%sTx 4xxx count =%d\n", Indent, Indent, c.Tx4xxx)
+	fmt.Fprintf(w, "%s%sTx 5xxx count =%d\n", Indent, Indent, c.Tx5xxx)
+	fmt.Fprintf(w, "%s%sTx etc count  =%d\n", Indent, Indent, c.TxEtc)
+	fmt.Fprintf(w, "%sTx Request count    =%d\n", Indent, c.TxReq)
+	fmt.Fprintf(w, "%s%sFailed count  =%d\n", Indent, Indent, c.TxReqFail)
+	fmt.Fprintf(w, "%s%sTimeout count =%d\n", Indent, Indent, c.TxReqTimeout)
+	fmt.Fprintf(w, "%s%sRx 1xxx count =%d\n", Indent, Indent, c.Rx1xxx)
+	fmt.Fprintf(w, "%s%sRx 2xxx count =%d\n", Indent, Indent, c.Rx2xxx)
+	fmt.Fprintf(w, "%s%sRx 3xxx count =%d\n", Indent, Indent, c.Rx3xxx)
+	fmt.Fprintf(w, "%s%sRx 4xxx count =%d\n", Indent, Indent, c.Rx4xxx)
+	fmt.Fprintf(w, "%s%sRx 5xxx count =%d\n", Indent, Indent, c.Rx5xxx)
+	fmt.Fprintf(w, "%s%sRx etc count  =%d\n", Indent, Indent, c.RxEtc)
+	fmt.Fprintf(w, "%sRx queue length     =%d\n", Indent, c.RxQueue())
+	fmt.Fprintf(w, "%sTx queue length     =%d\n", Indent, c.TxQueue())
 
 	return w.String()
 }
