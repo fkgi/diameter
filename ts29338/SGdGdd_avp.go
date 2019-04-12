@@ -171,7 +171,7 @@ func setSMDeliveryFailureCause(c DeliveryFailureCause, d sms.DeliverReport) (a d
 	}
 
 	// SM-Diagnostic-Info
-	if d.FCS != nil {
+	if d.FCS&0x80 == 0x80 {
 		t := dia.RawAVP{Code: 3305, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 		t.Encode(d.Encode())
 		v = append(v, t)
@@ -250,7 +250,7 @@ func setSMSubmissionFailureCause(c DeliveryFailureCause, d sms.SubmitReport) (a 
 	}
 
 	// SM-Diagnostic-Info
-	if d.FCS != nil {
+	if d.FCS&0x80 == 0x80 {
 		t := dia.RawAVP{Code: 3305, VenID: 10415, FlgV: true, FlgM: true, FlgP: false}
 		t.Encode(d.Encode())
 		v = append(v, t)
