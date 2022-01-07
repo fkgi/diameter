@@ -2,379 +2,236 @@ package diameter
 
 import (
 	"bytes"
-	"fmt"
 	"net"
-	"strings"
 	"time"
 )
 
-// constant values
-var (
-	TxBuffer = 65535
-	RxBuffer = 65535
-
-	VendorID         uint32 = 41102
-	ProductName             = "yatagarasu"
-	FirmwareRevision uint32 = 170819001
-)
-
-// Conn is state machine of Diameter
-type Conn struct {
-	*Peer
-
-	wdTimer *time.Timer // system message timer
-	wdCount int         // watchdog expired counter
-
-	notify chan stateEvent
-	state
-	con      net.Conn
-	sndstack map[uint32]chan RawMsg
-	rcvstack chan RawMsg
-
-	Since        time.Time
-	RxReq        uint64
-	Reject       uint64
-	Tx1xxx       uint64
-	Tx2xxx       uint64
-	Tx3xxx       uint64
-	Tx4xxx       uint64
-	Tx5xxx       uint64
-	TxEtc        uint64
-	TxReq        uint64
-	TxReqFail    uint64
-	TxReqTimeout uint64
-	Rx1xxx       uint64
-	Rx2xxx       uint64
-	Rx3xxx       uint64
-	Rx4xxx       uint64
-	Rx5xxx       uint64
-	RxEtc        uint64
-}
-
-func (c *Conn) String() string {
-	w := new(bytes.Buffer)
-
-	fmt.Fprintf(w, "%sPeer                =%s\n", Indent, c.Peer)
-	fmt.Fprintf(w, "%sStatus              =%s\n", Indent, c.State())
-	fmt.Fprintf(w, "%sUptime              =%s\n",
-		Indent, time.Now().Sub(c.Since).String())
-	fmt.Fprintf(w, "%sRx Request count    =%d\n", Indent, c.RxReq)
-	fmt.Fprintf(w, "%s%sReject count  =%d\n", Indent, Indent, c.Reject)
-	fmt.Fprintf(w, "%s%sTx 1xxx count =%d\n", Indent, Indent, c.Tx1xxx)
-	fmt.Fprintf(w, "%s%sTx 2xxx count =%d\n", Indent, Indent, c.Tx2xxx)
-	fmt.Fprintf(w, "%s%sTx 3xxx count =%d\n", Indent, Indent, c.Tx3xxx)
-	fmt.Fprintf(w, "%s%sTx 4xxx count =%d\n", Indent, Indent, c.Tx4xxx)
-	fmt.Fprintf(w, "%s%sTx 5xxx count =%d\n", Indent, Indent, c.Tx5xxx)
-	fmt.Fprintf(w, "%s%sTx etc count  =%d\n", Indent, Indent, c.TxEtc)
-	fmt.Fprintf(w, "%sTx Request count    =%d\n", Indent, c.TxReq)
-	fmt.Fprintf(w, "%s%sFailed count  =%d\n", Indent, Indent, c.TxReqFail)
-	fmt.Fprintf(w, "%s%sTimeout count =%d\n", Indent, Indent, c.TxReqTimeout)
-	fmt.Fprintf(w, "%s%sRx 1xxx count =%d\n", Indent, Indent, c.Rx1xxx)
-	fmt.Fprintf(w, "%s%sRx 2xxx count =%d\n", Indent, Indent, c.Rx2xxx)
-	fmt.Fprintf(w, "%s%sRx 3xxx count =%d\n", Indent, Indent, c.Rx3xxx)
-	fmt.Fprintf(w, "%s%sRx 4xxx count =%d\n", Indent, Indent, c.Rx4xxx)
-	fmt.Fprintf(w, "%s%sRx 5xxx count =%d\n", Indent, Indent, c.Rx5xxx)
-	fmt.Fprintf(w, "%s%sRx etc count  =%d\n", Indent, Indent, c.RxEtc)
-	fmt.Fprintf(w, "%sRx queue length     =%d\n", Indent, c.RxQueue())
-	fmt.Fprintf(w, "%sTx queue length     =%d\n", Indent, c.TxQueue())
-
-	return w.String()
-}
-
-// RxQueue returns length of Rx queue
-func (c *Conn) RxQueue() int {
-	return len(c.rcvstack)
-}
-
-// TxQueue returns length of Tx queue
-func (c *Conn) TxQueue() int {
-	return len(c.sndstack)
-}
-
-// Dial make new Conn that use specified peernode and connection
-func Dial(p Peer, c net.Conn, d time.Duration) (*Conn, error) {
-	if c == nil {
-		return nil, ConnectionRefused{}
+// DialAndServe start diameter connection handling process as initiator.
+func DialAndServe(localFqdn, peerFqdn string, sctp bool) (err error) {
+	Local.Host, Local.Realm, err = ResolveIdentiry(localFqdn)
+	if err != nil {
+		return
 	}
-	if len(p.Host) == 0 {
-		return nil, ConnectionRefused{}
+	Peer.Host, Peer.Realm, err = ResolveIdentiry(peerFqdn)
+	if err != nil {
+		return
 	}
-	if len(p.Realm) == 0 {
-		var e error
-		p.Realm, e = ParseIdentity(string(
-			p.Host[strings.Index(string(p.Host), ".")+1:]))
-		if e != nil {
-			return nil, e
+
+	if sctp {
+
+	} else {
+		var la *net.TCPAddr
+		la, err = net.ResolveTCPAddr("tcp", localFqdn)
+		if err != nil {
+			return
+		}
+		conn, err = (&net.Dialer{LocalAddr: la}).Dial("tcp", peerFqdn)
+		if err != nil {
+			return
 		}
 	}
-	if p.WDExpired == 0 {
-		p.WDExpired = WDExpired
-	}
-	if p.WDInterval == 0 {
-		p.WDInterval = WDInterval
-	}
 
-	con := &Conn{
-		Peer:     &p,
-		notify:   make(chan stateEvent),
-		state:    closed,
-		con:      c,
-		sndstack: make(map[uint32]chan RawMsg, TxBuffer),
-		rcvstack: make(chan RawMsg, RxBuffer)}
-	go socketHandler(con)
-	Notify(StateUpdate{
-		oldStat: shutdown, newStat: con.state,
-		stateEvent: eventInit{}, conn: con, Err: nil})
-	go eventHandler(con)
+	go socketHandler()
+	go messageHandler()
+	TraceState(shutdown.String(), state.String(), eventInit{}.String(), nil)
 
-	cer := MakeCER(con)
-	req := cer.ToRaw("")
-	req.HbHID = nextHbH()
-	req.EtEID = nextEtE()
-
-	ch := make(chan RawMsg)
-	con.sndstack[req.HbHID] = ch
-	con.notify <- eventConnect{m: req}
-
-	t := time.AfterFunc(d, func() {
-		m := cer.Failed(DiameterTooBusy).ToRaw("")
-		m.HbHID = req.HbHID
-		m.EtEID = req.EtEID
-		con.notify <- eventRcvCEA{m}
-	})
-
-	ack := <-ch
-	t.Stop()
-
-	if ack.Code == 0 {
-		return nil, ConnectionRefused{}
-	}
-	return con, nil
-}
-
-// Accept new transport connection and return Conn
-func Accept(p *Peer, c net.Conn) (*Conn, error) {
-	if c == nil {
-		return nil, ConnectionRefused{}
-	}
-	con := &Conn{
-		Peer:     p,
-		notify:   make(chan stateEvent),
-		state:    waitCER,
-		con:      c,
-		sndstack: make(map[uint32]chan RawMsg, TxBuffer),
-		rcvstack: make(chan RawMsg, RxBuffer)}
-	go socketHandler(con)
-
-	Notify(StateUpdate{
-		oldStat: shutdown, newStat: con.state,
-		stateEvent: eventInit{}, conn: con, Err: nil})
-
-	event := <-con.notify
-	old := con.state
-	e := event.exec(con)
-	Notify(StateUpdate{
-		oldStat: old, newStat: con.state,
-		stateEvent: event, conn: con, Err: e})
-	if e != nil {
-		c.Close()
-	}
-	go eventHandler(con)
-
-	return con, e
-}
-
-func socketHandler(c *Conn) {
+	notify <- eventConnect{}
 	for {
-		m := RawMsg{}
-		c.con.SetReadDeadline(time.Time{})
-		if _, e := m.ReadFrom(c.con); e != nil {
-			break
-		}
-
-		if m.AppID == 0 && m.Code == 257 && m.FlgR {
-			c.notify <- eventRcvCER{m}
-		} else if m.AppID == 0 && m.Code == 257 && !m.FlgR {
-			c.notify <- eventRcvCEA{m}
-		} else if m.AppID == 0 && m.Code == 280 && m.FlgR {
-			c.notify <- eventRcvDWR{m}
-		} else if m.AppID == 0 && m.Code == 280 && !m.FlgR {
-			c.notify <- eventRcvDWA{m}
-		} else if m.AppID == 0 && m.Code == 282 && m.FlgR {
-			c.notify <- eventRcvDPR{m}
-		} else if m.AppID == 0 && m.Code == 282 && !m.FlgR {
-			c.notify <- eventRcvDPA{m}
-		} else {
-			c.notify <- eventRcvMsg{m}
-		}
-	}
-	c.notify <- eventPeerDisc{}
-}
-
-func eventHandler(c *Conn) {
-	for {
-		event := <-c.notify
-		old := c.state
-		e := event.exec(c)
-
-		Notify(StateUpdate{
-			oldStat: old, newStat: c.state,
-			stateEvent: event, conn: c, Err: e})
+		event := <-notify
+		old := state
+		TraceState(old.String(), state.String(), event.String(), event.exec())
 
 		if _, ok := event.(eventPeerDisc); ok {
 			break
 		}
 	}
+
+	return err
 }
 
-// NewSession make new session
-/*
-func (c *Conn) NewSession() *Session {
-	s := &Session{
-		id: nextSession(),
-		c:  c}
-	return s
-}
-*/
-
-// Send Diameter request
-func (c *Conn) Send(m Request, d time.Duration) Answer {
-	sid := nextSession()
-	req := m.ToRaw(sid)
-	req.HbHID = nextHbH()
-	req.EtEID = nextEtE()
-
-	ch := make(chan RawMsg)
-	c.sndstack[req.HbHID] = ch
-	c.notify <- eventSndMsg{m: req}
-
-	t := time.AfterFunc(d, func() {
-		m := m.Failed(DiameterTooBusy).ToRaw(sid)
-		m.HbHID = req.HbHID
-		m.EtEID = req.EtEID
-		c.notify <- eventRcvMsg{m}
-	})
-
-	a := <-ch
-	t.Stop()
-	if a.Code == 0 {
-		return m.Failed(DiameterUnableToDeliver)
-	}
-
-	if app, ok := supportedApps[a.AppID]; !ok {
-	} else if ans, ok := app.ans[a.Code]; !ok {
-	} else if ack, _, e := ans.FromRaw(a); e == nil {
-		return ack
-	} else if avperr, ok := e.(InvalidAVP); ok {
-		return m.Failed(uint32(avperr))
-	} else {
-		return m.Failed(DiameterUnableToComply)
-	}
-
-	if app, ok := supportedApps[0xffffffff]; !ok {
-	} else if ans, ok := app.ans[0]; ok {
-		ack, _, _ := ans.FromRaw(a)
-		return ack
-	}
-
-	return m.Failed(DiameterUnableToComply)
-}
-
-// Recieve Diameter request
-func (c *Conn) Recieve() (Request, func(Answer), error) {
-	m := <-c.rcvstack
-	if m.Code == 0 {
-		c.rcvstack <- m
-		return nil, nil, ConnectionRefused{}
-	}
-
-	var req Request
-
-	if app, ok := supportedApps[m.AppID]; ok {
-		req, _ = app.req[m.Code]
-	}
-
-	if req == nil {
-		app, _ := supportedApps[0xffffffff]
-		req, _ = app.req[0]
-	}
-
-	r, sid, e := req.FromRaw(m)
-	f := func(ans Answer) {
-		a := ans.ToRaw(sid)
-		a.HbHID = m.HbHID
-		a.EtEID = m.EtEID
-		c.notify <- eventSndMsg{a}
-	}
-	if e != nil {
-		if avperr, ok := e.(InvalidAVP); ok {
-			f(req.Failed(uint32(avperr)))
-		} else {
-			f(req.Failed(DiameterUnableToComply))
-		}
-		return r, nil, e
-	}
-	return r, f, nil
-}
-
-func (c *Conn) watchdog() {
-	dwr := MakeDWR(c)
-	req := dwr.ToRaw("")
-	req.HbHID = nextHbH()
-	req.EtEID = nextEtE()
-
-	ch := make(chan RawMsg)
-	c.sndstack[req.HbHID] = ch
-	c.notify <- eventWatchdog{m: req}
-
-	t := time.AfterFunc(c.Peer.WDInterval, func() {
-		m := dwr.Failed(DiameterTooBusy).ToRaw("")
-		m.HbHID = req.HbHID
-		m.EtEID = req.EtEID
-		c.notify <- eventRcvDWA{m}
-	})
-
-	<-ch
-	t.Stop()
-}
-
-// Close stop state machine
-func (c *Conn) Close(d time.Duration) {
-	if c == nil || c.state != open {
+// ListenAndServe start diameter connection handling process as responder.
+func ListenAndServe(fqdn string, sctp bool) (err error) {
+	Local.Host, Local.Realm, err = ResolveIdentiry(fqdn)
+	if err != nil {
 		return
 	}
 
-	dpr := MakeDPR(c)
-	req := dpr.ToRaw("")
-	req.HbHID = nextHbH()
-	req.EtEID = nextEtE()
+	if sctp {
 
-	ch := make(chan RawMsg)
-	c.sndstack[req.HbHID] = ch
-	c.notify <- eventStop{m: req}
+	} else {
+		var l net.Listener
+		l, err = net.Listen("tcp", fqdn)
+		if err != nil {
+			return
+		}
 
-	t := time.AfterFunc(d, func() {
-		m := dpr.Failed(DiameterTooBusy).ToRaw("")
-		m.HbHID = req.HbHID
-		m.EtEID = req.EtEID
-		c.notify <- eventRcvDPA{m}
-	})
+		t := time.AfterFunc(WDInterval, func() {
+			l.Close()
+		})
+		conn, err = l.Accept()
+		t.Stop()
+		if err != nil {
+			return
+		}
+	}
 
-	<-ch
-	t.Stop()
+	state = waitCER
+	go socketHandler()
+	go messageHandler()
+	TraceState(shutdown.String(), state.String(), eventInit{}.String(), nil)
+
+	for {
+		event := <-notify
+		old := state
+		TraceState(old.String(), state.String(), event.String(), event.exec())
+
+		if _, ok := event.(eventPeerDisc); ok {
+			break
+		}
+	}
+
+	return err
 }
 
-// LocalAddr returns transport connection of state machine
-func (c *Conn) LocalAddr() net.Addr {
-	return c.con.LocalAddr()
+func socketHandler() {
+	for {
+		m := Message{}
+		conn.SetReadDeadline(time.Time{})
+		if err := m.UnmarshalFrom(conn); err != nil {
+			break
+		}
+
+		if m.AppID == 0 && m.Code == 257 && m.FlgR {
+			notify <- eventRcvCER{m}
+		} else if m.AppID == 0 && m.Code == 257 && !m.FlgR {
+			notify <- eventRcvCEA{m}
+		} else if m.AppID == 0 && m.Code == 280 && m.FlgR {
+			notify <- eventRcvDWR{m}
+		} else if m.AppID == 0 && m.Code == 280 && !m.FlgR {
+			notify <- eventRcvDWA{m}
+		} else if m.AppID == 0 && m.Code == 282 && m.FlgR {
+			notify <- eventRcvDPR{m}
+		} else if m.AppID == 0 && m.Code == 282 && !m.FlgR {
+			notify <- eventRcvDPA{m}
+		} else if m.FlgR {
+			notify <- eventRcvReq{m}
+		} else {
+			notify <- eventRcvAns{m}
+		}
+	}
+	notify <- eventPeerDisc{}
 }
 
-// PeerAddr returns transport connection of state machine
-func (c *Conn) PeerAddr() net.Addr {
-	return c.con.RemoteAddr()
+func messageHandler() {
+	for req, ok := <-rcvStack; ok; req, ok = <-rcvStack {
+		/*
+			avps := make([]AVP, 0, 10)
+			var err error
+			for rdr := bytes.NewReader(req.AVPs); rdr.Len() != 0; {
+				a := AVP{}
+				if err = a.wrapedUnmarshalFrom(rdr); err != nil {
+					break
+				}
+				avps = append(avps, a)
+			}
+			if iavp, ok := err.(InvalidAVP); ok {
+				notify <- eventSndMsg{req.generateAnswerBy(iavp.Code)}
+			} else {
+		*/
+		var avps []byte
+		var flgE bool
+
+		if app, ok := applications[req.AppID]; ok {
+			if f, ok := app.handlers[req.Code]; ok {
+				flgE, avps = f(req.FlgT, req.AVPs)
+			}
+		}
+		if avps == nil {
+			flgE, avps = DefaultHandler(req)
+		}
+
+		notify <- eventSndMsg{Message{
+			FlgR: false, FlgP: req.FlgP, FlgE: flgE, FlgT: false,
+			Code: req.Code, AppID: req.AppID,
+			HbHID: req.HbHID, EtEID: req.EtEID,
+			AVPs: avps}}
+		/*
+			}
+		*/
+	}
 }
 
-// State returns state machine state
-func (c *Conn) State() string {
-	return c.state.String()
+// message -> error, avps
+var DefaultHandler func(Message) (bool, []byte)
+
+func init() {
+	DefaultHandler = func(_ Message) (bool, []byte) {
+		buf := new(bytes.Buffer)
+		SetResultCode(UnableToDeliver).MarshalTo(buf)
+		SetOriginHost(Local.Host).MarshalTo(buf)
+		SetOriginRealm(Local.Realm).MarshalTo(buf)
+		return true, buf.Bytes()
+	}
+}
+
+// Send Diameter request
+func Send(code, appID, msgID uint32, retry bool, avp []byte) []byte {
+	buf := new(bytes.Buffer)
+	buf.Write(avp)
+	if Router {
+		SetRouteRecord(Local.Host).MarshalTo(buf)
+	}
+
+	m := Message{
+		FlgR: true, FlgP: true, FlgE: false, FlgT: retry,
+		Code: code, AppID: appID,
+		HbHID: nextHbH(), EtEID: msgID,
+		AVPs: buf.Bytes()}
+
+	if state != open {
+		m = m.generateAnswerBy(UnableToDeliver)
+	} else if _, ok := applications[appID]; !ok && len(applications) != 0 {
+		m = m.generateAnswerBy(UnableToDeliver)
+	} else {
+		ch := make(chan Message)
+		sndStack[m.HbHID] = ch
+		notify <- eventSndMsg{m}
+
+		t := time.AfterFunc(WDInterval, func() {
+			notify <- eventRcvAns{m.generateAnswerBy(TooBusy)}
+		})
+		r, ok := <-ch
+		t.Stop()
+
+		if !ok {
+			m = m.generateAnswerBy(UnableToDeliver)
+		} else if m.Code != r.Code || m.AppID != r.AppID || m.EtEID != r.EtEID {
+			m = m.generateAnswerBy(UnableToDeliver)
+		} else {
+			m = r
+		}
+	}
+
+	return m.AVPs
+}
+
+// Handle Diameter request
+func Handle(code, appID, venID uint32, handler func(bool, []byte) (bool, []byte)) {
+	if _, ok := applications[appID]; !ok {
+		applications[appID] = application{
+			venID:    venID,
+			handlers: make(map[uint32]func(bool, []byte) (bool, []byte))}
+	}
+	applications[appID].handlers[code] = handler
+}
+
+// Close stop state machine
+func Close(cause Enumerated) {
+	if state == open {
+		notify <- eventLock{}
+		for len(rcvStack) != 0 || len(sndStack) != 0 {
+			time.Sleep(time.Millisecond * 100)
+		}
+	}
+	notify <- eventStop{cause}
 }

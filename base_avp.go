@@ -1,80 +1,48 @@
 package diameter
 
-import (
-	"net"
-)
+import "net"
 
-func setHostIPAddress(v net.IP) (a RawAVP) {
-	a = RawAVP{Code: 257, VenID: 0, FlgV: false, FlgM: true, FlgP: false}
+func setHostIPAddress(v net.IP) (a AVP) {
+	a = AVP{Code: 257, Mandatory: true}
 	a.Encode(v)
 	return
 }
 
-func getHostIPAddress(a RawAVP) (v net.IP, e error) {
-	if a.FlgV || !a.FlgM || a.FlgP {
-		e = InvalidAVP(DiameterInvalidAvpBits)
+func getHostIPAddress(a AVP) (v net.IP, e error) {
+	if a.VendorID != 0 || !a.Mandatory {
+		e = InvalidAVP{Code: InvalidAvpBits, AVP: a}
 	} else {
-		e = a.Decode(&v)
+		e = a.wrapedDecode(&v)
 	}
 	return
 }
 
-func setAuthAppID(v uint32) (a RawAVP) {
-	a = RawAVP{Code: 258, VenID: 0, FlgV: false, FlgM: true, FlgP: false}
+func setFirmwareRevision(v uint32) (a AVP) {
+	a = AVP{Code: 267}
 	a.Encode(v)
 	return
 }
 
-func getAuthAppID(a RawAVP) (v uint32, e error) {
-	if a.FlgV || !a.FlgM || a.FlgP {
-		e = InvalidAVP(DiameterInvalidAvpBits)
+func getFirmwareRevision(a AVP) (v uint32, e error) {
+	if a.VendorID != 0 || a.Mandatory {
+		e = InvalidAVP{Code: InvalidAvpBits, AVP: a}
 	} else {
-		e = a.Decode(&v)
+		e = a.wrapedDecode(&v)
 	}
 	return
 }
 
-func setVendorID(v uint32) (a RawAVP) {
-	a = RawAVP{Code: 266, VenID: 0, FlgV: false, FlgM: true, FlgP: false}
+func setProductName(v string) (a AVP) {
+	a = AVP{Code: 269}
 	a.Encode(v)
 	return
 }
 
-func getVendorID(a RawAVP) (v uint32, e error) {
-	if a.FlgV || !a.FlgM || a.FlgP {
-		e = InvalidAVP(DiameterInvalidAvpBits)
+func getProductName(a AVP) (v string, e error) {
+	if a.VendorID != 0 || a.Mandatory {
+		e = InvalidAVP{Code: InvalidAvpBits, AVP: a}
 	} else {
-		e = a.Decode(&v)
-	}
-	return
-}
-
-func setFirmwareRevision(v uint32) (a RawAVP) {
-	a = RawAVP{Code: 267, VenID: 0, FlgV: false, FlgM: false, FlgP: false}
-	a.Encode(v)
-	return
-}
-
-func getFirmwareRevision(a RawAVP) (v uint32, e error) {
-	if a.FlgV || a.FlgM || a.FlgP {
-		e = InvalidAVP(DiameterInvalidAvpBits)
-	} else {
-		e = a.Decode(&v)
-	}
-	return
-}
-
-func setProductName(v string) (a RawAVP) {
-	a = RawAVP{Code: 269, VenID: 0, FlgV: false, FlgM: false, FlgP: false}
-	a.Encode(v)
-	return
-}
-
-func getProductName(a RawAVP) (v string, e error) {
-	if a.FlgV || a.FlgM || a.FlgP {
-		e = InvalidAVP(DiameterInvalidAvpBits)
-	} else {
-		e = a.Decode(&v)
+		e = a.wrapedDecode(&v)
 	}
 	return
 }
@@ -88,80 +56,80 @@ const (
 	DoNotWantToTalkToYou Enumerated = 2
 )
 
-func setDisconnectCause(v Enumerated) (a RawAVP) {
-	a = RawAVP{Code: 273, VenID: 0, FlgV: false, FlgM: true, FlgP: false}
+func setDisconnectCause(v Enumerated) (a AVP) {
+	a = AVP{Code: 273, Mandatory: true}
 	a.Encode(v)
 	return
 }
 
-func getDisconnectCause(a RawAVP) (v Enumerated, e error) {
-	if a.FlgV || !a.FlgM || a.FlgP {
-		e = InvalidAVP(DiameterInvalidAvpBits)
+func getDisconnectCause(a AVP) (v Enumerated, e error) {
+	if a.VendorID != 0 || !a.Mandatory {
+		e = InvalidAVP{Code: InvalidAvpBits, AVP: a}
 	} else {
-		e = a.Decode(&v)
+		e = a.wrapedDecode(&v)
 	}
 	if v < 0 || v > 2 {
-		e = InvalidAVP(DiameterInvalidAvpValue)
+		e = InvalidAVP{Code: InvalidAvpValue, AVP: a}
 	}
 	return
 }
 
-func setOriginStateID(v uint32) (a RawAVP) {
-	a = RawAVP{Code: 278, VenID: 0, FlgV: false, FlgM: true, FlgP: false}
+func setOriginStateID(v uint32) (a AVP) {
+	a = AVP{Code: 278, Mandatory: true}
 	a.Encode(v)
 	return
 }
 
-func getOriginStateID(a RawAVP) (v uint32, e error) {
-	if a.FlgV || !a.FlgM || a.FlgP {
-		e = InvalidAVP(DiameterInvalidAvpBits)
+func getOriginStateID(a AVP) (v uint32, e error) {
+	if a.VendorID != 0 || !a.Mandatory {
+		e = InvalidAVP{Code: InvalidAvpBits, AVP: a}
 	} else {
-		e = a.Decode(&v)
+		e = a.wrapedDecode(&v)
 	}
 	return
 }
 
-func setFailedAVP(v []RawAVP) (a RawAVP) {
-	a = RawAVP{Code: 279, VenID: 0, FlgV: false, FlgM: true, FlgP: false}
+func setFailedAVP(v []AVP) (a AVP) {
+	a = AVP{Code: 279, Mandatory: true}
 	a.Encode(v)
 	return
 }
 
-func getFailedAVP(a RawAVP) (v []RawAVP, e error) {
-	if a.FlgV || !a.FlgM || a.FlgP {
-		e = InvalidAVP(DiameterInvalidAvpBits)
+func getFailedAVP(a AVP) (v []AVP, e error) {
+	if a.VendorID != 0 || !a.Mandatory {
+		e = InvalidAVP{Code: InvalidAvpBits, AVP: a}
 	} else {
-		e = a.Decode(&v)
+		e = a.wrapedDecode(&v)
 	}
 	return
 }
 
-func setSupportedVendorID(v uint32) (a RawAVP) {
-	a = RawAVP{Code: 265, VenID: 0, FlgV: false, FlgM: true, FlgP: false}
+func setSupportedVendorID(v uint32) (a AVP) {
+	a = AVP{Code: 265, Mandatory: true}
 	a.Encode(v)
 	return a
 }
 
-func getSupportedVendorID(a RawAVP) (v uint32, e error) {
-	if a.FlgV || !a.FlgM || a.FlgP {
-		e = InvalidAVP(DiameterInvalidAvpBits)
+func getSupportedVendorID(a AVP) (v uint32, e error) {
+	if a.VendorID != 0 || !a.Mandatory {
+		e = InvalidAVP{Code: InvalidAvpBits, AVP: a}
 	} else {
-		e = a.Decode(&v)
+		e = a.wrapedDecode(&v)
 	}
 	return
 }
 
-func setErrorMessage(v string) (a RawAVP) {
-	a = RawAVP{Code: 281, VenID: 0, FlgV: false, FlgM: false, FlgP: false}
+func setErrorMessage(v string) (a AVP) {
+	a = AVP{Code: 281}
 	a.Encode(v)
 	return
 }
 
-func getErrorMessage(a RawAVP) (v string, e error) {
-	if a.FlgV || !a.FlgM || a.FlgP {
-		e = InvalidAVP(DiameterInvalidAvpBits)
+func getErrorMessage(a AVP) (v string, e error) {
+	if a.VendorID != 0 || !a.Mandatory {
+		e = InvalidAVP{Code: InvalidAvpBits, AVP: a}
 	} else {
-		e = a.Decode(&v)
+		e = a.wrapedDecode(&v)
 	}
 	return
 }

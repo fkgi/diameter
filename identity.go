@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/fkgi/abnf"
 )
@@ -20,40 +19,18 @@ const (
 // Identity is identity of Diameter protocol
 type Identity string
 
+func (i Identity) String() string {
+	return string(i)
+}
+
 // ParseIdentity parse Diamter identity form string
-func ParseIdentity(str string) (id Identity, e error) {
-	t := abnf.ParseString(str, _identity())
-	if t == nil {
-		e = fmt.Errorf("Invalid id text")
+func ParseIdentity(str string) (id Identity, err error) {
+	if t := abnf.ParseString(str, _identity()); t == nil {
+		err = fmt.Errorf("invalid id text")
 	} else {
 		id = Identity(t.Child(idFQDN).V)
 	}
 	return
-}
-
-// CompareIdentity compares two Diameter identity
-func CompareIdentity(id1, id2 Identity) int {
-	s1 := strings.ToLower(string(id1))
-	s2 := strings.ToLower(string(id2))
-
-	l := 0
-	r := 0
-	if len(s1) > len(s2) {
-		l = len(s2)
-		r = 1
-	} else if len(s1) < len(s2) {
-		l = len(s1)
-		r = -1
-	}
-
-	for i := 0; i < l; i++ {
-		if s1[i] > s2[i] {
-			return 1
-		} else if s1[i] < s2[i] {
-			return -1
-		}
-	}
-	return r
 }
 
 // URI is URI of Diameter protocol
@@ -66,10 +43,9 @@ type URI struct {
 }
 
 // ParseURI parse Diamter URI form string
-func ParseURI(str string) (uri URI, e error) {
-	t := abnf.ParseString(str, _uri())
-	if t == nil {
-		e = fmt.Errorf("Invalid id text")
+func ParseURI(str string) (uri URI, err error) {
+	if t := abnf.ParseString(str, _uri()); t == nil {
+		err = fmt.Errorf("invalid id text")
 	} else {
 		uri.Scheme = string(t.Child(idSCHEME).V)
 		uri.Fqdn = Identity(t.Child(idFQDN).V)
@@ -102,7 +78,12 @@ func (d URI) String() string {
 }
 
 func _uri() abnf.Rule {
-	return abnf.C(_scheme(), _fqdn(), abnf.O(_port()), abnf.O(_transport()), abnf.O(_protocol()), abnf.EOF())
+	return abnf.C(
+		_scheme(), _fqdn(),
+		abnf.O(_port()),
+		abnf.O(_transport()),
+		abnf.O(_protocol()),
+		abnf.ETX())
 }
 
 func _scheme() abnf.Rule {
@@ -112,7 +93,7 @@ func _scheme() abnf.Rule {
 }
 
 func _identity() abnf.Rule {
-	return abnf.C(_fqdn(), abnf.EOF())
+	return abnf.C(_fqdn(), abnf.ETX())
 }
 
 func _fqdn() abnf.Rule {
@@ -132,9 +113,13 @@ func _port() abnf.Rule {
 }
 
 func _transport() abnf.Rule {
-	return abnf.C(abnf.VS(";transport="), abnf.K(abnf.VSL("tcp", "sctp", "udp"), idTRANSPORT))
+	return abnf.C(
+		abnf.VS(";transport="),
+		abnf.K(abnf.VSL("tcp", "sctp", "udp"), idTRANSPORT))
 }
 
 func _protocol() abnf.Rule {
-	return abnf.C(abnf.VS(";protocol="), abnf.K(abnf.VSL("diameter", "radius", "tacacs+"), idPROTOCOL))
+	return abnf.C(
+		abnf.VS(";protocol="),
+		abnf.K(abnf.VSL("diameter", "radius", "tacacs+"), idPROTOCOL))
 }

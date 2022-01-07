@@ -1,15 +1,17 @@
 package diameter
 
 import (
+	"bytes"
+	"fmt"
+	"net"
+	"strings"
 	"time"
 )
 
-type state int
+type conState int
 
-func (s state) String() string {
+func (s conState) String() string {
 	switch s {
-	case shutdown:
-		return "shutdown"
 	case closed:
 		return "closed"
 	case waitCER:
@@ -18,24 +20,29 @@ func (s state) String() string {
 		return "waitCEA"
 	case open:
 		return "open"
+	case locked:
+		return "locked"
 	case closing:
 		return "closing"
+	case shutdown:
+		return "shutdown"
 	}
 	return "<nil>"
 }
 
 const (
-	shutdown state = iota
-	closed
+	closed conState = iota
 	waitCER
 	waitCEA
 	open
+	locked
 	closing
+	shutdown
 )
 
 type stateEvent interface {
-	exec(p *Conn) error
-	String() string
+	exec() error
+	fmt.Stringer
 }
 
 // Init
@@ -45,91 +52,194 @@ func (eventInit) String() string {
 	return "Initialize"
 }
 
-func (v eventInit) exec(c *Conn) error {
-	return NotAcceptableEvent{stateEvent: v, state: c.state}
+func (v eventInit) exec() error {
+	return notAcceptableEvent{e: v, s: state}
 }
 
 // Connect
-type eventConnect struct {
-	m RawMsg
-}
+type eventConnect struct{}
 
 func (eventConnect) String() string {
 	return "Connect"
 }
 
-func (v eventConnect) exec(c *Conn) error {
-	if c.state != closed {
-		return NotAcceptableEvent{stateEvent: v, state: c.state}
+func (v eventConnect) exec() error {
+	if state != closed {
+		return notAcceptableEvent{e: v, s: state}
 	}
-	c.state = waitCEA
+	state = waitCEA
 
-	c.TxReq++
-	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
-	_, e := v.m.WriteTo(c.con)
-	Notify(CapabilityExchangeEvent{tx: true, req: true, conn: c, Err: e})
-	if e != nil {
-		c.con.Close()
+	buf := new(bytes.Buffer)
+	SetOriginHost(Local.Host).MarshalTo(buf)
+	SetOriginRealm(Local.Realm).MarshalTo(buf)
+
+	if len(OverwriteAddr) != 0 {
+		for _, h := range OverwriteAddr {
+			setHostIPAddress(h).MarshalTo(buf)
+		}
+	} else {
+		h, _, _ := net.SplitHostPort(conn.LocalAddr().String())
+		for _, h := range strings.Split(h, "/") {
+			setHostIPAddress(net.ParseIP(h)).MarshalTo(buf)
+		}
 	}
-	return e
+
+	SetVendorID(VendorID).MarshalTo(buf)
+	setProductName(ProductName).MarshalTo(buf)
+	if Local.state != 0 {
+		setOriginStateID(Local.state).MarshalTo(buf)
+	}
+	if len(applications) == 0 {
+		SetAuthAppID(0xffffffff).MarshalTo(buf)
+	} else {
+		vmap := make(map[uint32]interface{})
+		for aid, app := range applications {
+			if app.venID == 0 {
+				SetAuthAppID(aid).MarshalTo(buf)
+			} else if _, ok := vmap[app.venID]; ok {
+				SetVendorSpecAppID(app.venID, aid).MarshalTo(buf)
+			} else {
+				setSupportedVendorID(app.venID).MarshalTo(buf)
+				SetVendorSpecAppID(app.venID, aid).MarshalTo(buf)
+				vmap[app.venID] = nil
+			}
+		}
+	}
+	/*
+		// * [ Inband-Security-Id ]   // not supported (not recommended)
+		// * [ Acct-Application-Id ]  // not supported
+	*/
+	setFirmwareRevision(FirmwareRev).MarshalTo(buf)
+
+	cer := Message{
+		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
+		Code: 257, AppID: 0,
+		HbHID: nextHbH(), EtEID: nextEtE(),
+		AVPs: buf.Bytes()}
+
+	TxReq++
+	sndStack[cer.HbHID] = nil
+
+	wdTimer = time.AfterFunc(WDInterval, func() {
+		notify <- eventRcvCEA{cer.generateAnswerBy(UnableToDeliver)}
+	})
+
+	conn.SetWriteDeadline(time.Now().Add(TxTimeout))
+	err := cer.MarshalTo(conn)
+	if err != nil {
+		conn.Close()
+	}
+
+	TraceMessage(cer, Tx, err)
+	return err
 }
 
 // Watchdog
-type eventWatchdog struct {
-	m RawMsg
-}
+type eventWatchdog struct{}
 
 func (eventWatchdog) String() string {
 	return "Watchdog"
 }
 
-func (v eventWatchdog) exec(c *Conn) error {
-	if c.state != open {
-		return NotAcceptableEvent{stateEvent: v, state: c.state}
+func (v eventWatchdog) exec() error {
+	if state != open && state != locked {
+		return notAcceptableEvent{e: v, s: state}
 	}
 
-	c.wdCount++
-	if c.wdCount > c.Peer.WDExpired {
-		c.con.Close()
-		return WatchdogExpired{}
+	wdCount++
+	if wdCount > WDMaxSend {
+		conn.Close()
+		return fmt.Errorf("watchdog is expired")
+	}
+	wdTimer.Stop()
+
+	buf := new(bytes.Buffer)
+	SetOriginHost(Local.Host).MarshalTo(buf)
+	SetOriginRealm(Local.Realm).MarshalTo(buf)
+	setOriginStateID(Local.state).MarshalTo(buf)
+
+	dwr := Message{
+		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
+		Code: 280, AppID: 0,
+		HbHID: nextHbH(), EtEID: nextEtE(),
+		AVPs: buf.Bytes()}
+
+	TxReq++
+	sndStack[dwr.HbHID] = nil
+
+	wdTimer = time.AfterFunc(WDInterval, func() {
+		notify <- eventRcvDWA{dwr.generateAnswerBy(UnableToDeliver)}
+		notify <- eventWatchdog{}
+	})
+
+	conn.SetWriteDeadline(time.Now().Add(TxTimeout))
+	err := dwr.MarshalTo(conn)
+	if err != nil {
+		conn.Close()
 	}
 
-	c.TxReq++
-	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
-	_, e := v.m.WriteTo(c.con)
-	Notify(WatchdogEvent{tx: true, req: true, conn: c, Err: e})
-	if e != nil {
-		c.con.Close()
+	TraceMessage(dwr, Tx, err)
+	return err
+}
+
+// Lock
+type eventLock struct{}
+
+func (eventLock) String() string {
+	return "Lock"
+}
+
+func (v eventLock) exec() error {
+	if state != open {
+		return notAcceptableEvent{e: v, s: state}
 	}
-	return e
+	state = locked
+	return nil
 }
 
 // Stop
 type eventStop struct {
-	m RawMsg
+	cause Enumerated
 }
 
 func (eventStop) String() string {
 	return "Stop"
 }
 
-func (v eventStop) exec(c *Conn) error {
-	if c.state != open {
-		return NotAcceptableEvent{stateEvent: v, state: c.state}
+func (v eventStop) exec() error {
+	if state != open && state != locked {
+		conn.Close()
+		return notAcceptableEvent{e: v, s: state}
+	}
+	state = closing
+	wdTimer.Stop()
+
+	buf := new(bytes.Buffer)
+	SetOriginHost(Local.Host).MarshalTo(buf)
+	SetOriginRealm(Local.Realm).MarshalTo(buf)
+	setDisconnectCause(v.cause).MarshalTo(buf)
+
+	dpr := Message{
+		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
+		Code: 282, AppID: 0,
+		HbHID: nextHbH(), EtEID: nextEtE(),
+		AVPs: buf.Bytes()}
+
+	TxReq++
+	sndStack[dpr.HbHID] = nil
+
+	wdTimer = time.AfterFunc(WDInterval, func() {
+		notify <- eventRcvDPA{dpr.generateAnswerBy(UnableToDeliver)}
+	})
+
+	conn.SetWriteDeadline(time.Now().Add(TxTimeout))
+	err := dpr.MarshalTo(conn)
+	if err != nil {
+		conn.Close()
 	}
 
-	c.state = closing
-	c.wdTimer.Stop()
-	c.Since = time.Time{}
-
-	c.TxReq++
-	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
-	_, e := v.m.WriteTo(c.con)
-	Notify(PurgeEvent{tx: true, req: true, conn: c, Err: e})
-	if e != nil {
-		c.con.Close()
-	}
-	return e
+	TraceMessage(dpr, Tx, err)
+	return err
 }
 
 // PeerDisc
@@ -139,39 +249,39 @@ func (eventPeerDisc) String() string {
 	return "Peer-Disc"
 }
 
-func (v eventPeerDisc) exec(c *Conn) error {
-	c.con.Close()
-	c.state = closed
-	c.Since = time.Time{}
+func (v eventPeerDisc) exec() error {
+	conn.Close()
+	state = closed
 
-	for _, ch := range c.sndstack {
-		ch <- RawMsg{}
+	for _, ch := range sndStack {
+		close(ch)
 	}
-	c.rcvstack <- RawMsg{}
+	close(rcvStack)
 
 	return nil
 }
 
 // Snd MSG
 type eventSndMsg struct {
-	m RawMsg
+	m Message
 }
 
 func (eventSndMsg) String() string {
 	return "Snd-MSG"
 }
 
-func (v eventSndMsg) exec(c *Conn) error {
-	if c.state != open {
-		return NotAcceptableEvent{stateEvent: v, state: c.state}
+func (v eventSndMsg) exec() error {
+	if state != open && state != locked {
+		return notAcceptableEvent{e: v, s: state}
 	}
 
-	c.TxReq++
-	c.con.SetWriteDeadline(time.Now().Add(TransportTimeout))
-	_, e := v.m.WriteTo(c.con)
-	Notify(MessageEvent{tx: true, req: v.m.FlgR, conn: c, Err: e})
-	if e != nil {
-		c.con.Close()
+	TxReq++
+	conn.SetWriteDeadline(time.Now().Add(TxTimeout))
+	err := v.m.MarshalTo(conn)
+	if err != nil {
+		conn.Close()
 	}
-	return e
+
+	TraceMessage(v.m, Tx, err)
+	return err
 }

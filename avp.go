@@ -13,7 +13,7 @@ import (
 type Enumerated int32
 
 /*
-RawAVP is AVP data and header
+AVP data and header
        0                   1                   2                   3
        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -26,97 +26,114 @@ RawAVP is AVP data and header
       |    Data ...
 	  +-+-+-+-+-+-+-+-+
 */
-type RawAVP struct {
-	Code  uint32 // AVP Code
-	FlgV  bool   // Vendor Specific AVP Flag
-	FlgM  bool   // Mandatory AVP Flag
-	FlgP  bool   // Protected AVP Flag
-	VenID uint32 // Vendor-ID
-	data  []byte // AVP Data
+type AVP struct {
+	Code      uint32 // AVP Code
+	VendorID  uint32 // Vendor-ID
+	Mandatory bool   // Mandatory AVP Flag
+	// Protected bool // Protected AVP Flag
+	Data []byte // AVP Data
 }
 
-func (a RawAVP) String() string {
+func (a AVP) String() string {
 	w := new(bytes.Buffer)
-	fmt.Fprintf(w, "%s%sAVP Code      =%d\n", Indent, Indent, a.Code)
-	fmt.Fprintf(w, "%s%sFlags        V=%t, M=%t, P=%t\n",
-		Indent, Indent, a.FlgV, a.FlgM, a.FlgP)
-	if a.FlgV {
-		fmt.Fprintf(w, "%s%sVendor-ID     =%d\n", Indent, Indent, a.VenID)
+	fmt.Fprintf(w, "AVP Code      =%d\n", a.Code)
+	fmt.Fprintf(w, "Flags        V=%t, M=%t, P=%t\n",
+		a.VendorID != 0, a.Mandatory, false)
+	if a.VendorID != 0 {
+		fmt.Fprintf(w, "Vendor-ID     =%d\n", a.VendorID)
 	}
-	fmt.Fprintf(w, "%s%sData          =% x", Indent, Indent, a.data)
+	fmt.Fprintf(w, "Data          =% x", a.Data)
 	return w.String()
 }
 
-// WriteTo wite binary data to io.Writer
-func (a RawAVP) WriteTo(w io.Writer) (n int64, e error) {
-	b := new(bytes.Buffer)
-	binary.Write(b, binary.BigEndian, a.Code)
-	b.Write(botob(a.FlgV, a.FlgM, a.FlgP))
+// MarshalTo wite binary data to io.Writer
+func (a AVP) MarshalTo(w io.Writer) error {
+	var b bytes.Buffer
 
-	lng := uint32(8 + len(a.data))
-	if a.FlgV {
+	binary.Write(&b, binary.BigEndian, a.Code)
+
+	var flags byte
+	if a.VendorID != 0 {
+		flags |= 128
+	}
+	if a.Mandatory {
+		flags |= 64
+	}
+	b.WriteByte(flags)
+
+	lng := uint32(8 + len(a.Data))
+	if a.VendorID != 0 {
 		lng += 4
 	}
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, lng)
 	b.Write(buf.Bytes()[1:4])
 
-	if a.FlgV {
-		binary.Write(b, binary.BigEndian, a.VenID)
+	if a.VendorID != 0 {
+		binary.Write(&b, binary.BigEndian, a.VendorID)
 	}
-	b.Write(a.data)
+	b.Write(a.Data)
 
-	b.Write(make([]byte, (4-len(a.data)%4)%4))
+	b.Write(make([]byte, (4-len(a.Data)%4)%4))
 
-	i, e := w.Write(b.Bytes())
-	return int64(i), e
+	_, err := b.WriteTo(w)
+	return err
 }
 
-// ReadFrom read binary data from io.Reader
-func (a *RawAVP) ReadFrom(r io.Reader) (n int64, e error) {
-	buf, i, e := subread(r, 8)
-	n += int64(i)
-	if e != nil {
-		return
+func (a *AVP) wrapedUnmarshalFrom(r io.Reader) error {
+	err := a.UnmarshalFrom(r)
+	if err != nil {
+		if _, ok := err.(InvalidAVP); !ok {
+			err = InvalidAVP{Code: InvalidAvpValue, AVP: *a, E: err}
+		}
+	}
+	return err
+}
+
+// UnmarshalFrom read binary data from io.Reader
+func (a *AVP) UnmarshalFrom(r io.Reader) error {
+	buf, err := readUntil(r, 8)
+	if err != nil {
+		return err
 	}
 
 	binary.Read(bytes.NewBuffer(buf[0:4]), binary.BigEndian, &a.Code)
 
-	flgs := btobo(buf[4:5])
-	a.FlgV = flgs[0]
-	a.FlgM = flgs[1]
-	a.FlgP = flgs[2]
+	vid := buf[4]&128 == 128
+	a.Mandatory = buf[4]&64 == 64
+	pbit := buf[4]&32 == 32
 
 	buf[4] = 0x00
 	var lng uint32
 	binary.Read(bytes.NewBuffer(buf[4:8]), binary.BigEndian, &lng)
 	l := lng - 8
 
-	if a.FlgV {
-		buf, i, e = subread(r, 4)
-		n += int64(i)
-		if e != nil {
-			return
+	if vid {
+		if buf, err = readUntil(r, 4); err != nil {
+			return err
 		}
-		binary.Read(bytes.NewBuffer(buf), binary.BigEndian, &a.VenID)
+		binary.Read(bytes.NewBuffer(buf), binary.BigEndian, &a.VendorID)
 		l -= 4
 	}
 
-	a.data, i, e = subread(r, int(l))
-	n += int64(i)
-	if e != nil {
-		return
+	if a.Data, err = readUntil(r, int(l)); err != nil {
+		return err
 	}
-
-	_, i, e = subread(r, (4-int(lng%4))%4)
-	n += int64(i)
-
-	return
+	if _, err = readUntil(r, (4-int(lng%4))%4); err != nil {
+		return err
+	}
+	if pbit {
+		return InvalidAVP{
+			Code: InvalidAvpBits, AVP: *a,
+			E: fmt.Errorf("p bit is not supported")}
+	}
+	return nil
 }
 
 // Encode make AVP from primitive go value
-func (a *RawAVP) Encode(d interface{}) (e error) {
+func (a *AVP) Encode(d interface{}) (e error) {
 	buf := new(bytes.Buffer)
+
 	switch d := d.(type) {
 	case net.IP:
 		buf.WriteByte(0x00)
@@ -138,67 +155,83 @@ func (a *RawAVP) Encode(d interface{}) (e error) {
 	case time.Time:
 		e = binary.Write(buf, binary.BigEndian, int64(d.Unix()+2208988800))
 	case Identity:
-		_, e = buf.Write([]byte(d))
+		buf.Write([]byte(d))
 	case URI:
-		_, e = buf.Write([]byte(d.String()))
+		buf.Write([]byte(d.String()))
 	case Enumerated:
 		e = binary.Write(buf, binary.BigEndian, int32(d))
 		//	case IPFilterRule:
 		//		e = a.setIPFilterRuleData(d)
 	case string:
-		_, e = buf.Write([]byte(d))
-	case []RawAVP:
+		buf.WriteString(d)
+	case []AVP:
 		for _, avp := range d {
-			_, e = avp.WriteTo(buf)
+			if e = avp.MarshalTo(buf); e != nil {
+				break
+			}
 		}
 	case []byte:
-		_, e = buf.Write(d)
+		buf.Write(d)
 	case int32, int64, uint32, uint64, float32, float64:
 		e = binary.Write(buf, binary.BigEndian, d)
 	case nil:
 	default:
-		e = &UnknownAVPType{}
+		e = fmt.Errorf("unacceptable type value for AVP")
 	}
+
 	if e == nil {
-		a.data = buf.Bytes()
+		a.Data = buf.Bytes()
 	}
 	return
 }
 
+func (a AVP) wrapedDecode(d interface{}) error {
+	err := a.Decode(d)
+	if err == io.EOF {
+		err = InvalidAVP{Code: InvalidAvpLength, AVP: a}
+	} else if err != nil {
+		err = InvalidAVP{Code: InvalidAvpValue, AVP: a, E: err}
+	}
+	return err
+}
+
 // Decode make primitive go value from AVP
-func (a RawAVP) Decode(d interface{}) (e error) {
-	if a.data == nil {
+func (a AVP) Decode(d interface{}) (e error) {
+	if a.Data == nil {
 		d = nil
 		return
 	}
+
 	switch d := d.(type) {
 	case *net.IP:
-		if len(a.data) == 6 && a.data[0] == 0x00 && a.data[1] == 0x01 {
-			*d = net.IP(a.data[2:6])
-		} else if len(a.data) == 18 && a.data[0] == 0x00 && a.data[1] == 0x02 {
-			*d = net.IP(a.data[2:18])
-		} else {
+		if a.Data[0] != 0x00 || a.Data[1] < 0x01 || a.Data[1] > 0x02 {
 			e = fmt.Errorf("invalid address family")
+		} else if len(a.Data) == 6 && a.Data[1] == 0x01 {
+			*d = net.IP(a.Data[2:6])
+		} else if len(a.Data) == 18 && a.Data[1] == 0x02 {
+			*d = net.IP(a.Data[2:18])
+		} else {
+			e = io.EOF
 		}
 	case *time.Time:
-		if len(a.data) != 8 {
+		if len(a.Data) != 8 {
 			e = io.EOF
 		} else {
-			buf := bytes.NewReader(a.data)
+			buf := bytes.NewReader(a.Data)
 			var t uint64
 			if e = binary.Read(buf, binary.BigEndian, &t); e != nil {
 				*d = time.Unix(int64(t-2208988800), int64(0))
 			}
 		}
 	case *Identity:
-		*d, e = ParseIdentity(string(a.data))
+		*d, e = ParseIdentity(string(a.Data))
 	case *URI:
-		*d, e = ParseURI(string(a.data))
+		*d, e = ParseURI(string(a.Data))
 	case *Enumerated:
-		if len(a.data) != 4 {
+		if len(a.Data) != 4 {
 			e = io.EOF
 		} else {
-			buf := bytes.NewReader(a.data)
+			buf := bytes.NewReader(a.Data)
 			var t int32
 			if e = binary.Read(buf, binary.BigEndian, &t); e != nil {
 				*d = Enumerated(t)
@@ -207,37 +240,38 @@ func (a RawAVP) Decode(d interface{}) (e error) {
 		//	case *IPFilterRule:
 		//		e = a.getIPFilterRuleData(d)
 	case *string:
-		*d = string(a.data)
-	case *[]RawAVP:
-		*d = make([]RawAVP, 0)
-		for buf := bytes.NewReader(a.data); buf.Len() != 0; {
-			avp := RawAVP{}
-			if _, e = avp.ReadFrom(buf); e != nil {
+		*d = string(a.Data)
+	case *[]AVP:
+		*d = make([]AVP, 0)
+		for buf := bytes.NewReader(a.Data); buf.Len() != 0; {
+			avp := AVP{}
+			if e = avp.UnmarshalFrom(buf); e != nil {
 				break
 			}
 			*d = append(*d, avp)
 		}
 	case *[]byte:
-		b := make([]byte, len(a.data))
-		copy(b, a.data)
+		b := make([]byte, len(a.Data))
+		copy(b, a.Data)
 		*d = b
 	case *int32, *uint32, *float32:
-		if len(a.data) != 4 {
+		if len(a.Data) != 4 {
 			e = io.EOF
 		} else {
-			buf := bytes.NewReader(a.data)
+			buf := bytes.NewReader(a.Data)
 			e = binary.Read(buf, binary.BigEndian, d)
 		}
 	case *int64, *uint64, *float64:
-		if len(a.data) != 8 {
+		if len(a.Data) != 8 {
 			e = io.EOF
 		} else {
-			buf := bytes.NewReader(a.data)
+			buf := bytes.NewReader(a.Data)
 			e = binary.Read(buf, binary.BigEndian, d)
 		}
 	default:
-		e = &UnknownAVPType{}
+		e = fmt.Errorf("unacceptable type value for AVP")
 	}
+
 	return
 }
 
@@ -246,12 +280,12 @@ func (a RawAVP) Decode(d interface{}) (e error) {
 type IPFilterRule string
 
 // IPFilterRule
-func (a *RawAVP) setIPFilterRuleData(s IPFilterRule) (e error) {
+func (a *AVP) setIPFilterRuleData(s IPFilterRule) (e error) {
 	a.data = []byte(s)
 	return
 }
 
-func (a RawAVP) getIPFilterRuleData(s *IPFilterRule) (e error) {
+func (a AVP) getIPFilterRuleData(s *IPFilterRule) (e error) {
 	*s = IPFilterRule(a.data)
 	return
 }
