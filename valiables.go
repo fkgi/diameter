@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math/rand"
 	"net"
+	"os"
 	"strings"
 	"time"
 )
@@ -77,6 +78,10 @@ func init() {
 	eteID <- (uint32(ut^0xFFF) << 20) | (rand.Uint32() ^ 0xFFFFF)
 	// sessionID <- rand.Uint32()
 	Local.state = uint32(ut)
+
+	if tmp, err := os.Hostname(); err == nil {
+		Local.Host, Local.Realm, _ = ResolveIdentiry(tmp)
+	}
 }
 
 type peer struct {
