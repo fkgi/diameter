@@ -2,39 +2,171 @@ package diameter
 
 import (
 	"bytes"
-	"io"
+	"errors"
 	"net"
+	"os"
+	"os/signal"
+	"strconv"
+	"strings"
 	"time"
+
+	"github.com/fkgi/diameter/sctp"
 )
 
+func termWithSignals(isTx bool) {
+	if len(TermSignals) == 0 {
+		return
+	}
+
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, TermSignals...)
+	<-sigc
+
+	if isTx {
+		Close(DoNotWantToTalkToYou)
+	} else {
+		Close(Rebooting)
+	}
+}
+
 // DialAndServe start diameter connection handling process as initiator.
-func DialAndServe(c net.Conn) (err error) {
+// Inputs are string of local hostname[:port][/realm] (la),
+// peer hostname[:port][/realm] (ra) and bool flag to use SCTP.
+func DialAndServe(la, pa string, isSctp bool) (err error) {
+	if isSctp {
+		tla := &sctp.SCTPAddr{}
+		Local.Host, Local.Realm, tla.IP, tla.Port, err = resolveIdentiry(la)
+		if err != nil {
+			return
+		}
+		tpa := &sctp.SCTPAddr{}
+		Peer.Host, Peer.Realm, tpa.IP, tpa.Port, err = resolveIdentiry(pa)
+		if err != nil {
+			return
+		}
+		conn, err = sctp.DialSCTP(tla, tpa)
+	} else {
+		var ips []net.IP
+		tla := &net.TCPAddr{}
+		Local.Host, Local.Realm, ips, tla.Port, err = resolveIdentiry(la)
+		if err != nil {
+			return
+		}
+		tla.IP = ips[0]
+		tpa := &net.TCPAddr{}
+		Peer.Host, Peer.Realm, ips, tpa.Port, err = resolveIdentiry(pa)
+		if err != nil {
+			return
+		}
+		tpa.IP = ips[0]
+		conn, err = net.DialTCP("tcp", tla, tpa)
+	}
+	if err != nil {
+		return
+	}
+
 	state = closed
-	return serve(c)
+	go termWithSignals(true)
+	return serve()
 }
 
 // ListenAndServe start diameter connection handling process as responder.
-func ListenAndServe(c net.Conn) (err error) {
-	state = waitCER
-	return serve(c)
-}
-
-func serve(c net.Conn) error {
-	if c == nil {
-		return io.ErrUnexpectedEOF
+// Inputs are string of local hostname (la) and bool flag to use SCTP.
+// If Peer is nil, any peer is accepted.
+func ListenAndServe(la string, isSctp bool) (err error) {
+	var l net.Listener
+	if isSctp {
+		tla := &sctp.SCTPAddr{}
+		Local.Host, Local.Realm, tla.IP, tla.Port, err = resolveIdentiry(la)
+		if err != nil {
+			return
+		}
+		l, err = sctp.ListenSCTP(tla)
+	} else {
+		var ips []net.IP
+		tla := &net.TCPAddr{}
+		Local.Host, Local.Realm, ips, tla.Port, err = resolveIdentiry(la)
+		if err != nil {
+			return
+		}
+		tla.IP = ips[0]
+		l, err = net.ListenTCP("tcp", tla)
 	}
-	conn = c
+	if err != nil {
+		return
+	}
+
+	t := time.AfterFunc(WDInterval, func() {
+		l.Close()
+	})
+
+	conn, err = l.Accept()
+	t.Stop()
+	if err != nil {
+		conn.Close()
+		l.Close()
+		return
+	}
+
 	if Peer.Host == "" {
-		if names, err := net.LookupAddr(c.RemoteAddr().String()); err == nil {
-			Peer.Host, Peer.Realm, _ = ResolveIdentiry(names[0])
+		names, err := net.LookupAddr(conn.RemoteAddr().String())
+		if err == nil {
+			Peer.Host, Peer.Realm, _, _, _ = resolveIdentiry(names[0])
 		}
 	}
 
+	state = waitCER
+	go termWithSignals(false)
+	return serve()
+}
+
+func resolveIdentiry(fqdn string) (host, realm Identity, ip []net.IP, port int, err error) {
+	f := strings.Split(fqdn, "/")
+	h, p, e := net.SplitHostPort(f[0])
+	if e != nil {
+		err = e
+		return
+	}
+	if p == "" {
+		p = "3868"
+	}
+
+	if host, err = ParseIdentity(h); err != nil {
+		return
+	}
+	if len(f) > 1 {
+		if realm, err = ParseIdentity(f[1]); err != nil {
+			return
+		}
+	} else if i := strings.Index(h, "."); i < 0 {
+		err = errors.New("domain part not found in local hostname")
+		return
+	} else if realm, err = ParseIdentity(h[i+1:]); err != nil {
+		return
+	}
+
+	a, e := net.LookupHost(h)
+	if e != nil {
+		err = e
+		return
+	}
+	ip = make([]net.IP, 0)
+	for _, s := range a {
+		ip = append(ip, net.ParseIP(s))
+	}
+
+	port, err = strconv.Atoi(p)
+	return
+}
+
+func serve() error {
 	go func() {
 		for {
 			m := Message{}
-			conn.SetReadDeadline(time.Time{})
+
+			// conn.SetReadDeadline(time.Time{})
 			if err := m.UnmarshalFrom(conn); err != nil {
+				notify <- eventPeerDisc{reason: err}
 				break
 			}
 
@@ -56,47 +188,48 @@ func serve(c net.Conn) error {
 				notify <- eventRcvAns{m}
 			}
 		}
-		notify <- eventPeerDisc{}
 	}()
 	go func() {
-		for req, ok := <-rcvStack; ok; req, ok = <-rcvStack {
-			/*
-				avps := make([]AVP, 0, 10)
-				var err error
-				for rdr := bytes.NewReader(req.AVPs); rdr.Len() != 0; {
-					a := AVP{}
-					if err = a.wrapedUnmarshalFrom(rdr); err != nil {
-						break
-					}
-					avps = append(avps, a)
-				}
-				if iavp, ok := err.(InvalidAVP); ok {
-					notify <- eventSndMsg{req.generateAnswerBy(iavp.Code)}
-				} else {
-			*/
-			var avps []byte
-			var flgE bool
-
+	rxNewMsg:
+		for req, ok := <-rcvQueue; ok; req, ok = <-rcvQueue {
 			if app, ok := applications[req.AppID]; ok {
 				if f, ok := app.handlers[req.Code]; ok && f != nil {
-					flgE, avps = f(req.FlgT, req.AVPs)
-				}
-			}
-			if avps == nil {
-				flgE, avps = DefaultHandler(req)
-			}
+					avp := make([]AVP, 0, avpBufferSize)
+					for rdr := bytes.NewReader(req.AVPs); rdr.Len() != 0; {
+						a := AVP{}
+						if e := a.UnmarshalFrom(rdr); e != nil {
+							buf := new(bytes.Buffer)
+							SetResultCode(InvalidAvpValue).MarshalTo(buf)
+							SetOriginHost(Local.Host).MarshalTo(buf)
+							SetOriginRealm(Local.Realm).MarshalTo(buf)
+							notify <- eventSndMsg{Message{
+								FlgR: false, FlgP: req.FlgP, FlgE: req.FlgE, FlgT: false,
+								Code: req.Code, AppID: req.AppID,
+								HbHID: req.HbHID, EtEID: req.EtEID,
+								AVPs: buf.Bytes()}}
+							continue rxNewMsg
+						}
+						avp = append(avp, a)
+					}
 
-			notify <- eventSndMsg{Message{
-				FlgR: false, FlgP: req.FlgP, FlgE: flgE, FlgT: false,
-				Code: req.Code, AppID: req.AppID,
-				HbHID: req.HbHID, EtEID: req.EtEID,
-				AVPs: avps}}
-			/*
+					req.FlgE, avp = f(req.FlgT, avp)
+					buf := new(bytes.Buffer)
+					for _, a := range avp {
+						a.MarshalTo(buf)
+					}
+					notify <- eventSndMsg{Message{
+						FlgR: false, FlgP: req.FlgP, FlgE: req.FlgE, FlgT: false,
+						Code: req.Code, AppID: req.AppID,
+						HbHID: req.HbHID, EtEID: req.EtEID,
+						AVPs: buf.Bytes()}}
+					continue rxNewMsg
 				}
-			*/
+			}
+			notify <- eventSndMsg{DefaultRxHandler(req)}
 		}
 	}()
-	TraceState(shutdown.String(), state.String(), eventInit{}.String(), nil)
+
+	TraceEvent(shutdown.String(), state.String(), eventInit{}.String(), nil)
 
 	if state != waitCER {
 		notify <- eventConnect{}
@@ -104,7 +237,8 @@ func serve(c net.Conn) error {
 	for {
 		event := <-notify
 		old := state
-		TraceState(old.String(), state.String(), event.String(), event.exec())
+		err := event.exec()
+		TraceEvent(old.String(), state.String(), event.String(), err)
 
 		if _, ok := event.(eventPeerDisc); ok {
 			break
@@ -114,86 +248,11 @@ func serve(c net.Conn) error {
 	return nil
 }
 
-// message -> error, avps
-var DefaultHandler func(Message) (bool, []byte)
-
-func init() {
-	DefaultHandler = func(_ Message) (bool, []byte) {
-		buf := new(bytes.Buffer)
-		SetResultCode(UnableToDeliver).MarshalTo(buf)
-		SetOriginHost(Local.Host).MarshalTo(buf)
-		SetOriginRealm(Local.Realm).MarshalTo(buf)
-		return true, buf.Bytes()
-	}
-}
-
-// Send Diameter request
-func Send(m Message) (bool, []byte) {
-	m.FlgR = true
-	m.FlgE = false
-	m.HbHID = nextHbH()
-
-	if state != open {
-		m = m.generateAnswerBy(UnableToDeliver)
-	} else if _, ok := applications[m.AppID]; !ok && len(applications) != 0 {
-		m = m.generateAnswerBy(UnableToDeliver)
-	} else {
-		ch := make(chan Message)
-		sndStack[m.HbHID] = ch
-		notify <- eventSndMsg{m}
-
-		t := time.AfterFunc(WDInterval, func() {
-			notify <- eventRcvAns{m.generateAnswerBy(TooBusy)}
-		})
-		r, ok := <-ch
-		t.Stop()
-
-		if !ok {
-			m = m.generateAnswerBy(UnableToDeliver)
-		} else if m.Code != r.Code || m.AppID != r.AppID || m.EtEID != r.EtEID {
-			m = m.generateAnswerBy(UnableToDeliver)
-		} else {
-			m = r
-		}
-	}
-
-	return m.FlgE, m.AVPs
-}
-
-// Handler handles Diameter message.
-// Inputs are Retry flag and AVPs of Request, Outputs are Error flag and AVPs of Answer.
-type Handler func(bool, []byte) (bool, []byte)
-
-// Handle registers Diameter request handler for specified command.
-func Handle(code, appID, venID uint32, h Handler) Handler {
-	if _, ok := applications[appID]; !ok {
-		applications[appID] = application{
-			venID:    venID,
-			handlers: make(map[uint32]func(bool, []byte) (bool, []byte))}
-	}
-	applications[appID].handlers[code] = h
-
-	return func(r bool, avp []byte) (bool, []byte) {
-		if Router {
-			buf := new(bytes.Buffer)
-			buf.Write(avp)
-			SetRouteRecord(Local.Host).MarshalTo(buf)
-			avp = buf.Bytes()
-		}
-
-		return Send(Message{
-			FlgR: true, FlgP: true, FlgE: false, FlgT: r,
-			Code: code, AppID: appID,
-			HbHID: 0, EtEID: nextEtE(),
-			AVPs: avp})
-	}
-}
-
-// Close stop state machine
+// Close Diameter connection and stop state machine.
 func Close(cause Enumerated) {
 	if state == open {
 		notify <- eventLock{}
-		for len(rcvStack) != 0 || len(sndStack) != 0 {
+		for len(rcvQueue) != 0 || len(sndQueue) != 0 {
 			time.Sleep(time.Millisecond * 100)
 		}
 	}

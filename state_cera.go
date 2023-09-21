@@ -2,6 +2,7 @@ package diameter
 
 import (
 	"bytes"
+	"fmt"
 	"net"
 	"strings"
 	"time"
@@ -18,11 +19,11 @@ Capabilities-Exchange-Request message
 		   [ Origin-State-Id ]
 		 * [ Supported-Vendor-Id ]
 		 * [ Auth-Application-Id ]
-		 * [ Inband-Security-Id ]   // not supported (not recommended)
-		 * [ Acct-Application-Id ]  // not supported
+		 * [ Inband-Security-Id ]             // not supported (not recommended)
+		 * [ Acct-Application-Id ]            // not supported
 		 * [ Vendor-Specific-Application-Id ] // only support auth
 		   [ Firmware-Revision ]
-		 * [ AVP ] // ignore any other AVP
+		 * [ AVP ]                            // no any other AVP
 
 Capabilities-Exchange-Answer message
  <CEA> ::= < Diameter Header: 257 >
@@ -33,18 +34,17 @@ Capabilities-Exchange-Answer message
 		   { Vendor-Id }
 		   { Product-Name }
 		   [ Origin-State-Id ]
-		   [ Error-Message ]
-		   [ Failed-AVP ]
+		   [ Error-Message ]                  // ignored
+		   [ Failed-AVP ]                     // ignored
 		 * [ Supported-Vendor-Id ]
 		 * [ Auth-Application-Id ]
-		 * [ Inband-Security-Id ]   // not supported (not recommended)
-		 * [ Acct-Application-Id ]  // not supported
+		 * [ Inband-Security-Id ]             // not supported (not recommended)
+		 * [ Acct-Application-Id ]            // not supported
 		 * [ Vendor-Specific-Application-Id ] // only support auth
-		   [ Firmware-Revision ]
-		 * [ AVP ] // ignore any other AVP
+		   [ Firmware-Revision ]              // ignored
+		 * [ AVP ]                            // ignored
 */
 
-// RcvCER
 type eventRcvCER struct {
 	m Message
 }
@@ -67,7 +67,7 @@ func (v eventRcvCER) exec() error {
 	var venID uint32
 	var prodName string
 	var oState uint32
-	var suuportVendor = []uint32{}
+	var supportVendor = []uint32{}
 	var authApps = make(map[uint32]uint32)
 	// var firmwareRevision uint32
 	var err error
@@ -119,13 +119,15 @@ func (v eventRcvCER) exec() error {
 		case 265:
 			var vid uint32
 			if vid, err = getSupportedVendorID(a); err == nil {
-				suuportVendor = append(suuportVendor, vid)
+				supportVendor = append(supportVendor, vid)
 			}
 		case 258:
 			var aid uint32
 			if aid, err = GetAuthAppID(a); err == nil {
 				authApps[aid] = 0
 			}
+		case 299:
+			_, err = getInbandSecurityID(a)
 		case 260:
 			var vid, aid uint32
 			if vid, aid, err = GetVendorSpecAppID(a); err == nil {
@@ -137,8 +139,8 @@ func (v eventRcvCER) exec() error {
 			} else {
 				oState, err = getOriginStateID(a)
 			}
-		// case 267:
-		//	firmwareRevision, e = getFirmwareRevision(a)
+		case 267:
+			_, err = getFirmwareRevision(a)
 		default:
 			if a.Mandatory {
 				err = InvalidAVP{Code: AvpUnsupported, AVP: a}
@@ -153,41 +155,39 @@ func (v eventRcvCER) exec() error {
 	if err == nil && len(authApps) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetAuthAppID(0)}
 	}
+
 	if err == nil {
-		for _, vid := range authApps {
+		for _, vid := range supportVendor {
 			if vid == 0 {
 				continue
 			}
-			err = InvalidAVP{Code: MissingAvp, AVP: SetVendorID(0)}
-			for _, v := range suuportVendor {
-				if vid == v {
-					err = nil
-					break
-				}
-			}
-			if err != nil {
-				break
-			}
+			// ToDo: verify common supported AVP vendor
 		}
 	}
+
 	if err == nil {
 		if _, ok := authApps[0xffffffff]; ok {
 		} else if len(applications) == 0 {
 			for aid, vid := range authApps {
 				applications[aid] = application{
 					venID:    vid,
-					handlers: make(map[uint32]func(bool, []byte) (bool, []byte))}
+					handlers: make(map[uint32]Handler)}
 			}
 		} else {
 			var commonApp = make(map[uint32]application)
 			for laid, lapp := range applications {
 				if pvid, ok := authApps[laid]; ok && pvid == lapp.venID {
 					commonApp[laid] = lapp
-					break
 				}
 			}
 			if len(commonApp) == 0 {
-				err = InvalidMessage(ApplicationUnsupported)
+				rap := "required applications are "
+				for k := range authApps {
+					rap = fmt.Sprintf("%s, %d", rap, k)
+				}
+				err = InvalidMessage{
+					Code:   ApplicationUnsupported,
+					ErrMsg: rap}
 			} else {
 				applications = commonApp
 			}
@@ -197,11 +197,12 @@ func (v eventRcvCER) exec() error {
 	result := Success
 	if v.m.FlgP || v.m.FlgT {
 		result = InvalidHdrBits
-		err = InvalidMessage(result)
+		err = InvalidMessage{
+			Code: result, ErrMsg: "CER must not enable P and T flag"}
 	} else if iavp, ok := err.(InvalidAVP); ok {
 		result = iavp.Code
 	} else if imsg, ok := err.(InvalidMessage); ok {
-		result = uint32(imsg)
+		result = uint32(imsg.Code)
 	} else if len(oHost) == 0 {
 		result = MissingAvp
 		err = InvalidAVP{Code: result, AVP: SetOriginHost("")}
@@ -210,10 +211,18 @@ func (v eventRcvCER) exec() error {
 		err = InvalidAVP{Code: result, AVP: SetOriginRealm("")}
 	} else if Peer.Host != "" && oHost != Peer.Host {
 		result = UnknownPeer
-		err = InvalidMessage(result)
+		err = InvalidMessage{
+			Code: result,
+			ErrMsg: fmt.Sprintf(
+				"peer host %s is not match with %s",
+				oHost, Peer.Host)}
 	} else if Peer.Realm != "" && oRealm != Peer.Realm {
 		result = UnknownPeer
-		err = InvalidMessage(result)
+		err = InvalidMessage{
+			Code: result,
+			ErrMsg: fmt.Sprintf(
+				"peer realm %s is not match with %s",
+				oRealm, Peer.Realm)}
 	} else if len(hostIP) == 0 {
 		result = MissingAvp
 		err = InvalidAVP{Code: result, AVP: setHostIPAddress(net.IPv4zero)}
@@ -279,20 +288,19 @@ func (v eventRcvCER) exec() error {
 		HbHID: v.m.HbHID, EtEID: v.m.EtEID,
 		AVPs: buf.Bytes()}
 
-	conn.SetWriteDeadline(time.Now().Add(TxTimeout))
 	if e := cea.MarshalTo(conn); e != nil {
 		TxAnsFail++
 		conn.Close()
 		err = e
 	} else if err == nil {
-		countTxCode(result)
+		CountTxCode(result)
 		state = open
 		// wdTimer.Stop()
 		wdTimer = time.AfterFunc(WDInterval, func() {
 			notify <- eventWatchdog{}
 		})
 	} else {
-		countTxCode(result)
+		CountTxCode(result)
 	}
 
 	TraceMessage(cea, Tx, err)
@@ -312,13 +320,14 @@ func (v eventRcvCEA) exec() error {
 	// verify diameter header
 	if v.m.FlgP {
 		InvalidAns++
-		return InvalidMessage(InvalidHdrBits)
+		return InvalidMessage{
+			Code: InvalidHdrBits, ErrMsg: "CEA must not enable P flag"}
 	}
 	if state != waitCEA {
 		InvalidAns++
 		return notAcceptableEvent{e: v, s: state}
 	}
-	if _, ok := sndStack[v.m.HbHID]; !ok {
+	if _, ok := sndQueue[v.m.HbHID]; !ok {
 		InvalidAns++
 		return unknownAnswer(v.m.HbHID)
 	}
@@ -331,9 +340,9 @@ func (v eventRcvCEA) exec() error {
 	var venID uint32
 	var prodName string
 	var oState uint32
-	// var errorMsg string
-	// var failedAVP []AVP
-	var suuportVendor = []uint32{}
+	var errorMsg string
+	var failedAVP []AVP
+	var supportVendor = []uint32{}
 	var authApps = make(map[uint32]uint32)
 	// var firmwareRevision uint32
 	var err error
@@ -391,13 +400,15 @@ func (v eventRcvCEA) exec() error {
 		case 265:
 			var vid uint32
 			if vid, err = getSupportedVendorID(a); err == nil {
-				suuportVendor = append(suuportVendor, vid)
+				supportVendor = append(supportVendor, vid)
 			}
 		case 258:
 			var aid uint32
 			if aid, err = GetAuthAppID(a); err == nil {
 				authApps[aid] = 0
 			}
+		case 299:
+			_, err = getInbandSecurityID(a)
 		case 260:
 			var vid, aid uint32
 			if vid, aid, err = GetVendorSpecAppID(a); err == nil {
@@ -409,12 +420,12 @@ func (v eventRcvCEA) exec() error {
 			} else {
 				oState, err = getOriginStateID(a)
 			}
-		// case 281:
-		//	errorMsg, e = getErrorMessage(a)
+		case 281:
+			errorMsg, err = getErrorMessage(a)
 		case 279:
-			//	failedAVP, e = getFailedAVP(a)
-		// case 267:
-		//	firmwareRevision, e = getFirmwareRevision(a)
+			failedAVP, err = getFailedAVP(a)
+		case 267:
+			_, err = getFirmwareRevision(a)
 		default:
 			if a.Mandatory {
 				err = InvalidAVP{Code: AvpUnsupported, AVP: a}
@@ -430,20 +441,11 @@ func (v eventRcvCEA) exec() error {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetAuthAppID(0)}
 	}
 	if err == nil {
-		for _, vid := range authApps {
+		for _, vid := range supportVendor {
 			if vid == 0 {
 				continue
 			}
-			err = InvalidAVP{Code: MissingAvp, AVP: SetVendorID(0)}
-			for _, v := range suuportVendor {
-				if vid == v {
-					err = nil
-					break
-				}
-			}
-			if err != nil {
-				break
-			}
+			// ToDo: verify common supported AVP vendor
 		}
 	}
 	if err == nil {
@@ -452,7 +454,7 @@ func (v eventRcvCEA) exec() error {
 			for aid, vid := range authApps {
 				applications[aid] = application{
 					venID:    vid,
-					handlers: make(map[uint32]func(bool, []byte) (bool, []byte))}
+					handlers: make(map[uint32]Handler)}
 			}
 		} else {
 			var commonApp = make(map[uint32]application)
@@ -463,7 +465,13 @@ func (v eventRcvCEA) exec() error {
 				}
 			}
 			if len(commonApp) == 0 {
-				err = InvalidMessage(ApplicationUnsupported)
+				rap := "required applications are "
+				for k := range authApps {
+					rap = fmt.Sprintf("%s, %d", rap, k)
+				}
+				err = InvalidMessage{
+					Code:   ApplicationUnsupported,
+					ErrMsg: rap}
 			} else {
 				applications = commonApp
 			}
@@ -471,7 +479,9 @@ func (v eventRcvCEA) exec() error {
 	}
 
 	if v.m.FlgE && result == Success {
-		err = InvalidMessage(InvalidHdrBits)
+		err = InvalidMessage{
+			Code:   InvalidHdrBits,
+			ErrMsg: "error flag is true but success response code"}
 	} else if err != nil {
 		// invalid AVP value
 	} else if result == 0 {
@@ -481,9 +491,17 @@ func (v eventRcvCEA) exec() error {
 	} else if len(oRealm) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetOriginRealm("")}
 	} else if oHost != Peer.Host && oHost != Local.Host {
-		err = InvalidMessage(UnknownPeer)
+		err = InvalidMessage{
+			Code: UnknownPeer,
+			ErrMsg: fmt.Sprintf(
+				"peer host %s is not match with %s or %s",
+				oHost, Peer.Host, Local.Host)}
 	} else if oRealm != Peer.Realm && oRealm != Local.Realm {
-		err = InvalidMessage(UnknownPeer)
+		err = InvalidMessage{
+			Code: UnknownPeer,
+			ErrMsg: fmt.Sprintf(
+				"peer realm %s is not match with %s or %s",
+				oRealm, Peer.Realm, Local.Host)}
 	} else if len(hostIP) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: setHostIPAddress(net.IPv4zero)}
 	} else if venID == 0 {
@@ -491,7 +509,7 @@ func (v eventRcvCEA) exec() error {
 	} else if len(prodName) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: setProductName("")}
 	} else if result != Success {
-		err = FailureAnswer{Code: result}
+		err = FailureAnswer{Code: result, ErrMsg: errorMsg, Avps: failedAVP}
 	} else {
 		if oState != 0 {
 			Peer.state = oState
@@ -502,15 +520,15 @@ func (v eventRcvCEA) exec() error {
 		wdTimer = time.AfterFunc(WDInterval, func() {
 			notify <- eventWatchdog{}
 		})
-		delete(sndStack, v.m.HbHID)
+		delete(sndQueue, v.m.HbHID)
 		//ch <- v.m
 	}
-	countRxCode(result)
+	CountRxCode(result)
 	TraceMessage(v.m, Rx, err)
 
 	if err != nil {
 		wdTimer.Stop()
-		delete(sndStack, v.m.HbHID)
+		delete(sndQueue, v.m.HbHID)
 		// close(ch)
 		conn.Close()
 	}

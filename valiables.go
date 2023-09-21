@@ -1,87 +1,58 @@
 package diameter
 
 import (
-	"errors"
+	"fmt"
 	"math/rand"
 	"net"
 	"os"
-	"strings"
 	"time"
 )
 
-// constant values
 const (
-	VendorID    uint32 = 41102
-	ProductName        = "yatagarasu"
-	FirmwareRev uint32 = 211031001
+	VendorID    uint32 = 41102         // VendorID of this code
+	ProductName        = "round-robin" // ProductName of this code
+	FirmwareRev uint32 = 230619001     // FirmwareRev of this code
 )
 
 var (
-	// TxTimeout is transport packet send timeout
-	TxTimeout = time.Microsecond * 100
-	// WDInterval is watchdog send interval time
-	WDInterval = time.Second * 30
-	// WDMaxSend is watchdog expired count
-	WDMaxSend = 3
+	WDInterval = time.Second * 30 // WDInterval is watchdog send interval time
+	WDMaxSend  = 3                // WDMaxSend is watchdog expired count
 
 	wdTimer *time.Timer // system message timer
 	wdCount = 0         // watchdog expired counter
 
-	Router = true
+	Local peer // Local diameter host information
+	Peer  peer // Peer diameter host information
 
-	Local peer
-	Peer  peer
-
-	OverwriteAddr []net.IP // IP addresses of local host
-	conn          net.Conn // Transport connection
+	Router        = false     // Router mode add RouteRecord AVP in request message
+	OverwriteAddr []net.IP    // Overwrite IP addresses of local host in CER
+	TermSignals   []os.Signal // Signals for closing diameter connection
 
 	// Acceptable Application-ID and commands of the application.
 	// Empty map indicate that accept any application.
 	applications = make(map[uint32]application)
 
-	hbhID = make(chan uint32, 1)
-	eteID = make(chan uint32, 1)
-	// sessionID = make(chan uint32, 1)
+	hbhID     = make(chan uint32, 1) // Hop-by-Hop ID source
+	eteID     = make(chan uint32, 1) // End-to-End ID source
+	sessionID = make(chan uint32, 1) // Session-ID source
 
-	notify   = make(chan stateEvent, 16)
-	state    = closed
-	sndStack = make(map[uint32]chan Message, 65535)
-	rcvStack = make(chan Message, 65535)
+	conn     net.Conn                               // Transport connection
+	notify   = make(chan stateEvent, 16)            // state change notification queue
+	state    = closed                               // current state
+	sndQueue = make(map[uint32]chan Message, 65535) // Sending Request message queue
+	rcvQueue = make(chan Message, 65535)            // Receiving Request message queue
 
-	// Statistics value
-	RxReq     uint64
-	RejectReq uint64
-	TxAnsFail uint64
-	Tx1xxx    uint64
-	Tx2xxx    uint64
-	Tx3xxx    uint64
-	Tx4xxx    uint64
-	Tx5xxx    uint64
-	TxEtc     uint64
-
-	TxReq      uint64
-	InvalidAns uint64
-	TxReqFail  uint64
-	Rx1xxx     uint64
-	Rx2xxx     uint64
-	Rx3xxx     uint64
-	Rx4xxx     uint64
-	Rx5xxx     uint64
-	RxEtc      uint64
+	avpBufferSize = 10
 )
 
 func init() {
 	ut := time.Now().Unix()
-	rand.Seed(ut)
+	// rand.Seed(ut)
 
 	hbhID <- rand.Uint32()
 	eteID <- (uint32(ut^0xFFF) << 20) | (rand.Uint32() ^ 0xFFFFF)
-	// sessionID <- rand.Uint32()
+	sessionID <- rand.Uint32()
 	Local.state = uint32(ut)
-
-	if tmp, err := os.Hostname(); err == nil {
-		Local.Host, Local.Realm, _ = ResolveIdentiry(tmp)
-	}
 }
 
 type peer struct {
@@ -92,53 +63,7 @@ type peer struct {
 
 type application struct {
 	venID    uint32
-	handlers map[uint32]func(bool, []byte) (bool, []byte)
-}
-
-// RxQueue returns length of Rx queue
-func RxQueue() int {
-	return len(rcvStack)
-}
-
-// TxQueue returns length of Tx queue
-func TxQueue() int {
-	return len(sndStack)
-}
-
-func countRxCode(c uint32) {
-	if c < 1000 {
-		RxEtc++
-	} else if c < 2000 {
-		Rx1xxx++
-	} else if c < 3000 {
-		Rx2xxx++
-	} else if c < 4000 {
-		Rx3xxx++
-	} else if c < 5000 {
-		Rx4xxx++
-	} else if c < 6000 {
-		Rx5xxx++
-	} else {
-		RxEtc++
-	}
-}
-
-func countTxCode(c uint32) {
-	if c < 1000 {
-		TxEtc++
-	} else if c < 2000 {
-		Tx1xxx++
-	} else if c < 3000 {
-		Tx2xxx++
-	} else if c < 4000 {
-		Tx3xxx++
-	} else if c < 5000 {
-		Tx4xxx++
-	} else if c < 6000 {
-		Tx5xxx++
-	} else {
-		TxEtc++
-	}
+	handlers map[uint32]Handler
 }
 
 func nextHbH() uint32 {
@@ -153,46 +78,12 @@ func nextEtE() uint32 {
 	return ret
 }
 
-/*
-func nextSession() string {
+// NextSession generate new session ID data
+func NextSession(h string) string {
 	ret := <-sessionID
 	sessionID <- ret + 1
-	return fmt.Sprintf("%s;%d;%d;0",
-		LocalHost, time.Now().Unix()+2208988800, ret)
-}
-*/
-
-// ResolveIdentity get Diameter Host, Realm and address of the FQDN
-func ResolveIdentiry(fqdn string) (host, realm Identity, err error) {
-	h, _, err := net.SplitHostPort(fqdn)
-	if err != nil {
-		return
+	if h == "" {
+		h = Local.Host.String()
 	}
-
-	if host, err = ParseIdentity(h); err != nil {
-		return
-	}
-	if i := strings.Index(h, "."); i < 0 {
-		err = errors.New("domain part not found in local hostname")
-		return
-	} else if realm, err = ParseIdentity(h[i+1:]); err != nil {
-		return
-	}
-
-	return
-}
-
-// LocalAddr returns transport connection of state machine
-func LocalAddr() net.Addr {
-	return conn.LocalAddr()
-}
-
-// PeerAddr returns transport connection of state machine
-func PeerAddr() net.Addr {
-	return conn.RemoteAddr()
-}
-
-// State returns state machine state
-func State() string {
-	return state.String()
+	return fmt.Sprintf("%s;%d;%d;0", h, time.Now().Unix()+2208988800, ret)
 }

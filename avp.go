@@ -9,22 +9,26 @@ import (
 	"time"
 )
 
-// Enumerated is Enumerated format AVP value
+// Enumerated is Enumerated format AVP value.
 type Enumerated int32
+
+// IPFilterRule is IP Filter Rule format AVP value.
+type IPFilterRule string
 
 /*
 AVP data and header
-       0                   1                   2                   3
-       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-      |                           AVP Code                            |
-      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-      |V M P r r r r r|                  AVP Length                   |
-      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-      |                        Vendor-ID (opt)                        |
-      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-      |    Data ...
-	  +-+-+-+-+-+-+-+-+
+
+	 0                   1                   2                   3
+	 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|                           AVP Code                            |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|V M P r r r r r|                  AVP Length                   |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|                        Vendor-ID (opt)                        |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|    Data ...
+	+-+-+-+-+-+-+-+-+
 */
 type AVP struct {
 	Code      uint32 // AVP Code
@@ -160,8 +164,8 @@ func (a *AVP) Encode(d interface{}) (e error) {
 		buf.Write([]byte(d.String()))
 	case Enumerated:
 		e = binary.Write(buf, binary.BigEndian, int32(d))
-		//	case IPFilterRule:
-		//		e = a.setIPFilterRuleData(d)
+	case IPFilterRule:
+		buf.WriteString(string(d))
 	case string:
 		buf.WriteString(d)
 	case []AVP:
@@ -219,7 +223,7 @@ func (a AVP) Decode(d interface{}) (e error) {
 		} else {
 			buf := bytes.NewReader(a.Data)
 			var t uint64
-			if e = binary.Read(buf, binary.BigEndian, &t); e != nil {
+			if e = binary.Read(buf, binary.BigEndian, &t); e == nil {
 				*d = time.Unix(int64(t-2208988800), int64(0))
 			}
 		}
@@ -232,13 +236,13 @@ func (a AVP) Decode(d interface{}) (e error) {
 			e = io.EOF
 		} else {
 			buf := bytes.NewReader(a.Data)
-			var t int32
-			if e = binary.Read(buf, binary.BigEndian, &t); e != nil {
-				*d = Enumerated(t)
+			var t Enumerated
+			if e = binary.Read(buf, binary.BigEndian, &t); e == nil {
+				*d = t
 			}
 		}
-		//	case *IPFilterRule:
-		//		e = a.getIPFilterRuleData(d)
+	case *IPFilterRule:
+		*d = IPFilterRule(a.Data)
 	case *string:
 		*d = string(a.Data)
 	case *[]AVP:
@@ -275,18 +279,8 @@ func (a AVP) Decode(d interface{}) (e error) {
 	return
 }
 
-/*
-// IPFilterRule is IP Filter Rule format AVP value
-type IPFilterRule string
-
-// IPFilterRule
-func (a *AVP) setIPFilterRuleData(s IPFilterRule) (e error) {
-	a.data = []byte(s)
-	return
+func SetGenericAVP(c, v uint32, m bool, b interface{}) AVP {
+	a := AVP{Code: c, VendorID: v, Mandatory: m}
+	a.Encode(b)
+	return a
 }
-
-func (a AVP) getIPFilterRuleData(s *IPFilterRule) (e error) {
-	*s = IPFilterRule(a.data)
-	return
-}
-*/

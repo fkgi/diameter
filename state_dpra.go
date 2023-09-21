@@ -2,26 +2,28 @@ package diameter
 
 import (
 	"bytes"
+	"fmt"
 	"time"
 )
 
 /*
 Disconnect-Peer-Request message
- <DPR>  ::= < Diameter Header: 282, REQ >
-			{ Origin-Host }
-			{ Origin-Realm }
-			{ Disconnect-Cause }
-		  * [ AVP ]
+ <DPR> ::= < Diameter Header: 282, REQ >
+		   { Origin-Host }
+		   { Origin-Realm }
+		   { Disconnect-Cause }
+		 * [ AVP ] // no any other AVP
 
 Disconnect-Peer-Answer message
- <DPA>  ::= < Diameter Header: 282 >
-			{ Result-Code }
-			{ Origin-Host }
-			{ Origin-Realm }
-			[ Error-Message ]
-			[ Failed-AVP ]
-		  * [ AVP ]
+ <DPA> ::= < Diameter Header: 282 >
+		   { Result-Code }
+		   { Origin-Host }
+		   { Origin-Realm }
+		   [ Error-Message ] // ignored
+		   [ Failed-AVP ]    // ignored
+		 * [ AVP ]           // ignored
 */
+
 type eventRcvDPR struct {
 	m Message
 }
@@ -91,7 +93,8 @@ func (v eventRcvDPR) exec() error {
 	result := Success
 	if v.m.FlgP || v.m.FlgT {
 		result = InvalidHdrBits
-		err = InvalidMessage(result)
+		err = InvalidMessage{
+			Code: result, ErrMsg: "DPR must not enable P and T flag"}
 	} else if iavp, ok := err.(InvalidAVP); ok {
 		result = iavp.Code
 	} else if len(oHost) == 0 {
@@ -100,12 +103,20 @@ func (v eventRcvDPR) exec() error {
 	} else if len(oRealm) == 0 {
 		result = MissingAvp
 		err = InvalidAVP{Code: result, AVP: SetOriginRealm("")}
-	} else if oHost != Peer.Host {
+	} else if Peer.Host != "" && oHost != Peer.Host {
 		result = UnknownPeer
-		err = InvalidMessage(result)
-	} else if oRealm != Peer.Realm {
+		err = InvalidMessage{
+			Code: result,
+			ErrMsg: fmt.Sprintf(
+				"peer host %s is not match with %s",
+				oHost, Peer.Host)}
+	} else if Peer.Realm != "" && oRealm != Peer.Realm {
 		result = UnknownPeer
-		err = InvalidMessage(result)
+		err = InvalidMessage{
+			Code: result,
+			ErrMsg: fmt.Sprintf(
+				"peer realm %s is not match with %s",
+				oRealm, Peer.Realm)}
 	} else if cause < 0 {
 		result = MissingAvp
 		err = InvalidAVP{Code: result, AVP: setDisconnectCause(Rebooting)}
@@ -125,13 +136,12 @@ func (v eventRcvDPR) exec() error {
 		HbHID: v.m.HbHID, EtEID: v.m.EtEID,
 		AVPs: buf.Bytes()}
 
-	conn.SetWriteDeadline(time.Now().Add(TxTimeout))
 	if e := dpa.MarshalTo(conn); e != nil {
 		TxAnsFail++
 		conn.Close()
 		err = e
 	} else if err == nil {
-		countTxCode(result)
+		CountTxCode(result)
 		state = closing
 		wdTimer.Stop()
 		wdTimer = time.AfterFunc(WDInterval, func() {
@@ -155,13 +165,14 @@ func (v eventRcvDPA) exec() error {
 	// verify diameter header
 	if v.m.FlgP {
 		InvalidAns++
-		return InvalidMessage(InvalidHdrBits)
+		return InvalidMessage{
+			Code: InvalidHdrBits, ErrMsg: "DPA must not enable P flag"}
 	}
 	if state != closing {
 		InvalidAns++
 		return notAcceptableEvent{e: v, s: state}
 	}
-	if _, ok := sndStack[v.m.HbHID]; !ok {
+	if _, ok := sndQueue[v.m.HbHID]; !ok {
 		InvalidAns++
 		return unknownAnswer(v.m.HbHID)
 	}
@@ -221,7 +232,9 @@ func (v eventRcvDPA) exec() error {
 	}
 
 	if v.m.FlgE && result == Success {
-		err = InvalidMessage(InvalidHdrBits)
+		err = InvalidMessage{
+			Code:   InvalidHdrBits,
+			ErrMsg: "error flag is true but success response code"}
 	} else if err != nil {
 		// invalid AVP value
 	} else if result == 0 {
@@ -231,18 +244,26 @@ func (v eventRcvDPA) exec() error {
 	} else if len(oRealm) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetOriginRealm("")}
 	} else if oHost != Peer.Host && oHost != Local.Host {
-		err = InvalidMessage(UnknownPeer)
+		err = InvalidMessage{
+			Code: UnknownPeer,
+			ErrMsg: fmt.Sprintf(
+				"peer host %s is not match with %s or %s",
+				oHost, Peer.Host, Local.Host)}
 	} else if oRealm != Peer.Realm && oRealm != Local.Realm {
-		err = InvalidMessage(UnknownPeer)
+		err = InvalidMessage{
+			Code: UnknownPeer,
+			ErrMsg: fmt.Sprintf(
+				"peer realm %s is not match with %s or %s",
+				oRealm, Peer.Realm, Local.Host)}
 	} else if result != Success {
 		err = FailureAnswer{Code: result}
-		delete(sndStack, v.m.HbHID)
+		delete(sndQueue, v.m.HbHID)
 	} else {
-		delete(sndStack, v.m.HbHID)
+		delete(sndQueue, v.m.HbHID)
 		wdTimer.Stop()
-		conn.Close()
+		err = conn.Close()
 	}
-	countRxCode(result)
+	CountRxCode(result)
 
 	TraceMessage(v.m, Rx, err)
 	return err

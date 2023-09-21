@@ -3,22 +3,25 @@ package diameter
 import "fmt"
 
 // InvalidMessage is error of invalid message
-type InvalidMessage uint32
+type InvalidMessage struct {
+	Code   uint32
+	ErrMsg string
+}
 
 func (e InvalidMessage) Error() string {
-	switch uint32(e) {
+	switch uint32(e.Code) {
 	case UnknownSessionID:
-		return "unknowns session ID"
+		return "unknowns session ID, " + e.ErrMsg
 	case UnsupportedVersion:
-		return "unsupported verion"
+		return "unsupported verion, " + e.ErrMsg
 	case InvalidHdrBits:
-		return "invalid header bit"
+		return "invalid header bit, " + e.ErrMsg
 	case ApplicationUnsupported:
-		return "unsupported application"
+		return "unsupported application, " + e.ErrMsg
 	case UnknownPeer:
-		return "unknown peer"
+		return "unknown peer, " + e.ErrMsg
 	}
-	return fmt.Sprintf("generic invalid message (code=%d)", e)
+	return fmt.Sprintf("generic invalid message (code=%d), %s", e.Code, e.ErrMsg)
 }
 
 // InvalidAVP is error of invalid AVP value
@@ -46,29 +49,28 @@ func (e InvalidAVP) Error() string {
 	case AvpOccursTooManyTimes:
 		return fmt.Sprintf("AVP occures too many time (code=%d)%v",
 			e.AVP.Code, err)
+	case AvpUnsupported:
+		return fmt.Sprintf("unsupported AVP with mandatory flag (code=%d)%v",
+			e.AVP.Code, err)
 	}
-	return "generic invalid AVP"
+	return fmt.Sprintf("generic invalid AVP (code=%d)%v", e.AVP.Code, err)
 }
 
-// FailureAnswer is error
+// FailureAnswer is error response from peer.
 type FailureAnswer struct {
-	Code  uint32
-	VenID uint32
+	Code   uint32
+	VenID  uint32
+	ErrMsg string
+	Avps   []AVP
 }
 
 func (e FailureAnswer) Error() string {
-	if e.VenID != 0 {
-		return fmt.Sprintf("Answer message with failure: code=%d (vendor=%d)",
-			e.Code, e.VenID)
+	acodes := ""
+	for _, a := range e.Avps {
+		acodes = fmt.Sprintf("%s/%d", acodes, a.Code)
 	}
-	return fmt.Sprintf("Answer message with failure: code=%d", e.Code)
-}
-
-// ConnectionRefused is error
-type ConnectionRefused struct{}
-
-func (e ConnectionRefused) Error() string {
-	return "connection is refused"
+	return fmt.Sprintf("error answer: code=%d (vendor=%d), message=%s, avp=%s",
+		e.Code, e.VenID, e.ErrMsg, acodes)
 }
 
 type notAcceptableEvent struct {

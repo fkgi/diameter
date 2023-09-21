@@ -105,10 +105,8 @@ func (v eventConnect) exec() error {
 			}
 		}
 	}
-	/*
-		// * [ Inband-Security-Id ]   // not supported (not recommended)
-		// * [ Acct-Application-Id ]  // not supported
-	*/
+	// Inband-Security-Id
+	// Acct-Application-Id
 	setFirmwareRevision(FirmwareRev).MarshalTo(buf)
 
 	cer := Message{
@@ -118,13 +116,12 @@ func (v eventConnect) exec() error {
 		AVPs: buf.Bytes()}
 
 	TxReq++
-	sndStack[cer.HbHID] = nil
+	sndQueue[cer.HbHID] = make(chan Message)
 
 	wdTimer = time.AfterFunc(WDInterval, func() {
 		notify <- eventRcvCEA{cer.generateAnswerBy(UnableToDeliver)}
 	})
 
-	conn.SetWriteDeadline(time.Now().Add(TxTimeout))
 	err := cer.MarshalTo(conn)
 	if err != nil {
 		conn.Close()
@@ -165,14 +162,13 @@ func (v eventWatchdog) exec() error {
 		AVPs: buf.Bytes()}
 
 	TxReq++
-	sndStack[dwr.HbHID] = nil
+	sndQueue[dwr.HbHID] = make(chan Message)
 
 	wdTimer = time.AfterFunc(WDInterval, func() {
 		notify <- eventRcvDWA{dwr.generateAnswerBy(UnableToDeliver)}
 		notify <- eventWatchdog{}
 	})
 
-	conn.SetWriteDeadline(time.Now().Add(TxTimeout))
 	err := dwr.MarshalTo(conn)
 	if err != nil {
 		conn.Close()
@@ -226,13 +222,12 @@ func (v eventStop) exec() error {
 		AVPs: buf.Bytes()}
 
 	TxReq++
-	sndStack[dpr.HbHID] = nil
+	sndQueue[dpr.HbHID] = make(chan Message)
 
 	wdTimer = time.AfterFunc(WDInterval, func() {
 		notify <- eventRcvDPA{dpr.generateAnswerBy(UnableToDeliver)}
 	})
 
-	conn.SetWriteDeadline(time.Now().Add(TxTimeout))
 	err := dpr.MarshalTo(conn)
 	if err != nil {
 		conn.Close()
@@ -243,7 +238,9 @@ func (v eventStop) exec() error {
 }
 
 // PeerDisc
-type eventPeerDisc struct{}
+type eventPeerDisc struct {
+	reason error
+}
 
 func (eventPeerDisc) String() string {
 	return "Peer-Disc"
@@ -253,12 +250,12 @@ func (v eventPeerDisc) exec() error {
 	conn.Close()
 	state = closed
 
-	for _, ch := range sndStack {
+	for _, ch := range sndQueue {
 		close(ch)
 	}
-	close(rcvStack)
+	close(rcvQueue)
 
-	return nil
+	return v.reason
 }
 
 // Snd MSG
@@ -276,7 +273,6 @@ func (v eventSndMsg) exec() error {
 	}
 
 	TxReq++
-	conn.SetWriteDeadline(time.Now().Add(TxTimeout))
 	err := v.m.MarshalTo(conn)
 	if err != nil {
 		conn.Close()

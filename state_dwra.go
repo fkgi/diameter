@@ -2,27 +2,30 @@ package diameter
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"time"
 )
 
 /*
 DeviceWatchdogRequest message
- <DWR>  ::= < Diameter Header: 280, REQ >
-			{ Origin-Host }
-			{ Origin-Realm }
-			[ Origin-State-Id ]
-		  * [ AVP ]
+ <DWR> ::= < Diameter Header: 280, REQ >
+		   { Origin-Host }
+		   { Origin-Realm }
+		   [ Origin-State-Id ]
+		 * [ AVP ] // ignored
 
 Device-Watchdo-gAnswer message
- <DWA>  ::= < Diameter Header: 280 >
-			{ Result-Code }
-			{ Origin-Host }
-			{ Origin-Realm }
-			[ Error-Message ]
-			[ Failed-AVP ]
-			[ Origin-State-Id ]
-		  * [ AVP ]
+ <DWA> ::= < Diameter Header: 280 >
+		   { Result-Code }
+		   { Origin-Host }
+		   { Origin-Realm }
+		   [ Error-Message ] // ignored
+		   [ Failed-AVP ]    // ignored
+		   [ Origin-State-Id ]
+		 * [ AVP ]           // ignored
 */
+
 type eventRcvDWR struct {
 	m Message
 }
@@ -90,7 +93,8 @@ func (v eventRcvDWR) exec() error {
 	result := Success
 	if v.m.FlgP || v.m.FlgT {
 		result = InvalidHdrBits
-		err = InvalidMessage(result)
+		err = InvalidMessage{
+			Code: result, ErrMsg: "DWR must not enable P and T flag"}
 	} else if iavp, ok := err.(InvalidAVP); ok {
 		result = iavp.Code
 	} else if len(oHost) == 0 {
@@ -101,13 +105,23 @@ func (v eventRcvDWR) exec() error {
 		err = InvalidAVP{Code: result, AVP: SetOriginRealm("")}
 	} else if oHost != Peer.Host {
 		result = UnknownPeer
-		err = InvalidMessage(result)
+		err = InvalidMessage{
+			Code: result,
+			ErrMsg: fmt.Sprintf(
+				"peer host %s is not match with %s",
+				oHost, Peer.Host)}
 	} else if oRealm != Peer.Realm {
 		result = UnknownPeer
-		err = InvalidMessage(result)
+		err = InvalidMessage{
+			Code: result,
+			ErrMsg: fmt.Sprintf(
+				"peer realm %s is not match with %s",
+				oRealm, Peer.Realm)}
 	} else if oState != 0 && oState != Peer.state {
 		result = UnknownPeer
-		err = InvalidMessage(result)
+		err = InvalidMessage{
+			Code:   result,
+			ErrMsg: fmt.Sprintf("peer state %d is not match with %d", oState, Peer.state)}
 	}
 
 	buf := new(bytes.Buffer)
@@ -127,13 +141,12 @@ func (v eventRcvDWR) exec() error {
 		HbHID: v.m.HbHID, EtEID: v.m.EtEID,
 		AVPs: buf.Bytes()}
 
-	conn.SetWriteDeadline(time.Now().Add(TxTimeout))
 	if e := dwa.MarshalTo(conn); e != nil {
 		TxAnsFail++
 		conn.Close()
 		err = e
 	} else if err == nil && wdCount == 0 {
-		countTxCode(result)
+		CountTxCode(result)
 		wdTimer.Stop()
 		wdTimer.Reset(WDInterval)
 	}
@@ -155,13 +168,14 @@ func (v eventRcvDWA) exec() error {
 	// verify diameter header
 	if v.m.FlgP {
 		InvalidAns++
-		return InvalidMessage(InvalidHdrBits)
+		return InvalidMessage{
+			Code: InvalidHdrBits, ErrMsg: "DWA must not enable P flag"}
 	}
 	if state != open {
 		InvalidAns++
 		return notAcceptableEvent{e: v, s: state}
 	}
-	if _, ok := sndStack[v.m.HbHID]; !ok {
+	if _, ok := sndQueue[v.m.HbHID]; !ok {
 		InvalidAns++
 		return unknownAnswer(v.m.HbHID)
 	}
@@ -228,7 +242,9 @@ func (v eventRcvDWA) exec() error {
 	}
 
 	if v.m.FlgE && result == Success {
-		err = InvalidMessage(InvalidHdrBits)
+		err = InvalidMessage{
+			Code:   InvalidHdrBits,
+			ErrMsg: "error flag is true but success response code"}
 	} else if err != nil {
 		// invalid AVP value
 	} else if result == 0 {
@@ -238,22 +254,33 @@ func (v eventRcvDWA) exec() error {
 	} else if len(oRealm) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetOriginRealm("")}
 	} else if oHost != Peer.Host && oHost != Local.Host {
-		err = InvalidMessage(UnknownPeer)
+		err = InvalidMessage{
+			Code: UnknownPeer,
+			ErrMsg: fmt.Sprintf(
+				"peer host %s is not match with %s or %s",
+				oHost, Peer.Host, Local.Host)}
 	} else if oRealm != Peer.Realm && oRealm != Local.Realm {
-		err = InvalidMessage(UnknownPeer)
+		err = InvalidMessage{
+			Code: UnknownPeer,
+			ErrMsg: fmt.Sprintf(
+				"peer realm %s is not match with %s or %s",
+				oRealm, Peer.Realm, Local.Host)}
+	} else if oState != 0 && oState != Peer.state {
+		err = errors.New("peer may be abruptly restarted")
+		Close(Rebooting)
 	} else {
 		if result == Success {
 			wdCount = 0
 		} else {
 			err = FailureAnswer{Code: result}
 		}
-		delete(sndStack, v.m.HbHID)
+		delete(sndQueue, v.m.HbHID)
 		wdTimer.Stop()
 		wdTimer = time.AfterFunc(WDInterval, func() {
 			notify <- eventWatchdog{}
 		})
 	}
-	countRxCode(result)
+	CountRxCode(result)
 
 	TraceMessage(v.m, Rx, err)
 	return err

@@ -9,21 +9,22 @@ import (
 
 /*
 Message is Diameter message.
-    0                   1                   2                   3
-    0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |    Version    |                 Message Length                |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   | Command Flags |                  Command Code                 |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                         Application-ID                        |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                      Hop-by-Hop Identifier                    |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |                      End-to-End Identifier                    |
-   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-   |  AVPs ...
-   +-+-+-+-+-+-+-+-+-+-+-+-+-
+
+	 0                   1                   2                   3
+	 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|    Version    |                 Message Length                |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	| Command Flags |                  Command Code                 |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|                         Application-ID                        |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|                      Hop-by-Hop Identifier                    |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|                      End-to-End Identifier                    |
+	+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+	|  AVPs ...
+	+-+-+-+-+-+-+-+-+-+-+-+-+-
 */
 type Message struct {
 	FlgR  bool   // Request
@@ -35,6 +36,26 @@ type Message struct {
 	HbHID uint32 // Hop-by-Hop ID
 	EtEID uint32 // End-to-End ID
 	AVPs  []byte // Message body AVP binary data
+}
+
+func (m *Message) setAVP(avp []AVP) {
+	buf := new(bytes.Buffer)
+	for _, a := range avp {
+		a.MarshalTo(buf)
+	}
+	m.AVPs = buf.Bytes()
+}
+
+func (m *Message) getAVP() ([]AVP, error) {
+	avp := make([]AVP, 0, avpBufferSize)
+	for rdr := bytes.NewReader(m.AVPs); rdr.Len() != 0; {
+		a := AVP{}
+		if e := a.wrapedUnmarshalFrom(rdr); e != nil {
+			return nil, e
+		}
+		avp = append(avp, a)
+	}
+	return avp, nil
 }
 
 func (m Message) String() string {
@@ -116,7 +137,8 @@ func (m *Message) UnmarshalFrom(r io.Reader) error {
 		return err
 	}
 	if b[0] != 1 {
-		return InvalidMessage(UnsupportedVersion)
+		return InvalidMessage{
+			Code: UnsupportedVersion}
 	}
 
 	b[0] = 0x00
@@ -136,7 +158,8 @@ func (m *Message) UnmarshalFrom(r io.Reader) error {
 	binary.Read(bytes.NewBuffer(b[16:20]), binary.BigEndian, &m.EtEID)
 
 	if m.AVPs, err = readUntil(r, int(lng)-20); err != nil {
-		return InvalidMessage(InvalidMessageLength)
+		return InvalidMessage{
+			Code: InvalidMessageLength}
 	}
 
 	return nil

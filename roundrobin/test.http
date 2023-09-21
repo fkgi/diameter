@@ -1,0 +1,62 @@
+@url = http://192.168.56.107:8080
+#@url = http://localhost:8081
+
+@realm=epc.mnc99.mcc999.3gppnetwork.org
+
+###
+# < Update-Location-Request> ::= < Diameter Header: 316, REQ, PXY, 16777251 >
+#       < Session-Id >
+#       [ DRMP ]
+#       [ Vendor-Specific-Application-Id ]
+#       { Auth-Session-State }
+#       { Origin-Host }
+#       { Origin-Realm }
+#       [ Destination-Host ]
+#       { Destination-Realm }
+#       { User-Name }
+#       [ OC-Supported-Features ]
+#     * [ Supported-Features ]
+#       [ Terminal-Information ]
+#       { RAT-Type }
+#       { ULR-Flags }
+#       [ UE-SRVCC-Capability ]
+#       { Visited-PLMN-Id }
+#       [ SGSN-Number ]
+#       [ Homogeneous-Support-of-IMS-Voice-Over-PS-Sessions ]
+#       [ GMLC-Address ]
+#     * [ Active-APN ]
+#       [ Equivalent-PLMN-List ]
+#       [ MME-Number-for-MT-SMS ]
+#       [ SMS-Register-Request ]
+#       [ SGs-MME-Identity ]
+#       [ Coupled-Node-Diameter-ID ]
+#       [ Adjacent-PLMNs ]
+#       [ Supported-Services ]
+#     * [ AVP ]
+#     * [ Proxy-Info ]
+#     * [ Route-Record ]
+
+POST {{url}}/msg/v1/S6a/Update-Location
+content-type: application/json
+
+{
+    "Session-Id": "mme.{{realm}};{{$localDatetime iso8601}}",
+    "Vendor-Specific-Application-Id": {
+        "Vendor-Id": 10415,
+        "Auth-Application-Id": 16777251
+    },
+    "Auth-Session-State": "NO_STATE_MAINTAINED",
+    "Origin-Host": "mme.{{realm}}",
+    "Origin-Realm": "{{realm}}",
+    "Destination-Realm": "{{realm}}",
+    "User-Name": "999990123456789",
+    "RAT-Type": "EUTRAN",
+    "ULR-Flags": 98,
+    "Visited-PLMN-Id": "99F999",
+    "Terminal-Information": {
+        "Software-Version": "03",
+        "IMEI": "01234567890123"
+    },
+    "UE-SRVCC-Capability": "UE-SRVCC-SUPPORTED",
+    "Homogeneous-Support-of-IMS-Voice-Over-PS-Sessions": "NOT_SUPPORTED"
+}

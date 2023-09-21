@@ -2,7 +2,7 @@ package diameter
 
 import (
 	"errors"
-	"time"
+	"fmt"
 )
 
 type eventRcvReq struct {
@@ -25,16 +25,18 @@ func (v eventRcvReq) exec() error {
 	var err error
 	if state == locked {
 		result = UnableToDeliver
-	} else if len(rcvStack) == cap(rcvStack) {
+	} else if len(rcvQueue) == cap(rcvQueue) {
 		result = TooBusy
-		err = errors.New("too busy, recieve stack is full")
+		err = errors.New("too busy, receive queue is full")
 	} else if len(applications) == 0 {
-		rcvStack <- v.m
+		rcvQueue <- v.m
 	} else if _, ok := applications[v.m.AppID]; ok {
-		rcvStack <- v.m
+		rcvQueue <- v.m
 	} else {
 		result = ApplicationUnsupported
-		err = InvalidMessage(result)
+		err = InvalidMessage{
+			Code:   result,
+			ErrMsg: fmt.Sprintf("unknown application %d", v.m.AppID)}
 	}
 
 	if wdCount == 0 {
@@ -43,14 +45,13 @@ func (v eventRcvReq) exec() error {
 	}
 	if result != Success {
 		ans := v.m.generateAnswerBy(result)
-		conn.SetWriteDeadline(time.Now().Add(TxTimeout))
 		if e := ans.MarshalTo(conn); e != nil {
 			TxAnsFail++
 			conn.Close()
 			err = e
 		} else {
 			TraceMessage(ans, Tx, err)
-			countTxCode(result)
+			CountTxCode(result)
 		}
 	}
 
@@ -73,13 +74,13 @@ func (v eventRcvAns) exec() (e error) {
 
 	TraceMessage(v.m, Rx, nil)
 
-	if ch, ok := sndStack[v.m.HbHID]; ok {
+	if ch, ok := sndQueue[v.m.HbHID]; ok {
 		ch <- v.m
 	} else {
 		InvalidAns++
 		return unknownAnswer(v.m.HbHID)
 	}
-	delete(sndStack, v.m.HbHID)
+	delete(sndQueue, v.m.HbHID)
 
 	if wdCount == 0 {
 		wdTimer.Stop()

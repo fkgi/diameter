@@ -119,6 +119,21 @@ func getSupportedVendorID(a AVP) (v uint32, e error) {
 	return
 }
 
+func setInbandSecurityID(v uint32) (a AVP) {
+	a = AVP{Code: 299, Mandatory: true}
+	a.Encode(v)
+	return
+}
+
+func getInbandSecurityID(a AVP) (v uint32, e error) {
+	if a.VendorID != 0 || !a.Mandatory {
+		e = InvalidAVP{Code: InvalidAvpBits, AVP: a}
+	} else {
+		e = a.wrapedDecode(&v)
+	}
+	return
+}
+
 func setErrorMessage(v string) (a AVP) {
 	a = AVP{Code: 281}
 	a.Encode(v)
