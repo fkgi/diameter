@@ -36,7 +36,7 @@
 #     * [ Proxy-Info ]
 #     * [ Route-Record ]
 
-POST {{url}}/msg/v1/S6a/Update-Location
+POST {{url}}/msg/v1/3GPP/S6a/Update-Location
 content-type: application/json
 
 {

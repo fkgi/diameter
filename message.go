@@ -38,7 +38,7 @@ type Message struct {
 	AVPs  []byte // Message body AVP binary data
 }
 
-func (m *Message) setAVP(avp []AVP) {
+func (m *Message) SetAVP(avp []AVP) {
 	buf := new(bytes.Buffer)
 	for _, a := range avp {
 		a.MarshalTo(buf)
@@ -46,7 +46,7 @@ func (m *Message) setAVP(avp []AVP) {
 	m.AVPs = buf.Bytes()
 }
 
-func (m *Message) getAVP() ([]AVP, error) {
+func (m *Message) GetAVP() ([]AVP, error) {
 	avp := make([]AVP, 0, avpBufferSize)
 	for rdr := bytes.NewReader(m.AVPs); rdr.Len() != 0; {
 		a := AVP{}
@@ -82,8 +82,8 @@ func (m Message) String() string {
 func (m Message) generateAnswerBy(result uint32) Message {
 	buf := new(bytes.Buffer)
 	SetResultCode(result).MarshalTo(buf)
-	SetOriginHost(Local.Host).MarshalTo(buf)
-	SetOriginRealm(Local.Realm).MarshalTo(buf)
+	SetOriginHost(Host).MarshalTo(buf)
+	SetOriginRealm(Realm).MarshalTo(buf)
 
 	return Message{
 		FlgR: false, FlgP: m.FlgP, FlgE: true, FlgT: false,

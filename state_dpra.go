@@ -32,11 +32,11 @@ func (eventRcvDPR) String() string {
 	return "Rcv-DPR"
 }
 
-func (v eventRcvDPR) exec() error {
+func (v eventRcvDPR) exec(c *Connection) error {
 	RxReq++
-	if state != open && state != locked {
+	if c.state != open && c.state != locked {
 		RejectReq++
-		return notAcceptableEvent{e: v, s: state}
+		return notAcceptableEvent{e: v, s: c.state}
 	}
 
 	TraceMessage(v.m, Rx, nil)
@@ -103,20 +103,20 @@ func (v eventRcvDPR) exec() error {
 	} else if len(oRealm) == 0 {
 		result = MissingAvp
 		err = InvalidAVP{Code: result, AVP: SetOriginRealm("")}
-	} else if Peer.Host != "" && oHost != Peer.Host {
+	} else if c.Host != "" && oHost != c.Host {
 		result = UnknownPeer
 		err = InvalidMessage{
 			Code: result,
 			ErrMsg: fmt.Sprintf(
 				"peer host %s is not match with %s",
-				oHost, Peer.Host)}
-	} else if Peer.Realm != "" && oRealm != Peer.Realm {
+				oHost, c.Host)}
+	} else if c.Realm != "" && oRealm != c.Realm {
 		result = UnknownPeer
 		err = InvalidMessage{
 			Code: result,
 			ErrMsg: fmt.Sprintf(
 				"peer realm %s is not match with %s",
-				oRealm, Peer.Realm)}
+				oRealm, c.Realm)}
 	} else if cause < 0 {
 		result = MissingAvp
 		err = InvalidAVP{Code: result, AVP: setDisconnectCause(Rebooting)}
@@ -124,8 +124,8 @@ func (v eventRcvDPR) exec() error {
 
 	buf := new(bytes.Buffer)
 	SetResultCode(result).MarshalTo(buf)
-	SetOriginHost(Local.Host).MarshalTo(buf)
-	SetOriginRealm(Local.Realm).MarshalTo(buf)
+	SetOriginHost(Host).MarshalTo(buf)
+	SetOriginRealm(Realm).MarshalTo(buf)
 	if iavp, ok := err.(InvalidAVP); ok {
 		setFailedAVP([]AVP{iavp.AVP}).MarshalTo(buf)
 	}
@@ -136,16 +136,16 @@ func (v eventRcvDPR) exec() error {
 		HbHID: v.m.HbHID, EtEID: v.m.EtEID,
 		AVPs: buf.Bytes()}
 
-	if e := dpa.MarshalTo(conn); e != nil {
+	if e := dpa.MarshalTo(c.conn); e != nil {
 		TxAnsFail++
-		conn.Close()
+		c.conn.Close()
 		err = e
 	} else if err == nil {
 		CountTxCode(result)
-		state = closing
-		wdTimer.Stop()
-		wdTimer = time.AfterFunc(WDInterval, func() {
-			conn.Close()
+		c.state = closing
+		c.wdTimer.Stop()
+		c.wdTimer = time.AfterFunc(WDInterval, func() {
+			c.conn.Close()
 		})
 	}
 
@@ -161,16 +161,16 @@ func (eventRcvDPA) String() string {
 	return "Rcv-DPA"
 }
 
-func (v eventRcvDPA) exec() error {
+func (v eventRcvDPA) exec(c *Connection) error {
 	// verify diameter header
 	if v.m.FlgP {
 		InvalidAns++
 		return InvalidMessage{
 			Code: InvalidHdrBits, ErrMsg: "DPA must not enable P flag"}
 	}
-	if state != closing {
+	if c.state != closing {
 		InvalidAns++
-		return notAcceptableEvent{e: v, s: state}
+		return notAcceptableEvent{e: v, s: c.state}
 	}
 	if _, ok := sndQueue[v.m.HbHID]; !ok {
 		InvalidAns++
@@ -243,25 +243,25 @@ func (v eventRcvDPA) exec() error {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetOriginHost("")}
 	} else if len(oRealm) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetOriginRealm("")}
-	} else if oHost != Peer.Host && oHost != Local.Host {
+	} else if oHost != c.Host && oHost != Host {
 		err = InvalidMessage{
 			Code: UnknownPeer,
 			ErrMsg: fmt.Sprintf(
 				"peer host %s is not match with %s or %s",
-				oHost, Peer.Host, Local.Host)}
-	} else if oRealm != Peer.Realm && oRealm != Local.Realm {
+				oHost, c.Host, Host)}
+	} else if oRealm != c.Realm && oRealm != Realm {
 		err = InvalidMessage{
 			Code: UnknownPeer,
 			ErrMsg: fmt.Sprintf(
 				"peer realm %s is not match with %s or %s",
-				oRealm, Peer.Realm, Local.Host)}
+				oRealm, c.Realm, Host)}
 	} else if result != Success {
 		err = FailureAnswer{Code: result}
 		delete(sndQueue, v.m.HbHID)
 	} else {
 		delete(sndQueue, v.m.HbHID)
-		wdTimer.Stop()
-		err = conn.Close()
+		c.wdTimer.Stop()
+		err = c.conn.Close()
 	}
 	CountRxCode(result)
 

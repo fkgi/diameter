@@ -7,10 +7,13 @@ import (
 	"syscall"
 
 	"github.com/fkgi/diameter"
+	"github.com/fkgi/diameter/connector"
+	"github.com/fkgi/diameter/dictionary"
 )
 
 func main() {
-	log.Printf("booting RR <%s REV.%d>...", diameter.ProductName, diameter.FirmwareRev)
+	log.Printf("booting RR <%s REV.%d>...",
+		diameter.ProductName, diameter.FirmwareRev)
 
 	host, err := os.Hostname()
 	if err != nil {
@@ -24,22 +27,24 @@ func main() {
 	d := flag.String("d", "dictionary.json", "diameter dictionary")
 	flag.Parse()
 
-	rxPath = "http://" + *r
+	rxPath = "http://" + *r + "/msg/v1/"
 
-	if err = loadDictionary(*d); err != nil {
-		log.Fatalln(err)
+	if data, err := os.ReadFile(*d); err != nil {
+		log.Fatalln("failed to open dictionary file", err)
+	} else if err = dictionary.LoadDictionary(data); err != nil {
+		log.Fatalln("failed to read dictionary file", err)
 	}
 
+	diameter.DefaultRxHandler = handleRx
 	listenAndServeHttp(*t)
 
-	diameter.TermSignals = []os.Signal{
+	connector.TermSignals = []os.Signal{
 		syscall.SIGINT, syscall.SIGTERM, os.Interrupt}
-	diameter.Router = true
 	if *p == "" {
 		log.Println("listening...")
-		log.Println("closed, error=", diameter.ListenAndServe(*l, *s))
+		log.Println("closed, error=", connector.ListenAndServe(*l, *s))
 	} else {
 		log.Println("connecting...")
-		log.Println("closed, error=", diameter.DialAndServe(*l, *p, *s))
+		log.Println("closed, error=", connector.DialAndServe(*l, *p, *s))
 	}
 }

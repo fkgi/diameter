@@ -6,8 +6,11 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/fkgi/diameter"
+	"github.com/fkgi/diameter/connector"
+	"github.com/fkgi/diameter/dictionary"
 )
 
 func listenAndServeHttp(addr string) {
@@ -22,8 +25,12 @@ func handleTx(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	handler, ok := txHandlers[r.URL.Path]
-	if !ok {
+	if !strings.HasPrefix(r.URL.Path, "/msg/v1/") {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	msg, e := dictionary.EncodeMessage(r.URL.Path[8:])
+	if e != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -49,8 +56,14 @@ func handleTx(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	msg.SetAVP(avps)
 
-	_, avps = handler(false, avps)
+	msg = connector.DefaultTxHandler(msg)
+	if avps, e = msg.GetAVP(); e != nil {
+		log.Println(e)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	if data, e = formatAVPs(avps); e != nil {
 		log.Println(e)
 		w.WriteHeader(http.StatusBadRequest)
@@ -70,7 +83,7 @@ func handleTx(w http.ResponseWriter, r *http.Request) {
 func parseAVPs(d map[string]any) ([]diameter.AVP, error) {
 	avps := make([]diameter.AVP, 0, 10)
 	for k, v := range d {
-		a, e := encAVPs[k](v)
+		a, e := dictionary.EncodeAVP(k, v)
 		if e != nil {
 			return nil, errors.Join(errors.New(k+" is invalid"), e)
 		}

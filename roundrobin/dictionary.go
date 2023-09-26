@@ -1,5 +1,6 @@
 package main
 
+/*
 import (
 	"bytes"
 	"encoding/hex"
@@ -20,6 +21,14 @@ var (
 	decAVPs    = make(map[uint32]map[uint32]func(diameter.AVP) (string, any, error))
 	txHandlers = make(map[string]diameter.Handler)
 )
+
+func encode(name string, value any) (diameter.AVP, error) {
+	return encAVPs[name](value)
+}
+
+func decode(a diameter.AVP) (string, any, error) {
+	return decAVPs[a.VendorID][a.Code](a)
+}
 
 func loadDictionary(path string) error {
 	log.Println("loading dictionary file", path)
@@ -159,15 +168,13 @@ func loadDictionary(path string) error {
 }
 
 func encOctetString(v any, avp *diameter.AVP) error {
-	s, ok := v.(string)
-	if !ok {
+	if s, ok := v.(string); !ok {
 		return errors.New("not String")
-	}
-	a, e := hex.DecodeString(s)
-	if e != nil {
+	} else if a, e := hex.DecodeString(s); e != nil {
 		return e
+	} else {
+		return avp.Encode(a)
 	}
-	return avp.Encode(a)
 }
 
 func decOctetString(avp *diameter.AVP) (any, error) {
@@ -458,3 +465,4 @@ func decIPFilterRule(avp *diameter.AVP) (any, error) {
 	}
 	return *d, nil
 }
+*/

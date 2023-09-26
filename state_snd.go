@@ -41,7 +41,7 @@ const (
 )
 
 type stateEvent interface {
-	exec() error
+	exec(*Connection) error
 	fmt.Stringer
 }
 
@@ -52,8 +52,8 @@ func (eventInit) String() string {
 	return "Initialize"
 }
 
-func (v eventInit) exec() error {
-	return notAcceptableEvent{e: v, s: state}
+func (v eventInit) exec(c *Connection) error {
+	return notAcceptableEvent{e: v, s: c.state}
 }
 
 // Connect
@@ -63,22 +63,22 @@ func (eventConnect) String() string {
 	return "Connect"
 }
 
-func (v eventConnect) exec() error {
-	if state != closed {
-		return notAcceptableEvent{e: v, s: state}
+func (v eventConnect) exec(c *Connection) error {
+	if c.state != closed {
+		return notAcceptableEvent{e: v, s: c.state}
 	}
-	state = waitCEA
+	c.state = waitCEA
 
 	buf := new(bytes.Buffer)
-	SetOriginHost(Local.Host).MarshalTo(buf)
-	SetOriginRealm(Local.Realm).MarshalTo(buf)
+	SetOriginHost(Host).MarshalTo(buf)
+	SetOriginRealm(Realm).MarshalTo(buf)
 
 	if len(OverwriteAddr) != 0 {
 		for _, h := range OverwriteAddr {
 			setHostIPAddress(h).MarshalTo(buf)
 		}
 	} else {
-		h, _, _ := net.SplitHostPort(conn.LocalAddr().String())
+		h, _, _ := net.SplitHostPort(c.conn.LocalAddr().String())
 		for _, h := range strings.Split(h, "/") {
 			setHostIPAddress(net.ParseIP(h)).MarshalTo(buf)
 		}
@@ -86,8 +86,8 @@ func (v eventConnect) exec() error {
 
 	SetVendorID(VendorID).MarshalTo(buf)
 	setProductName(ProductName).MarshalTo(buf)
-	if Local.state != 0 {
-		setOriginStateID(Local.state).MarshalTo(buf)
+	if stateID != 0 {
+		setOriginStateID(stateID).MarshalTo(buf)
 	}
 	if len(applications) == 0 {
 		SetAuthAppID(0xffffffff).MarshalTo(buf)
@@ -118,13 +118,13 @@ func (v eventConnect) exec() error {
 	TxReq++
 	sndQueue[cer.HbHID] = make(chan Message)
 
-	wdTimer = time.AfterFunc(WDInterval, func() {
-		notify <- eventRcvCEA{cer.generateAnswerBy(UnableToDeliver)}
+	c.wdTimer = time.AfterFunc(WDInterval, func() {
+		c.notify <- eventRcvCEA{cer.generateAnswerBy(UnableToDeliver)}
 	})
 
-	err := cer.MarshalTo(conn)
+	err := cer.MarshalTo(c.conn)
 	if err != nil {
-		conn.Close()
+		c.conn.Close()
 	}
 
 	TraceMessage(cer, Tx, err)
@@ -138,22 +138,24 @@ func (eventWatchdog) String() string {
 	return "Watchdog"
 }
 
-func (v eventWatchdog) exec() error {
-	if state != open && state != locked {
-		return notAcceptableEvent{e: v, s: state}
+func (v eventWatchdog) exec(c *Connection) error {
+	if c.state != open && c.state != locked {
+		return notAcceptableEvent{e: v, s: c.state}
 	}
 
-	wdCount++
-	if wdCount > WDMaxSend {
-		conn.Close()
+	c.wdCount++
+	if c.wdCount > WDMaxSend {
+		c.conn.Close()
 		return fmt.Errorf("watchdog is expired")
 	}
-	wdTimer.Stop()
+	c.wdTimer.Stop()
 
 	buf := new(bytes.Buffer)
-	SetOriginHost(Local.Host).MarshalTo(buf)
-	SetOriginRealm(Local.Realm).MarshalTo(buf)
-	setOriginStateID(Local.state).MarshalTo(buf)
+	SetOriginHost(Host).MarshalTo(buf)
+	SetOriginRealm(Realm).MarshalTo(buf)
+	if stateID != 0 {
+		setOriginStateID(stateID).MarshalTo(buf)
+	}
 
 	dwr := Message{
 		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
@@ -164,14 +166,14 @@ func (v eventWatchdog) exec() error {
 	TxReq++
 	sndQueue[dwr.HbHID] = make(chan Message)
 
-	wdTimer = time.AfterFunc(WDInterval, func() {
-		notify <- eventRcvDWA{dwr.generateAnswerBy(UnableToDeliver)}
-		notify <- eventWatchdog{}
+	c.wdTimer = time.AfterFunc(WDInterval, func() {
+		c.notify <- eventRcvDWA{dwr.generateAnswerBy(UnableToDeliver)}
+		c.notify <- eventWatchdog{}
 	})
 
-	err := dwr.MarshalTo(conn)
+	err := dwr.MarshalTo(c.conn)
 	if err != nil {
-		conn.Close()
+		c.conn.Close()
 	}
 
 	TraceMessage(dwr, Tx, err)
@@ -185,11 +187,11 @@ func (eventLock) String() string {
 	return "Lock"
 }
 
-func (v eventLock) exec() error {
-	if state != open {
-		return notAcceptableEvent{e: v, s: state}
+func (v eventLock) exec(c *Connection) error {
+	if c.state != open {
+		return notAcceptableEvent{e: v, s: c.state}
 	}
-	state = locked
+	c.state = locked
 	return nil
 }
 
@@ -202,17 +204,17 @@ func (eventStop) String() string {
 	return "Stop"
 }
 
-func (v eventStop) exec() error {
-	if state != open && state != locked {
-		conn.Close()
-		return notAcceptableEvent{e: v, s: state}
+func (v eventStop) exec(c *Connection) error {
+	if c.state != open && c.state != locked {
+		c.conn.Close()
+		return notAcceptableEvent{e: v, s: c.state}
 	}
-	state = closing
-	wdTimer.Stop()
+	c.state = closing
+	c.wdTimer.Stop()
 
 	buf := new(bytes.Buffer)
-	SetOriginHost(Local.Host).MarshalTo(buf)
-	SetOriginRealm(Local.Realm).MarshalTo(buf)
+	SetOriginHost(Host).MarshalTo(buf)
+	SetOriginRealm(Realm).MarshalTo(buf)
 	setDisconnectCause(v.cause).MarshalTo(buf)
 
 	dpr := Message{
@@ -224,13 +226,13 @@ func (v eventStop) exec() error {
 	TxReq++
 	sndQueue[dpr.HbHID] = make(chan Message)
 
-	wdTimer = time.AfterFunc(WDInterval, func() {
-		notify <- eventRcvDPA{dpr.generateAnswerBy(UnableToDeliver)}
+	c.wdTimer = time.AfterFunc(WDInterval, func() {
+		c.notify <- eventRcvDPA{dpr.generateAnswerBy(UnableToDeliver)}
 	})
 
-	err := dpr.MarshalTo(conn)
+	err := dpr.MarshalTo(c.conn)
 	if err != nil {
-		conn.Close()
+		c.conn.Close()
 	}
 
 	TraceMessage(dpr, Tx, err)
@@ -246,9 +248,9 @@ func (eventPeerDisc) String() string {
 	return "Peer-Disc"
 }
 
-func (v eventPeerDisc) exec() error {
-	conn.Close()
-	state = closed
+func (v eventPeerDisc) exec(c *Connection) error {
+	c.conn.Close()
+	c.state = closed
 
 	for _, ch := range sndQueue {
 		close(ch)
@@ -267,15 +269,15 @@ func (eventSndMsg) String() string {
 	return "Snd-MSG"
 }
 
-func (v eventSndMsg) exec() error {
-	if state != open && state != locked {
-		return notAcceptableEvent{e: v, s: state}
+func (v eventSndMsg) exec(c *Connection) error {
+	if c.state != open && c.state != locked {
+		return notAcceptableEvent{e: v, s: c.state}
 	}
 
 	TxReq++
-	err := v.m.MarshalTo(conn)
+	err := v.m.MarshalTo(c.conn)
 	if err != nil {
-		conn.Close()
+		c.conn.Close()
 	}
 
 	TraceMessage(v.m, Tx, err)

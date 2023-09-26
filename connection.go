@@ -2,190 +2,63 @@ package diameter
 
 import (
 	"bytes"
-	"errors"
 	"net"
-	"os"
-	"os/signal"
-	"strconv"
-	"strings"
 	"time"
-
-	"github.com/fkgi/diameter/sctp"
 )
 
-func termWithSignals(isTx bool) {
-	if len(TermSignals) == 0 {
-		return
-	}
+type Connection struct {
+	wdTimer *time.Timer // system message timer
+	wdCount int         //= 0         // watchdog expired counter
 
-	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, TermSignals...)
-	<-sigc
+	Host    Identity // Peer diameter hostname
+	Realm   Identity // Peer diameter realm
+	stateID uint32   // Peer diameter state ID
 
-	if isTx {
-		Close(DoNotWantToTalkToYou)
-	} else {
-		Close(Rebooting)
-	}
+	conn   net.Conn        // Transport connection
+	notify chan stateEvent //= make(chan stateEvent, 16)            // state change notification queue
+	state  conState        //= closed                               // current state
 }
 
-// DialAndServe start diameter connection handling process as initiator.
-// Inputs are string of local hostname[:port][/realm] (la),
-// peer hostname[:port][/realm] (ra) and bool flag to use SCTP.
-func DialAndServe(la, pa string, isSctp bool) (err error) {
-	if isSctp {
-		tla := &sctp.SCTPAddr{}
-		Local.Host, Local.Realm, tla.IP, tla.Port, err = resolveIdentiry(la)
-		if err != nil {
-			return
-		}
-		tpa := &sctp.SCTPAddr{}
-		Peer.Host, Peer.Realm, tpa.IP, tpa.Port, err = resolveIdentiry(pa)
-		if err != nil {
-			return
-		}
-		conn, err = sctp.DialSCTP(tla, tpa)
-	} else {
-		var ips []net.IP
-		tla := &net.TCPAddr{}
-		Local.Host, Local.Realm, ips, tla.Port, err = resolveIdentiry(la)
-		if err != nil {
-			return
-		}
-		tla.IP = ips[0]
-		tpa := &net.TCPAddr{}
-		Peer.Host, Peer.Realm, ips, tpa.Port, err = resolveIdentiry(pa)
-		if err != nil {
-			return
-		}
-		tpa.IP = ips[0]
-		conn, err = net.DialTCP("tcp", tla, tpa)
-	}
-	if err != nil {
-		return
-	}
-
-	state = closed
-	go termWithSignals(true)
-	return serve()
+func (c *Connection) DialAndServe(con net.Conn) (e error) {
+	c.conn = con
+	c.state = closed
+	return c.serve()
 }
 
-// ListenAndServe start diameter connection handling process as responder.
-// Inputs are string of local hostname (la) and bool flag to use SCTP.
-// If Peer is nil, any peer is accepted.
-func ListenAndServe(la string, isSctp bool) (err error) {
-	var l net.Listener
-	if isSctp {
-		tla := &sctp.SCTPAddr{}
-		Local.Host, Local.Realm, tla.IP, tla.Port, err = resolveIdentiry(la)
-		if err != nil {
-			return
-		}
-		l, err = sctp.ListenSCTP(tla)
-	} else {
-		var ips []net.IP
-		tla := &net.TCPAddr{}
-		Local.Host, Local.Realm, ips, tla.Port, err = resolveIdentiry(la)
-		if err != nil {
-			return
-		}
-		tla.IP = ips[0]
-		l, err = net.ListenTCP("tcp", tla)
-	}
-	if err != nil {
-		return
-	}
-
-	t := time.AfterFunc(WDInterval, func() {
-		l.Close()
-	})
-
-	conn, err = l.Accept()
-	t.Stop()
-	if err != nil {
-		conn.Close()
-		l.Close()
-		return
-	}
-
-	if Peer.Host == "" {
-		names, err := net.LookupAddr(conn.RemoteAddr().String())
-		if err == nil {
-			Peer.Host, Peer.Realm, _, _, _ = resolveIdentiry(names[0])
-		}
-	}
-
-	state = waitCER
-	go termWithSignals(false)
-	return serve()
+func (c *Connection) ListenAndServe(con net.Conn) (e error) {
+	c.conn = con
+	c.state = waitCER
+	return c.serve()
 }
 
-func resolveIdentiry(fqdn string) (host, realm Identity, ip []net.IP, port int, err error) {
-	f := strings.Split(fqdn, "/")
-	h, p, e := net.SplitHostPort(f[0])
-	if e != nil {
-		err = e
-		return
-	}
-	if p == "" {
-		p = "3868"
-	}
-
-	if host, err = ParseIdentity(h); err != nil {
-		return
-	}
-	if len(f) > 1 {
-		if realm, err = ParseIdentity(f[1]); err != nil {
-			return
-		}
-	} else if i := strings.Index(h, "."); i < 0 {
-		err = errors.New("domain part not found in local hostname")
-		return
-	} else if realm, err = ParseIdentity(h[i+1:]); err != nil {
-		return
-	}
-
-	a, e := net.LookupHost(h)
-	if e != nil {
-		err = e
-		return
-	}
-	ip = make([]net.IP, 0)
-	for _, s := range a {
-		ip = append(ip, net.ParseIP(s))
-	}
-
-	port, err = strconv.Atoi(p)
-	return
-}
-
-func serve() error {
+func (c *Connection) serve() error {
+	c.notify = make(chan stateEvent, 16)
 	go func() {
 		for {
 			m := Message{}
 
 			// conn.SetReadDeadline(time.Time{})
-			if err := m.UnmarshalFrom(conn); err != nil {
-				notify <- eventPeerDisc{reason: err}
+			if err := m.UnmarshalFrom(c.conn); err != nil {
+				c.notify <- eventPeerDisc{reason: err}
 				break
 			}
 
 			if m.AppID == 0 && m.Code == 257 && m.FlgR {
-				notify <- eventRcvCER{m}
+				c.notify <- eventRcvCER{m}
 			} else if m.AppID == 0 && m.Code == 257 && !m.FlgR {
-				notify <- eventRcvCEA{m}
+				c.notify <- eventRcvCEA{m}
 			} else if m.AppID == 0 && m.Code == 280 && m.FlgR {
-				notify <- eventRcvDWR{m}
+				c.notify <- eventRcvDWR{m}
 			} else if m.AppID == 0 && m.Code == 280 && !m.FlgR {
-				notify <- eventRcvDWA{m}
+				c.notify <- eventRcvDWA{m}
 			} else if m.AppID == 0 && m.Code == 282 && m.FlgR {
-				notify <- eventRcvDPR{m}
+				c.notify <- eventRcvDPR{m}
 			} else if m.AppID == 0 && m.Code == 282 && !m.FlgR {
-				notify <- eventRcvDPA{m}
+				c.notify <- eventRcvDPA{m}
 			} else if m.FlgR {
-				notify <- eventRcvReq{m}
+				c.notify <- eventRcvReq{m}
 			} else {
-				notify <- eventRcvAns{m}
+				c.notify <- eventRcvAns{m}
 			}
 		}
 	}()
@@ -200,9 +73,9 @@ func serve() error {
 						if e := a.UnmarshalFrom(rdr); e != nil {
 							buf := new(bytes.Buffer)
 							SetResultCode(InvalidAvpValue).MarshalTo(buf)
-							SetOriginHost(Local.Host).MarshalTo(buf)
-							SetOriginRealm(Local.Realm).MarshalTo(buf)
-							notify <- eventSndMsg{Message{
+							SetOriginHost(Host).MarshalTo(buf)
+							SetOriginRealm(Realm).MarshalTo(buf)
+							c.notify <- eventSndMsg{Message{
 								FlgR: false, FlgP: req.FlgP, FlgE: req.FlgE, FlgT: false,
 								Code: req.Code, AppID: req.AppID,
 								HbHID: req.HbHID, EtEID: req.EtEID,
@@ -217,7 +90,7 @@ func serve() error {
 					for _, a := range avp {
 						a.MarshalTo(buf)
 					}
-					notify <- eventSndMsg{Message{
+					c.notify <- eventSndMsg{Message{
 						FlgR: false, FlgP: req.FlgP, FlgE: req.FlgE, FlgT: false,
 						Code: req.Code, AppID: req.AppID,
 						HbHID: req.HbHID, EtEID: req.EtEID,
@@ -225,20 +98,20 @@ func serve() error {
 					continue rxNewMsg
 				}
 			}
-			notify <- eventSndMsg{DefaultRxHandler(req)}
+			c.notify <- eventSndMsg{DefaultRxHandler(req)}
 		}
 	}()
 
-	TraceEvent(shutdown.String(), state.String(), eventInit{}.String(), nil)
+	TraceEvent(shutdown.String(), c.state.String(), eventInit{}.String(), nil)
 
-	if state != waitCER {
-		notify <- eventConnect{}
+	if c.state != waitCER {
+		c.notify <- eventConnect{}
 	}
 	for {
-		event := <-notify
-		old := state
-		err := event.exec()
-		TraceEvent(old.String(), state.String(), event.String(), err)
+		event := <-c.notify
+		old := c.state
+		err := event.exec(c)
+		TraceEvent(old.String(), c.state.String(), event.String(), err)
 
 		if _, ok := event.(eventPeerDisc); ok {
 			break
@@ -249,12 +122,12 @@ func serve() error {
 }
 
 // Close Diameter connection and stop state machine.
-func Close(cause Enumerated) {
-	if state == open {
-		notify <- eventLock{}
+func (c *Connection) Close(cause Enumerated) {
+	if c.state == open {
+		c.notify <- eventLock{}
 		for len(rcvQueue) != 0 || len(sndQueue) != 0 {
 			time.Sleep(time.Millisecond * 100)
 		}
 	}
-	notify <- eventStop{cause}
+	c.notify <- eventStop{cause}
 }

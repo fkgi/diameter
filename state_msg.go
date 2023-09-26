@@ -13,17 +13,17 @@ func (eventRcvReq) String() string {
 	return "Rcv-REQ"
 }
 
-func (v eventRcvReq) exec() error {
+func (v eventRcvReq) exec(c *Connection) error {
 	RxReq++
-	if state == closed || state == waitCER || state == waitCEA {
+	if c.state == closed || c.state == waitCER || c.state == waitCEA {
 		RejectReq++
-		return notAcceptableEvent{e: v, s: state}
+		return notAcceptableEvent{e: v, s: c.state}
 	}
 	TraceMessage(v.m, Rx, nil)
 
 	result := Success
 	var err error
-	if state == locked {
+	if c.state == locked {
 		result = UnableToDeliver
 	} else if len(rcvQueue) == cap(rcvQueue) {
 		result = TooBusy
@@ -39,15 +39,15 @@ func (v eventRcvReq) exec() error {
 			ErrMsg: fmt.Sprintf("unknown application %d", v.m.AppID)}
 	}
 
-	if wdCount == 0 {
-		wdTimer.Stop()
-		wdTimer.Reset(WDInterval)
+	if c.wdCount == 0 {
+		c.wdTimer.Stop()
+		c.wdTimer.Reset(WDInterval)
 	}
 	if result != Success {
 		ans := v.m.generateAnswerBy(result)
-		if e := ans.MarshalTo(conn); e != nil {
+		if e := ans.MarshalTo(c.conn); e != nil {
 			TxAnsFail++
-			conn.Close()
+			c.conn.Close()
 			err = e
 		} else {
 			TraceMessage(ans, Tx, err)
@@ -66,10 +66,10 @@ func (eventRcvAns) String() string {
 	return "Rcv-ANS"
 }
 
-func (v eventRcvAns) exec() (e error) {
-	if state != open && state != locked {
+func (v eventRcvAns) exec(c *Connection) (e error) {
+	if c.state != open && c.state != locked {
 		InvalidAns++
-		return notAcceptableEvent{e: v, s: state}
+		return notAcceptableEvent{e: v, s: c.state}
 	}
 
 	TraceMessage(v.m, Rx, nil)
@@ -82,9 +82,9 @@ func (v eventRcvAns) exec() (e error) {
 	}
 	delete(sndQueue, v.m.HbHID)
 
-	if wdCount == 0 {
-		wdTimer.Stop()
-		wdTimer.Reset(WDInterval)
+	if c.wdCount == 0 {
+		c.wdTimer.Stop()
+		c.wdTimer.Reset(WDInterval)
 	}
 
 	return nil

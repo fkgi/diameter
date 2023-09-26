@@ -42,18 +42,18 @@ func TxQueue() int {
 }
 
 // LocalAddr returns transport connection of state machine
-func LocalAddr() net.Addr {
-	return conn.LocalAddr()
+func (c *Connection) LocalAddr() net.Addr {
+	return c.conn.LocalAddr()
 }
 
 // PeerAddr returns transport connection of state machine
-func PeerAddr() net.Addr {
-	return conn.RemoteAddr()
+func (c *Connection) PeerAddr() net.Addr {
+	return c.conn.RemoteAddr()
 }
 
 // State returns state machine state
-func State() string {
-	return state.String()
+func (c *Connection) State() string {
+	return c.state.String()
 }
 
 var (

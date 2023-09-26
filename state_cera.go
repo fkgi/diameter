@@ -53,11 +53,11 @@ func (eventRcvCER) String() string {
 	return "Rcv-CER"
 }
 
-func (v eventRcvCER) exec() error {
+func (v eventRcvCER) exec(c *Connection) error {
 	RxReq++
-	if state != waitCER {
+	if c.state != waitCER {
 		RejectReq++
-		return notAcceptableEvent{e: v, s: state}
+		return notAcceptableEvent{e: v, s: c.state}
 	}
 	TraceMessage(v.m, Rx, nil)
 
@@ -209,20 +209,20 @@ func (v eventRcvCER) exec() error {
 	} else if len(oRealm) == 0 {
 		result = MissingAvp
 		err = InvalidAVP{Code: result, AVP: SetOriginRealm("")}
-	} else if Peer.Host != "" && oHost != Peer.Host {
+	} else if c.Host != "" && oHost != c.Host {
 		result = UnknownPeer
 		err = InvalidMessage{
 			Code: result,
 			ErrMsg: fmt.Sprintf(
 				"peer host %s is not match with %s",
-				oHost, Peer.Host)}
-	} else if Peer.Realm != "" && oRealm != Peer.Realm {
+				oHost, c.Host)}
+	} else if c.Realm != "" && oRealm != c.Realm {
 		result = UnknownPeer
 		err = InvalidMessage{
 			Code: result,
 			ErrMsg: fmt.Sprintf(
 				"peer realm %s is not match with %s",
-				oRealm, Peer.Realm)}
+				oRealm, c.Realm)}
 	} else if len(hostIP) == 0 {
 		result = MissingAvp
 		err = InvalidAVP{Code: result, AVP: setHostIPAddress(net.IPv4zero)}
@@ -234,23 +234,23 @@ func (v eventRcvCER) exec() error {
 		err = InvalidAVP{Code: result, AVP: setProductName("")}
 	} else {
 		if oState != 0 {
-			Peer.state = oState
+			c.stateID = oState
 		}
-		Peer.Host = oHost
-		Peer.Realm = oRealm
+		c.Host = oHost
+		c.Realm = oRealm
 	}
 
 	buf := new(bytes.Buffer)
 	SetResultCode(result).MarshalTo(buf)
-	SetOriginHost(Local.Host).MarshalTo(buf)
-	SetOriginRealm(Local.Realm).MarshalTo(buf)
+	SetOriginHost(Host).MarshalTo(buf)
+	SetOriginRealm(Realm).MarshalTo(buf)
 
 	if len(OverwriteAddr) != 0 {
 		for _, h := range OverwriteAddr {
 			setHostIPAddress(h).MarshalTo(buf)
 		}
 	} else {
-		h, _, _ := net.SplitHostPort(conn.LocalAddr().String())
+		h, _, _ := net.SplitHostPort(c.conn.LocalAddr().String())
 		for _, h := range strings.Split(h, "/") {
 			setHostIPAddress(net.ParseIP(h)).MarshalTo(buf)
 		}
@@ -258,8 +258,8 @@ func (v eventRcvCER) exec() error {
 
 	SetVendorID(VendorID).MarshalTo(buf)
 	setProductName(ProductName).MarshalTo(buf)
-	if Local.state != 0 {
-		setOriginStateID(Local.state).MarshalTo(buf)
+	if stateID != 0 {
+		setOriginStateID(stateID).MarshalTo(buf)
 	}
 	if len(applications) == 0 {
 		SetAuthAppID(0xffffffff).MarshalTo(buf)
@@ -288,16 +288,16 @@ func (v eventRcvCER) exec() error {
 		HbHID: v.m.HbHID, EtEID: v.m.EtEID,
 		AVPs: buf.Bytes()}
 
-	if e := cea.MarshalTo(conn); e != nil {
+	if e := cea.MarshalTo(c.conn); e != nil {
 		TxAnsFail++
-		conn.Close()
+		c.conn.Close()
 		err = e
 	} else if err == nil {
 		CountTxCode(result)
-		state = open
+		c.state = open
 		// wdTimer.Stop()
-		wdTimer = time.AfterFunc(WDInterval, func() {
-			notify <- eventWatchdog{}
+		c.wdTimer = time.AfterFunc(WDInterval, func() {
+			c.notify <- eventWatchdog{}
 		})
 	} else {
 		CountTxCode(result)
@@ -316,16 +316,16 @@ func (eventRcvCEA) String() string {
 	return "Rcv-CEA"
 }
 
-func (v eventRcvCEA) exec() error {
+func (v eventRcvCEA) exec(c *Connection) error {
 	// verify diameter header
 	if v.m.FlgP {
 		InvalidAns++
 		return InvalidMessage{
 			Code: InvalidHdrBits, ErrMsg: "CEA must not enable P flag"}
 	}
-	if state != waitCEA {
+	if c.state != waitCEA {
 		InvalidAns++
-		return notAcceptableEvent{e: v, s: state}
+		return notAcceptableEvent{e: v, s: c.state}
 	}
 	if _, ok := sndQueue[v.m.HbHID]; !ok {
 		InvalidAns++
@@ -490,18 +490,18 @@ func (v eventRcvCEA) exec() error {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetOriginHost("")}
 	} else if len(oRealm) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetOriginRealm("")}
-	} else if oHost != Peer.Host && oHost != Local.Host {
+	} else if oHost != c.Host && oHost != Host {
 		err = InvalidMessage{
 			Code: UnknownPeer,
 			ErrMsg: fmt.Sprintf(
 				"peer host %s is not match with %s or %s",
-				oHost, Peer.Host, Local.Host)}
-	} else if oRealm != Peer.Realm && oRealm != Local.Realm {
+				oHost, c.Host, Host)}
+	} else if oRealm != c.Realm && oRealm != Realm {
 		err = InvalidMessage{
 			Code: UnknownPeer,
 			ErrMsg: fmt.Sprintf(
 				"peer realm %s is not match with %s or %s",
-				oRealm, Peer.Realm, Local.Host)}
+				oRealm, c.Realm, Host)}
 	} else if len(hostIP) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: setHostIPAddress(net.IPv4zero)}
 	} else if venID == 0 {
@@ -512,13 +512,13 @@ func (v eventRcvCEA) exec() error {
 		err = FailureAnswer{Code: result, ErrMsg: errorMsg, Avps: failedAVP}
 	} else {
 		if oState != 0 {
-			Peer.state = oState
+			c.stateID = oState
 		}
 
-		state = open
-		wdTimer.Stop()
-		wdTimer = time.AfterFunc(WDInterval, func() {
-			notify <- eventWatchdog{}
+		c.state = open
+		c.wdTimer.Stop()
+		c.wdTimer = time.AfterFunc(WDInterval, func() {
+			c.notify <- eventWatchdog{}
 		})
 		delete(sndQueue, v.m.HbHID)
 		//ch <- v.m
@@ -527,10 +527,10 @@ func (v eventRcvCEA) exec() error {
 	TraceMessage(v.m, Rx, err)
 
 	if err != nil {
-		wdTimer.Stop()
+		c.wdTimer.Stop()
 		delete(sndQueue, v.m.HbHID)
 		// close(ch)
-		conn.Close()
+		c.conn.Close()
 	}
 	return err
 }
