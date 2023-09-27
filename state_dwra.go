@@ -8,14 +8,14 @@ import (
 )
 
 /*
-DeviceWatchdogRequest message
+Device-Watchdog-Request message
  <DWR> ::= < Diameter Header: 280, REQ >
 		   { Origin-Host }
 		   { Origin-Realm }
 		   [ Origin-State-Id ]
 		 * [ AVP ] // ignored
 
-Device-Watchdo-gAnswer message
+Device-Watchdog-Answer message
  <DWA> ::= < Diameter Header: 280 >
 		   { Result-Code }
 		   { Origin-Host }

@@ -34,6 +34,7 @@ func main() {
 	} else if err = dictionary.LoadDictionary(data); err != nil {
 		log.Fatalln("failed to read dictionary file", err)
 	}
+	dictionary.SetVarboseTrace()
 
 	diameter.DefaultRxHandler = handleRx
 	listenAndServeHttp(*t)

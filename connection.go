@@ -8,15 +8,15 @@ import (
 
 type Connection struct {
 	wdTimer *time.Timer // system message timer
-	wdCount int         //= 0         // watchdog expired counter
+	wdCount int         // watchdog expired counter
 
 	Host    Identity // Peer diameter hostname
 	Realm   Identity // Peer diameter realm
 	stateID uint32   // Peer diameter state ID
 
 	conn   net.Conn        // Transport connection
-	notify chan stateEvent //= make(chan stateEvent, 16)            // state change notification queue
-	state  conState        //= closed                               // current state
+	notify chan stateEvent // state change notification queue
+	state  conState        // current state
 }
 
 func (c *Connection) DialAndServe(con net.Conn) (e error) {
@@ -36,8 +36,6 @@ func (c *Connection) serve() error {
 	go func() {
 		for {
 			m := Message{}
-
-			// conn.SetReadDeadline(time.Time{})
 			if err := m.UnmarshalFrom(c.conn); err != nil {
 				c.notify <- eventPeerDisc{reason: err}
 				break

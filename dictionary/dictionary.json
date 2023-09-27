@@ -1564,6 +1564,22 @@
     },
     "IETF": {
         "id": 0,
+        "applications": {
+            "base": {
+                "id": 0,
+                "command": {
+                    "Capabilities-Exchange": {
+                        "id": 257
+                    },
+                    "Disconnect-Peer": {
+                        "id": 282
+                    },
+                    "Device-Watchdog": {
+                        "id": 280
+                    }
+                }
+            }
+        },
         "avps": {
             "Session-Id": {
                 "id": 263,
@@ -1642,6 +1658,43 @@
             "Destination-Realm": {
                 "id": 283,
                 "type": "DiameterIdentity"
+            },
+            "Host-IP-Address": {
+                "id": 257,
+                "type": "Address"
+            },
+            "Product-Name": {
+                "id": 269,
+                "type": "UTF8String"
+            },
+            "Origin-State-Id": {
+                "id": 278,
+                "type": "Unsigned32"
+            },
+            "Supported-Vendor-Id": {
+                "id": 265,
+                "type": "Unsigned32"
+            },
+            "Inband-Security-Id": {
+                "id": 299,
+                "type": "Unsigned32"
+            },
+            "Firmware-Revision": {
+                "id": 267,
+                "type": "Unsigned32"
+            },
+            "Error-Message": {
+                "id": 281,
+                "type": "UTF8String"
+            },
+            "Disconnect-Cause": {
+                "id": 273,
+                "type": "Enumerated",
+                "map": {
+                    "REBOOTING": 0,
+                    "BUSY": 1,
+                    "DO_NOT_WANT_TO_TALK_TO_YOU": 2
+                }
             },
             "User-Name": {
                 "id": 1,

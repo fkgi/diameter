@@ -103,13 +103,14 @@ func ListenAndServe(la string, isSctp bool) (err error) {
 		return
 	}
 
-	if con.Host == "" {
-		names, err := net.LookupAddr(c.RemoteAddr().String())
-		if err == nil {
-			con.Host, con.Realm, _, _, _ = resolveIdentiry(names[0])
+	/*
+		if con.Host == "" {
+			names, err := net.LookupAddr(c.RemoteAddr().String())
+			if err == nil {
+				con.Host, con.Realm, _, _, _ = resolveIdentiry(names[0])
+			}
 		}
-	}
-
+	*/
 	go termWithSignals(false)
 	return con.ListenAndServe(c)
 }
