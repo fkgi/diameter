@@ -133,18 +133,3 @@ func getInbandSecurityID(a AVP) (v uint32, e error) {
 	}
 	return
 }
-
-func setErrorMessage(v string) (a AVP) {
-	a = AVP{Code: 281}
-	a.Encode(v)
-	return
-}
-
-func getErrorMessage(a AVP) (v string, e error) {
-	if a.VendorID != 0 || !a.Mandatory {
-		e = InvalidAVP{Code: InvalidAvpBits, AVP: a}
-	} else {
-		e = a.wrapedDecode(&v)
-	}
-	return
-}

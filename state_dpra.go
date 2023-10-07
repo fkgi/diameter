@@ -39,7 +39,9 @@ func (v eventRcvDPR) exec(c *Connection) error {
 		return notAcceptableEvent{e: v, s: c.state}
 	}
 
-	TraceMessage(v.m, Rx, nil)
+	if TraceMessage != nil {
+		TraceMessage(v.m, Rx, nil)
+	}
 
 	// Notify(PurgeEvent{tx: false, req: true, conn: c, Err: e})
 	var oHost Identity
@@ -149,7 +151,9 @@ func (v eventRcvDPR) exec(c *Connection) error {
 		})
 	}
 
-	TraceMessage(dpa, Tx, err)
+	if TraceMessage != nil {
+		TraceMessage(dpa, Tx, err)
+	}
 	return err
 }
 
@@ -235,8 +239,6 @@ func (v eventRcvDPA) exec(c *Connection) error {
 		err = InvalidMessage{
 			Code:   InvalidHdrBits,
 			ErrMsg: "error flag is true but success response code"}
-	} else if err != nil {
-		// invalid AVP value
 	} else if result == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetResultCode(0)}
 	} else if len(oHost) == 0 {
@@ -258,6 +260,8 @@ func (v eventRcvDPA) exec(c *Connection) error {
 	} else if result != Success {
 		err = FailureAnswer{Code: result}
 		delete(sndQueue, v.m.HbHID)
+	} else if err != nil {
+		// invalid AVP value
 	} else {
 		delete(sndQueue, v.m.HbHID)
 		c.wdTimer.Stop()
@@ -265,6 +269,8 @@ func (v eventRcvDPA) exec(c *Connection) error {
 	}
 	CountRxCode(result)
 
-	TraceMessage(v.m, Rx, err)
+	if TraceMessage != nil {
+		TraceMessage(v.m, Rx, err)
+	}
 	return err
 }

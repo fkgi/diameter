@@ -40,7 +40,9 @@ func (v eventRcvDWR) exec(c *Connection) error {
 		RejectReq++
 		return notAcceptableEvent{e: v, s: c.state}
 	}
-	TraceMessage(v.m, Rx, nil)
+	if TraceMessage != nil {
+		TraceMessage(v.m, Rx, nil)
+	}
 
 	var oHost Identity
 	var oRealm Identity
@@ -152,7 +154,9 @@ func (v eventRcvDWR) exec(c *Connection) error {
 		c.wdTimer.Reset(WDInterval)
 	}
 
-	TraceMessage(dwa, Tx, err)
+	if TraceMessage != nil {
+		TraceMessage(dwa, Tx, err)
+	}
 	return err
 }
 
@@ -246,8 +250,6 @@ func (v eventRcvDWA) exec(c *Connection) error {
 		err = InvalidMessage{
 			Code:   InvalidHdrBits,
 			ErrMsg: "error flag is true but success response code"}
-	} else if err != nil {
-		// invalid AVP value
 	} else if result == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetResultCode(0)}
 	} else if len(oHost) == 0 {
@@ -269,6 +271,8 @@ func (v eventRcvDWA) exec(c *Connection) error {
 	} else if oState != 0 && oState != c.stateID {
 		err = errors.New("peer may be abruptly restarted")
 		c.Close(Rebooting)
+	} else if result == Success && err != nil {
+		// invalid AVP value
 	} else {
 		if result == Success {
 			c.wdCount = 0
@@ -283,6 +287,8 @@ func (v eventRcvDWA) exec(c *Connection) error {
 	}
 	CountRxCode(result)
 
-	TraceMessage(v.m, Rx, err)
+	if TraceMessage != nil {
+		TraceMessage(v.m, Rx, err)
+	}
 	return err
 }

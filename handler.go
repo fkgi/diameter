@@ -2,6 +2,7 @@ package diameter
 
 import (
 	"bytes"
+	"errors"
 	"time"
 )
 
@@ -45,6 +46,51 @@ var DefaultRxHandler func(Message) Message = func(m Message) Message {
 	return m.generateAnswerBy(UnableToDeliver)
 }
 
+func rxHandlerHelper(req Message) (ans Message, err error) {
+	app, ok := applications[req.AppID]
+	if !ok {
+		err = errors.New("application not registered")
+		return
+	}
+	f, ok := app.handlers[req.Code]
+	if !ok || f == nil {
+		err = errors.New("command not registered")
+		return
+	}
+
+	avp := make([]AVP, 0, avpBufferSize)
+	for rdr := bytes.NewReader(req.AVPs); rdr.Len() != 0; {
+		a := AVP{}
+		if e := a.UnmarshalFrom(rdr); e != nil {
+			buf := new(bytes.Buffer)
+			SetResultCode(InvalidAvpValue).MarshalTo(buf)
+			SetOriginHost(Host).MarshalTo(buf)
+			SetOriginRealm(Realm).MarshalTo(buf)
+
+			ans = Message{
+				FlgR: false, FlgP: req.FlgP, FlgE: req.FlgE, FlgT: false,
+				Code: req.Code, AppID: req.AppID,
+				HbHID: req.HbHID, EtEID: req.EtEID,
+				AVPs: buf.Bytes()}
+			return
+		}
+		avp = append(avp, a)
+	}
+
+	req.FlgE, avp = f(req.FlgT, avp)
+	buf := new(bytes.Buffer)
+	for _, a := range avp {
+		a.MarshalTo(buf)
+	}
+
+	ans = Message{
+		FlgR: false, FlgP: req.FlgP, FlgE: req.FlgE, FlgT: false,
+		Code: req.Code, AppID: req.AppID,
+		HbHID: req.HbHID, EtEID: req.EtEID,
+		AVPs: buf.Bytes()}
+	return
+}
+
 // DefaultTxHandler for sending Diameter request message without Handler or relay application.
 func (c *Connection) DefaultTxHandler(m Message) Message {
 	if _, ok := applications[m.AppID]; !ok && len(applications) != 0 {
@@ -57,7 +103,6 @@ func (c *Connection) DefaultTxHandler(m Message) Message {
 
 	m.HbHID = nextHbH()
 	m.FlgR = true
-	m.FlgP = true
 	m.FlgE = false
 
 	return c.send(m)

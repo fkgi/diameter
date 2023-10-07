@@ -1,7 +1,6 @@
 package diameter
 
 import (
-	"log"
 	"net"
 )
 
@@ -21,15 +20,18 @@ const (
 	Rx Direction = false
 )
 
-// TraceMessage is called when Diameter message is receved or sent.
-var TraceMessage = func(msg Message, dct Direction, err error) {
-	log.Printf("%s diameter message handling: error=%s\n%s", dct, err, msg)
-}
+var (
+	// TraceMessage is called when Diameter message is receved or sent.
+	// Inputs are handled message, message direction and occured error while message handling.
+	TraceMessage func(Message, Direction, error)
 
-// TraceEvent is called when any event is called.
-var TraceEvent = func(old, new, event string, err error) {
-	log.Println("diameter state update:", old, "->", new, "by event", event, ": error=", err)
-}
+	// TraceEvent is called on event.
+	// Inputs are old state, new state, event name and occured error while event handling.
+	TraceEvent func(string, string, string, error)
+
+	// ConnectionUpNotify is called when Diameter connection up.
+	ConnectionUpNotify func(*Connection)
+)
 
 // RxQueue returns length of Rx queue
 func RxQueue() int {

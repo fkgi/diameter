@@ -19,7 +19,9 @@ func (v eventRcvReq) exec(c *Connection) error {
 		RejectReq++
 		return notAcceptableEvent{e: v, s: c.state}
 	}
-	TraceMessage(v.m, Rx, nil)
+	if TraceMessage != nil {
+		TraceMessage(v.m, Rx, nil)
+	}
 
 	result := Success
 	var err error
@@ -50,7 +52,9 @@ func (v eventRcvReq) exec(c *Connection) error {
 			c.conn.Close()
 			err = e
 		} else {
-			TraceMessage(ans, Tx, err)
+			if TraceMessage != nil {
+				TraceMessage(ans, Tx, err)
+			}
 			CountTxCode(result)
 		}
 	}
@@ -72,7 +76,9 @@ func (v eventRcvAns) exec(c *Connection) (e error) {
 		return notAcceptableEvent{e: v, s: c.state}
 	}
 
-	TraceMessage(v.m, Rx, nil)
+	if TraceMessage != nil {
+		TraceMessage(v.m, Rx, nil)
+	}
 
 	if ch, ok := sndQueue[v.m.HbHID]; ok {
 		ch <- v.m

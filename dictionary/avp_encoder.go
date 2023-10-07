@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net"
 	"time"
 
@@ -78,7 +79,7 @@ func encGrouped(v any, avp *diameter.AVP) (e error) {
 	for k, v := range a {
 		avp, e := encAVPs[k](v)
 		if e != nil {
-			return errors.Join(errors.New(k+" is invalid"), e)
+			return fmt.Errorf("%s is invalid: %v", k, e)
 		}
 		avp.MarshalTo(buf)
 	}

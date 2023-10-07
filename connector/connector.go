@@ -5,57 +5,58 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
-	"time"
 
 	"github.com/fkgi/diameter"
 	"github.com/fkgi/diameter/sctp"
 )
 
 var (
-	TermSignals []os.Signal // Signals for closing diameter connection
+	TermSignals        []os.Signal    // Signals for closing diameter connection.
+	ConnectionUpNotify func(net.Conn) // ConnectionUpNotify is called when transport connection up.
 
 	con diameter.Connection // default Diameter connection
 )
 
 // DialAndServe start diameter connection handling process as initiator.
-// Inputs are string of local hostname[:port][/realm] (la),
-// peer hostname[:port][/realm] (ra) and bool flag to use SCTP.
-func DialAndServe(la, pa string, isSctp bool) (err error) {
-	con = diameter.Connection{}
-	var c net.Conn
+// Inputs are string of local(la) and peer(pa) host information with format for ResolveIdentiry.
+func DialAndServe(la, pa string) (err error) {
+	lscheme, host, realm, lips, lport, err := ResolveIdentiry(la)
+	if err != nil {
+		return
+	}
+	diameter.Host = host
+	diameter.Realm = realm
 
-	if isSctp {
-		tla := &sctp.SCTPAddr{}
-		diameter.Host, diameter.Realm, tla.IP, tla.Port, err = resolveIdentiry(la)
-		if err != nil {
-			return
-		}
-		tpa := &sctp.SCTPAddr{}
-		con.Host, con.Realm, tpa.IP, tpa.Port, err = resolveIdentiry(pa)
-		if err != nil {
-			return
-		}
-		c, err = sctp.DialSCTP(tla, tpa)
-	} else {
-		var ips []net.IP
-		tla := &net.TCPAddr{}
-		diameter.Host, diameter.Realm, ips, tla.Port, err = resolveIdentiry(la)
-		if err != nil {
-			return
-		}
-		tla.IP = ips[0]
-		tpa := &net.TCPAddr{}
-		con.Host, con.Realm, ips, tpa.Port, err = resolveIdentiry(pa)
-		if err != nil {
-			return
-		}
-		tpa.IP = ips[0]
-		c, err = net.DialTCP("tcp", tla, tpa)
+	pscheme, host, realm, pips, pport, err := ResolveIdentiry(pa)
+	if err != nil {
+		return
+	}
+	con = diameter.Connection{Host: host, Realm: realm}
+
+	if lscheme == "" {
+		lscheme = "tcp"
+	}
+	if pscheme != "" && lscheme != pscheme {
+		err = errors.New("transport protocol mismatch")
+		return
+	}
+
+	var c net.Conn
+	switch lscheme {
+	case "sctp":
+		c, err = sctp.DialSCTP(
+			&sctp.SCTPAddr{IP: lips, Port: lport},
+			&sctp.SCTPAddr{IP: pips, Port: pport})
+	default:
+		c, err = net.DialTCP("tcp",
+			&net.TCPAddr{IP: lips[0], Port: lport},
+			&net.TCPAddr{IP: pips[0], Port: pport})
 	}
 	if err != nil {
 		return
+	}
+	if ConnectionUpNotify != nil {
+		ConnectionUpNotify(c)
 	}
 
 	go termWithSignals(true)
@@ -63,40 +64,34 @@ func DialAndServe(la, pa string, isSctp bool) (err error) {
 }
 
 // ListenAndServe start diameter connection handling process as responder.
-// Inputs are string of local hostname (la) and bool flag to use SCTP.
-// If Peer is nil, any peer is accepted.
-func ListenAndServe(la string, isSctp bool) (err error) {
+// Inputs are string of local(la) host information with format for ResolveIdentiry.
+func ListenAndServe(la string) (err error) {
+	scheme, host, realm, ips, port, err := ResolveIdentiry(la)
+	if err != nil {
+		return
+	}
+	diameter.Host = host
+	diameter.Realm = realm
 	con = diameter.Connection{}
-	var c net.Conn
-	var l net.Listener
 
-	if isSctp {
-		tla := &sctp.SCTPAddr{}
-		diameter.Host, diameter.Realm, tla.IP, tla.Port, err = resolveIdentiry(la)
-		if err != nil {
-			return
-		}
-		l, err = sctp.ListenSCTP(tla)
-	} else {
-		var ips []net.IP
-		tla := &net.TCPAddr{}
-		diameter.Host, diameter.Realm, ips, tla.Port, err = resolveIdentiry(la)
-		if err != nil {
-			return
-		}
-		tla.IP = ips[0]
-		l, err = net.ListenTCP("tcp", tla)
+	var l net.Listener
+	switch scheme {
+	case "sctp":
+		l, err = sctp.ListenSCTP(&sctp.SCTPAddr{IP: ips, Port: port})
+	default:
+		l, err = net.ListenTCP("tcp", &net.TCPAddr{IP: ips[0], Port: port})
 	}
 	if err != nil {
 		return
 	}
 
-	t := time.AfterFunc(diameter.WDInterval, func() {
-		l.Close()
-	})
-
-	c, err = l.Accept()
-	t.Stop()
+	/*
+		t := time.AfterFunc(diameter.WDInterval, func() {
+			l.Close()
+		})
+	*/
+	c, err := l.Accept()
+	// t.Stop()
 	if err != nil {
 		c.Close()
 		l.Close()
@@ -111,47 +106,13 @@ func ListenAndServe(la string, isSctp bool) (err error) {
 			}
 		}
 	*/
+
+	if ConnectionUpNotify != nil {
+		ConnectionUpNotify(c)
+	}
+
 	go termWithSignals(false)
 	return con.ListenAndServe(c)
-}
-
-func resolveIdentiry(fqdn string) (host, realm diameter.Identity, ip []net.IP, port int, err error) {
-	f := strings.Split(fqdn, "/")
-	h, p, e := net.SplitHostPort(f[0])
-	if e != nil {
-		err = e
-		return
-	}
-	if p == "" {
-		p = "3868"
-	}
-
-	if host, err = diameter.ParseIdentity(h); err != nil {
-		return
-	}
-	if len(f) > 1 {
-		if realm, err = diameter.ParseIdentity(f[1]); err != nil {
-			return
-		}
-	} else if i := strings.Index(h, "."); i < 0 {
-		err = errors.New("domain part not found in local hostname")
-		return
-	} else if realm, err = diameter.ParseIdentity(h[i+1:]); err != nil {
-		return
-	}
-
-	a, e := net.LookupHost(h)
-	if e != nil {
-		err = e
-		return
-	}
-	ip = make([]net.IP, 0)
-	for _, s := range a {
-		ip = append(ip, net.ParseIP(s))
-	}
-
-	port, err = strconv.Atoi(p)
-	return
 }
 
 func termWithSignals(isTx bool) {

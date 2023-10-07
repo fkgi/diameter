@@ -127,7 +127,9 @@ func (v eventConnect) exec(c *Connection) error {
 		c.conn.Close()
 	}
 
-	TraceMessage(cer, Tx, err)
+	if TraceMessage != nil {
+		TraceMessage(cer, Tx, err)
+	}
 	return err
 }
 
@@ -176,7 +178,9 @@ func (v eventWatchdog) exec(c *Connection) error {
 		c.conn.Close()
 	}
 
-	TraceMessage(dwr, Tx, err)
+	if TraceMessage != nil {
+		TraceMessage(dwr, Tx, err)
+	}
 	return err
 }
 
@@ -235,7 +239,9 @@ func (v eventStop) exec(c *Connection) error {
 		c.conn.Close()
 	}
 
-	TraceMessage(dpr, Tx, err)
+	if TraceMessage != nil {
+		TraceMessage(dpr, Tx, err)
+	}
 	return err
 }
 
@@ -280,6 +286,8 @@ func (v eventSndMsg) exec(c *Connection) error {
 		c.conn.Close()
 	}
 
-	TraceMessage(v.m, Tx, err)
+	if TraceMessage != nil {
+		TraceMessage(v.m, Tx, err)
+	}
 	return err
 }

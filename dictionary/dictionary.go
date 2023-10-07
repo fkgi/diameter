@@ -7,6 +7,22 @@ import (
 	"github.com/fkgi/diameter"
 )
 
+type Dictionary map[string]struct {
+	ID   uint32 `json:"id"`
+	Apps map[string]struct {
+		ID   uint32 `json:"id"`
+		Cmds map[string]struct {
+			ID uint32 `json:"id"`
+		} `json:"command"`
+	} `json:"applications"`
+	Avps map[string]struct {
+		ID    uint32           `json:"id"`
+		Mflag bool             `json:"mandatory,omitempty"`
+		Type  string           `json:"type"`
+		Enum  map[string]int32 `json:"map,omitempty"`
+	} `json:"avps"`
+}
+
 var (
 	encAVPs    = make(map[string]func(any) (diameter.AVP, error))
 	decAVPs    = make(map[uint64]func(diameter.AVP) (string, any, error))
@@ -42,25 +58,11 @@ func DecodeMessage(m diameter.Message) (string, error) {
 	return name, nil
 }
 
-func LoadDictionary(data []byte) error {
-	var dictionary map[string]struct {
-		ID   uint32 `json:"id"`
-		Apps map[string]struct {
-			ID   uint32 `json:"id"`
-			Cmds map[string]struct {
-				ID uint32 `json:"id"`
-			} `json:"command"`
-		} `json:"applications"`
-		Avps map[string]struct {
-			ID    uint32           `json:"id"`
-			Mflag bool             `json:"mandatory,omitempty"`
-			Type  string           `json:"type"`
-			Enum  map[string]int32 `json:"map,omitempty"`
-		} `json:"avps"`
-	}
+func LoadDictionary(data []byte) (Dictionary, error) {
+	var dictionary Dictionary
 
 	if e := json.Unmarshal(data, &dictionary); e != nil {
-		return errors.Join(
+		return dictionary, errors.Join(
 			errors.New("failed to unmarshal dictionary file"), e)
 	}
 
@@ -76,10 +78,12 @@ func LoadDictionary(data []byte) error {
 
 		for name, avp := range vnd.Avps {
 			if _, ok := encAVPs[name]; ok {
-				return errors.New("duplicated AVP definition: " + name)
+				return dictionary,
+					errors.New("duplicated AVP definition: " + name)
 			}
 			if _, ok := decAVPs[(uint64(vnd.ID)<<32)|uint64(avp.ID)]; ok {
-				return errors.New("duplicated AVP definition: " + name)
+				return dictionary,
+					errors.New("duplicated AVP definition: " + name)
 			}
 
 			var encf func(any, *diameter.AVP) error
@@ -140,7 +144,8 @@ func LoadDictionary(data []byte) error {
 				encf = encIPFilterRule
 				decf = decIPFilterRule
 			default:
-				return errors.New("infalid AVP type: " + name)
+				return dictionary,
+					errors.New("infalid AVP type: " + name)
 			}
 
 			code := uint32(avp.ID)
@@ -163,5 +168,5 @@ func LoadDictionary(data []byte) error {
 				}
 		}
 	}
-	return nil
+	return dictionary, nil
 }

@@ -320,6 +320,23 @@ func GetOriginRealm(a AVP) (v Identity, e error) {
 	return
 }
 
+// SetErrorMessage make Error-Message AVP
+func SetErrorMessage(v string) (a AVP) {
+	a = AVP{Code: 281}
+	a.Encode(v)
+	return
+}
+
+// GetErrorMessage read Error-Message AVP
+func GetErrorMessage(a AVP) (v string, e error) {
+	if a.VendorID != 0 || !a.Mandatory {
+		e = InvalidAVP{Code: InvalidAvpBits, AVP: a}
+	} else {
+		e = a.wrapedDecode(&v)
+	}
+	return
+}
+
 /*
 // ProxyHost AVP
 type ProxyHost diameter.Identity

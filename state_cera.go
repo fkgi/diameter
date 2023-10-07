@@ -59,7 +59,9 @@ func (v eventRcvCER) exec(c *Connection) error {
 		RejectReq++
 		return notAcceptableEvent{e: v, s: c.state}
 	}
-	TraceMessage(v.m, Rx, nil)
+	if TraceMessage != nil {
+		TraceMessage(v.m, Rx, nil)
+	}
 
 	var oHost Identity
 	var oRealm Identity
@@ -299,11 +301,16 @@ func (v eventRcvCER) exec(c *Connection) error {
 		c.wdTimer = time.AfterFunc(WDInterval, func() {
 			c.notify <- eventWatchdog{}
 		})
+		if ConnectionUpNotify != nil {
+			ConnectionUpNotify(c)
+		}
 	} else {
 		CountTxCode(result)
 	}
 
-	TraceMessage(cea, Tx, err)
+	if TraceMessage != nil {
+		TraceMessage(cea, Tx, err)
+	}
 	return err
 }
 
@@ -421,7 +428,7 @@ func (v eventRcvCEA) exec(c *Connection) error {
 				oState, err = getOriginStateID(a)
 			}
 		case 281:
-			errorMsg, err = getErrorMessage(a)
+			errorMsg, err = GetErrorMessage(a)
 		case 279:
 			failedAVP, err = getFailedAVP(a)
 		case 267:
@@ -482,8 +489,6 @@ func (v eventRcvCEA) exec(c *Connection) error {
 		err = InvalidMessage{
 			Code:   InvalidHdrBits,
 			ErrMsg: "error flag is true but success response code"}
-	} else if err != nil {
-		// invalid AVP value
 	} else if result == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetResultCode(0)}
 	} else if len(oHost) == 0 {
@@ -502,14 +507,16 @@ func (v eventRcvCEA) exec(c *Connection) error {
 			ErrMsg: fmt.Sprintf(
 				"peer realm %s is not match with %s or %s",
 				oRealm, c.Realm, Host)}
+	} else if result != Success {
+		err = FailureAnswer{Code: result, ErrMsg: errorMsg, Avps: failedAVP}
+	} else if err != nil {
+		// invalid AVP value
 	} else if len(hostIP) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: setHostIPAddress(net.IPv4zero)}
 	} else if venID == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetVendorID(0)}
 	} else if len(prodName) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: setProductName("")}
-	} else if result != Success {
-		err = FailureAnswer{Code: result, ErrMsg: errorMsg, Avps: failedAVP}
 	} else {
 		if oState != 0 {
 			c.stateID = oState
@@ -522,9 +529,14 @@ func (v eventRcvCEA) exec(c *Connection) error {
 		})
 		delete(sndQueue, v.m.HbHID)
 		//ch <- v.m
+		if ConnectionUpNotify != nil {
+			ConnectionUpNotify(c)
+		}
 	}
 	CountRxCode(result)
-	TraceMessage(v.m, Rx, err)
+	if TraceMessage != nil {
+		TraceMessage(v.m, Rx, err)
+	}
 
 	if err != nil {
 		c.wdTimer.Stop()

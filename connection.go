@@ -1,7 +1,6 @@
 package diameter
 
 import (
-	"bytes"
 	"net"
 	"time"
 )
@@ -34,6 +33,7 @@ func (c *Connection) ListenAndServe(con net.Conn) (e error) {
 func (c *Connection) serve() error {
 	c.notify = make(chan stateEvent, 16)
 	go func() {
+		// read transport socket
 		for {
 			m := Message{}
 			if err := m.UnmarshalFrom(c.conn); err != nil {
@@ -61,46 +61,23 @@ func (c *Connection) serve() error {
 		}
 	}()
 	go func() {
-	rxNewMsg:
+		// handle Rx Diameter message
 		for req, ok := <-rcvQueue; ok; req, ok = <-rcvQueue {
-			if app, ok := applications[req.AppID]; ok {
-				if f, ok := app.handlers[req.Code]; ok && f != nil {
-					avp := make([]AVP, 0, avpBufferSize)
-					for rdr := bytes.NewReader(req.AVPs); rdr.Len() != 0; {
-						a := AVP{}
-						if e := a.UnmarshalFrom(rdr); e != nil {
-							buf := new(bytes.Buffer)
-							SetResultCode(InvalidAvpValue).MarshalTo(buf)
-							SetOriginHost(Host).MarshalTo(buf)
-							SetOriginRealm(Realm).MarshalTo(buf)
-							c.notify <- eventSndMsg{Message{
-								FlgR: false, FlgP: req.FlgP, FlgE: req.FlgE, FlgT: false,
-								Code: req.Code, AppID: req.AppID,
-								HbHID: req.HbHID, EtEID: req.EtEID,
-								AVPs: buf.Bytes()}}
-							continue rxNewMsg
-						}
-						avp = append(avp, a)
-					}
-
-					req.FlgE, avp = f(req.FlgT, avp)
-					buf := new(bytes.Buffer)
-					for _, a := range avp {
-						a.MarshalTo(buf)
-					}
-					c.notify <- eventSndMsg{Message{
-						FlgR: false, FlgP: req.FlgP, FlgE: req.FlgE, FlgT: false,
-						Code: req.Code, AppID: req.AppID,
-						HbHID: req.HbHID, EtEID: req.EtEID,
-						AVPs: buf.Bytes()}}
-					continue rxNewMsg
-				}
+			ans, err := rxHandlerHelper(req)
+			if err != nil {
+				ans = DefaultRxHandler(req)
+				ans.FlgR = false
+				ans.HbHID = req.HbHID
+				ans.EtEID = req.EtEID
 			}
-			c.notify <- eventSndMsg{DefaultRxHandler(req)}
+			c.notify <- eventSndMsg{ans}
 		}
 	}()
 
-	TraceEvent(shutdown.String(), c.state.String(), eventInit{}.String(), nil)
+	if TraceEvent != nil {
+		TraceEvent(
+			shutdown.String(), c.state.String(), eventInit{}.String(), nil)
+	}
 
 	if c.state != waitCER {
 		c.notify <- eventConnect{}
@@ -109,7 +86,9 @@ func (c *Connection) serve() error {
 		event := <-c.notify
 		old := c.state
 		err := event.exec(c)
-		TraceEvent(old.String(), c.state.String(), event.String(), err)
+		if TraceEvent != nil {
+			TraceEvent(old.String(), c.state.String(), event.String(), err)
+		}
 
 		if _, ok := event.(eventPeerDisc); ok {
 			break
