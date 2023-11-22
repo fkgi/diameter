@@ -85,16 +85,10 @@ func ListenAndServe(la string) (err error) {
 		return
 	}
 
-	/*
-		t := time.AfterFunc(diameter.WDInterval, func() {
-			l.Close()
-		})
-	*/
 	c, err := l.Accept()
-	// t.Stop()
+	l.Close()
 	if err != nil {
 		c.Close()
-		l.Close()
 		return
 	}
 

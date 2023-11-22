@@ -329,6 +329,23 @@ func SetErrorMessage(v string) (a AVP) {
 
 // GetErrorMessage read Error-Message AVP
 func GetErrorMessage(a AVP) (v string, e error) {
+	if a.VendorID != 0 || a.Mandatory {
+		e = InvalidAVP{Code: InvalidAvpBits, AVP: a}
+	} else {
+		e = a.wrapedDecode(&v)
+	}
+	return
+}
+
+// SetUserName make User-Name AVP
+func SetUserName(v string) (a AVP) {
+	a = AVP{Code: 1, Mandatory: true}
+	a.Encode(v)
+	return
+}
+
+// GetUserName read User-Name AVP
+func GetUserName(a AVP) (v string, e error) {
 	if a.VendorID != 0 || !a.Mandatory {
 		e = InvalidAVP{Code: InvalidAvpBits, AVP: a}
 	} else {
