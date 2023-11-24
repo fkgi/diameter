@@ -11,8 +11,9 @@ import (
 )
 
 var (
-	TermSignals        []os.Signal    // Signals for closing diameter connection.
-	ConnectionUpNotify func(net.Conn) // ConnectionUpNotify is called when transport connection up.
+	TermSignals        []os.Signal              // Signals for closing diameter connection.
+	TermCause          diameter.Enumerated = -1 // Cause value for termination
+	ConnectionUpNotify func(net.Conn)           // ConnectionUpNotify is called when transport connection up.
 
 	con diameter.Connection // default Diameter connection
 )
@@ -118,9 +119,11 @@ func termWithSignals(isTx bool) {
 	signal.Notify(sigc, TermSignals...)
 	<-sigc
 
-	if isTx {
-		con.Close(diameter.DoNotWantToTalkToYou)
-	} else {
+	if TermCause == diameter.Rebooting || TermCause == diameter.DoNotWantToTalkToYou {
+		con.Close(TermCause)
+	} else if isTx {
 		con.Close(diameter.Rebooting)
+	} else {
+		con.Close(diameter.DoNotWantToTalkToYou)
 	}
 }

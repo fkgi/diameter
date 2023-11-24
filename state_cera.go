@@ -66,8 +66,8 @@ func (v eventRcvCER) exec(c *Connection) error {
 	var oHost Identity
 	var oRealm Identity
 	var hostIP = make([]net.IP, 0, 2)
-	var venID uint32
-	var prodName string
+	// var venID uint32
+	// var prodName string
 	var oState uint32
 	var supportVendor = []uint32{}
 	var authApps = make(map[uint32]uint32)
@@ -106,18 +106,20 @@ func (v eventRcvCER) exec(c *Connection) error {
 			} else {
 				err = e
 			}
-		case 266:
-			if venID != 0 {
-				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
-			} else {
-				venID, err = GetVendorID(a)
-			}
-		case 269:
-			if len(prodName) != 0 {
-				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
-			} else {
-				prodName, err = getProductName(a)
-			}
+		/*
+			case 266:
+				if venID != 0 {
+					err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
+				} else {
+					venID, err = GetVendorID(a)
+				}
+			case 269:
+				if len(prodName) != 0 {
+					err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
+				} else {
+					prodName, err = getProductName(a)
+				}
+		*/
 		case 265:
 			var vid uint32
 			if vid, err = getSupportedVendorID(a); err == nil {
@@ -141,8 +143,10 @@ func (v eventRcvCER) exec(c *Connection) error {
 			} else {
 				oState, err = getOriginStateID(a)
 			}
-		case 267:
-			_, err = getFirmwareRevision(a)
+		/*
+			case 267:
+				firmwareRevision, err = getFirmwareRevision(a)
+		*/
 		default:
 			if a.Mandatory {
 				err = InvalidAVP{Code: AvpUnsupported, AVP: a}
@@ -228,12 +232,14 @@ func (v eventRcvCER) exec(c *Connection) error {
 	} else if len(hostIP) == 0 {
 		result = MissingAvp
 		err = InvalidAVP{Code: result, AVP: setHostIPAddress(net.IPv4zero)}
-	} else if venID == 0 {
-		result = MissingAvp
-		err = InvalidAVP{Code: result, AVP: SetVendorID(0)}
-	} else if len(prodName) == 0 {
-		result = MissingAvp
-		err = InvalidAVP{Code: result, AVP: setProductName("")}
+		/*
+			} else if venID == 0 {
+				result = MissingAvp
+				err = InvalidAVP{Code: result, AVP: SetVendorID(0)}
+			} else if len(prodName) == 0 {
+				result = MissingAvp
+				err = InvalidAVP{Code: result, AVP: setProductName("")}
+		*/
 	} else {
 		if oState != 0 {
 			c.stateID = oState
@@ -344,8 +350,8 @@ func (v eventRcvCEA) exec(c *Connection) error {
 	var oHost Identity
 	var oRealm Identity
 	var hostIP = make([]net.IP, 0, 2)
-	var venID uint32
-	var prodName string
+	// var venID uint32
+	// var prodName string
 	var oState uint32
 	var errorMsg string
 	var failedAVP []AVP
@@ -392,18 +398,20 @@ func (v eventRcvCEA) exec(c *Connection) error {
 			} else {
 				err = e
 			}
-		case 266:
-			if venID != 0 {
-				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
-			} else {
-				venID, err = GetVendorID(a)
-			}
-		case 269:
-			if len(prodName) != 0 {
-				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
-			} else {
-				prodName, err = getProductName(a)
-			}
+		/*
+			case 266:
+				if venID != 0 {
+					err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
+				} else {
+					venID, err = GetVendorID(a)
+				}
+			case 269:
+				if len(prodName) != 0 {
+					err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
+				} else {
+					prodName, err = getProductName(a)
+				}
+		*/
 		case 265:
 			var vid uint32
 			if vid, err = getSupportedVendorID(a); err == nil {
@@ -431,8 +439,10 @@ func (v eventRcvCEA) exec(c *Connection) error {
 			errorMsg, err = GetErrorMessage(a)
 		case 279:
 			failedAVP, err = getFailedAVP(a)
-		case 267:
-			_, err = getFirmwareRevision(a)
+		/*
+			case 267:
+				firmwareRevision, err = getFirmwareRevision(a)
+		*/
 		default:
 			if a.Mandatory {
 				err = InvalidAVP{Code: AvpUnsupported, AVP: a}
@@ -513,10 +523,12 @@ func (v eventRcvCEA) exec(c *Connection) error {
 		// invalid AVP value
 	} else if len(hostIP) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: setHostIPAddress(net.IPv4zero)}
-	} else if venID == 0 {
-		err = InvalidAVP{Code: MissingAvp, AVP: SetVendorID(0)}
-	} else if len(prodName) == 0 {
-		err = InvalidAVP{Code: MissingAvp, AVP: setProductName("")}
+		/*
+			} else if venID == 0 {
+				err = InvalidAVP{Code: MissingAvp, AVP: SetVendorID(0)}
+			} else if len(prodName) == 0 {
+				err = InvalidAVP{Code: MissingAvp, AVP: setProductName("")}
+		*/
 	} else {
 		if oState != 0 {
 			c.stateID = oState
