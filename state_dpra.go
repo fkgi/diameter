@@ -149,6 +149,9 @@ func (v eventRcvDPR) exec(c *Connection) error {
 		c.wdTimer = time.AfterFunc(WDInterval, func() {
 			c.conn.Close()
 		})
+		if ConnectionDownNotify != nil {
+			ConnectionDownNotify(c)
+		}
 	}
 
 	if TraceMessage != nil {

@@ -237,6 +237,8 @@ func (v eventStop) exec(c *Connection) error {
 	err := dpr.MarshalTo(c.conn)
 	if err != nil {
 		c.conn.Close()
+	} else if ConnectionDownNotify != nil {
+		ConnectionDownNotify(c)
 	}
 
 	if TraceMessage != nil {

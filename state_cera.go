@@ -106,20 +106,22 @@ func (v eventRcvCER) exec(c *Connection) error {
 			} else {
 				err = e
 			}
-		/*
-			case 266:
+		case 266:
+			/*
 				if venID != 0 {
 					err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 				} else {
 					venID, err = GetVendorID(a)
 				}
-			case 269:
+			*/
+		case 269:
+			/*
 				if len(prodName) != 0 {
 					err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 				} else {
 					prodName, err = getProductName(a)
 				}
-		*/
+			*/
 		case 265:
 			var vid uint32
 			if vid, err = getSupportedVendorID(a); err == nil {
@@ -143,10 +145,10 @@ func (v eventRcvCER) exec(c *Connection) error {
 			} else {
 				oState, err = getOriginStateID(a)
 			}
-		/*
-			case 267:
+		case 267:
+			/*
 				firmwareRevision, err = getFirmwareRevision(a)
-		*/
+			*/
 		default:
 			if a.Mandatory {
 				err = InvalidAVP{Code: AvpUnsupported, AVP: a}
@@ -208,7 +210,7 @@ func (v eventRcvCER) exec(c *Connection) error {
 	} else if iavp, ok := err.(InvalidAVP); ok {
 		result = iavp.Code
 	} else if imsg, ok := err.(InvalidMessage); ok {
-		result = uint32(imsg.Code)
+		result = imsg.Code
 	} else if len(oHost) == 0 {
 		result = MissingAvp
 		err = InvalidAVP{Code: result, AVP: SetOriginHost("")}
@@ -398,20 +400,22 @@ func (v eventRcvCEA) exec(c *Connection) error {
 			} else {
 				err = e
 			}
-		/*
-			case 266:
+		case 266:
+			/*
 				if venID != 0 {
 					err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 				} else {
 					venID, err = GetVendorID(a)
 				}
-			case 269:
+			*/
+		case 269:
+			/*
 				if len(prodName) != 0 {
 					err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 				} else {
 					prodName, err = getProductName(a)
 				}
-		*/
+			*/
 		case 265:
 			var vid uint32
 			if vid, err = getSupportedVendorID(a); err == nil {
@@ -439,10 +443,10 @@ func (v eventRcvCEA) exec(c *Connection) error {
 			errorMsg, err = GetErrorMessage(a)
 		case 279:
 			failedAVP, err = getFailedAVP(a)
-		/*
-			case 267:
+		case 267:
+			/*
 				firmwareRevision, err = getFirmwareRevision(a)
-		*/
+			*/
 		default:
 			if a.Mandatory {
 				err = InvalidAVP{Code: AvpUnsupported, AVP: a}
@@ -454,7 +458,7 @@ func (v eventRcvCEA) exec(c *Connection) error {
 		}
 	}
 
-	if len(authApps) == 0 {
+	if err == nil && len(authApps) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetAuthAppID(0)}
 	}
 	if err == nil {

@@ -87,7 +87,7 @@ func main() {
 
 	connector.TermSignals = []os.Signal{
 		syscall.SIGINT, syscall.SIGTERM, os.Interrupt}
-	connector.ConnectionUpNotify = func(c net.Conn) {
+	connector.TransportUpNotify = func(c net.Conn) {
 		buf := new(strings.Builder)
 		fmt.Fprintln(buf, "transport connection up")
 		fmt.Fprintln(buf, "| local address: ", c.LocalAddr())

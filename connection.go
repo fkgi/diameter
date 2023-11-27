@@ -1,6 +1,7 @@
 package diameter
 
 import (
+	"errors"
 	"net"
 	"time"
 )
@@ -19,12 +20,17 @@ type Connection struct {
 }
 
 func (c *Connection) DialAndServe(con net.Conn) (e error) {
+	if c.conn != nil || c.state != closed {
+		return errors.New("reusing connection is not acceptable")
+	}
 	c.conn = con
-	c.state = closed
 	return c.serve()
 }
 
 func (c *Connection) ListenAndServe(con net.Conn) (e error) {
+	if c.conn != nil || c.state != closed {
+		return errors.New("reusing connection is not acceptable")
+	}
 	c.conn = con
 	c.state = waitCER
 	return c.serve()

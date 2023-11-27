@@ -11,9 +11,9 @@ import (
 )
 
 var (
-	TermSignals        []os.Signal              // Signals for closing diameter connection.
-	TermCause          diameter.Enumerated = -1 // Cause value for termination
-	ConnectionUpNotify func(net.Conn)           // ConnectionUpNotify is called when transport connection up.
+	TermSignals       []os.Signal              // Signals for closing diameter connection.
+	TermCause         diameter.Enumerated = -1 // Cause value for termination
+	TransportUpNotify func(net.Conn)           // TransportUpNotify is called when transport connection up.
 
 	con diameter.Connection // default Diameter connection
 )
@@ -56,8 +56,8 @@ func DialAndServe(la, pa string) (err error) {
 	if err != nil {
 		return
 	}
-	if ConnectionUpNotify != nil {
-		ConnectionUpNotify(c)
+	if TransportUpNotify != nil {
+		TransportUpNotify(c)
 	}
 
 	go termWithSignals(true)
@@ -102,8 +102,8 @@ func ListenAndServe(la string) (err error) {
 		}
 	*/
 
-	if ConnectionUpNotify != nil {
-		ConnectionUpNotify(c)
+	if TransportUpNotify != nil {
+		TransportUpNotify(c)
 	}
 
 	go termWithSignals(false)

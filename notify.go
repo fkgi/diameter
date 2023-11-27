@@ -31,6 +31,9 @@ var (
 
 	// ConnectionUpNotify is called when Diameter connection up.
 	ConnectionUpNotify func(*Connection)
+
+	// ConnectionDownNotify is called when Diameter connection going down.
+	ConnectionDownNotify func(*Connection)
 )
 
 // RxQueue returns length of Rx queue
