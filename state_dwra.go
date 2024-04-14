@@ -180,7 +180,7 @@ func (v eventRcvDWA) exec(c *Connection) error {
 		InvalidAns++
 		return notAcceptableEvent{e: v, s: c.state}
 	}
-	if _, ok := sndQueue[v.m.HbHID]; !ok {
+	if _, ok := c.sndQueue[v.m.HbHID]; !ok {
 		InvalidAns++
 		return unknownAnswer(v.m.HbHID)
 	}
@@ -279,7 +279,7 @@ func (v eventRcvDWA) exec(c *Connection) error {
 		} else {
 			err = FailureAnswer{Code: result}
 		}
-		delete(sndQueue, v.m.HbHID)
+		delete(c.sndQueue, v.m.HbHID)
 		c.wdTimer.Stop()
 		c.wdTimer = time.AfterFunc(WDInterval, func() {
 			c.notify <- eventWatchdog{}

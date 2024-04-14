@@ -6,6 +6,20 @@ import (
 	"time"
 )
 
+var (
+	WDInterval = time.Second * 30 // WDInterval is watchdog send interval time
+	WDMaxSend  = 3                // WDMaxSend is watchdog expired count
+
+	Host    Identity // Local diameter hostname
+	Realm   Identity // Local diameter realm
+	stateID uint32   // Local diameter state ID
+
+	OverwriteAddr []net.IP // Overwrite IP addresses of local host in CER
+
+	//sndQueue = make(map[uint32]chan Message, 65535) // Sending Request message queue
+	//rcvQueue = make(chan Message, 65535)            // Receiving Request message queue
+)
+
 type Connection struct {
 	wdTimer *time.Timer // system message timer
 	wdCount int         // watchdog expired counter
@@ -17,6 +31,11 @@ type Connection struct {
 	conn   net.Conn        // Transport connection
 	notify chan stateEvent // state change notification queue
 	state  conState        // current state
+
+	sndQueue map[uint32]chan Message // Sending Request message queue
+	rcvQueue chan Message            // Receiving Request message queue
+
+	applications map[uint32]application
 }
 
 func (c *Connection) DialAndServe(con net.Conn) (e error) {
@@ -38,6 +57,10 @@ func (c *Connection) ListenAndServe(con net.Conn) (e error) {
 
 func (c *Connection) serve() error {
 	c.notify = make(chan stateEvent, 16)
+	c.sndQueue = make(map[uint32]chan Message, 65535)
+	c.rcvQueue = make(chan Message, 65535)
+	c.applications = make(map[uint32]application)
+
 	go func() {
 		// read transport socket
 		for {
@@ -68,7 +91,7 @@ func (c *Connection) serve() error {
 	}()
 	go func() {
 		// handle Rx Diameter message
-		for req, ok := <-rcvQueue; ok; req, ok = <-rcvQueue {
+		for req, ok := <-c.rcvQueue; ok; req, ok = <-c.rcvQueue {
 			ans, err := rxHandlerHelper(req)
 			if err != nil {
 				ans = DefaultRxHandler(req)
@@ -88,9 +111,11 @@ func (c *Connection) serve() error {
 	if c.state != waitCER {
 		c.notify <- eventConnect{}
 	}
+
+	var old conState
 	for {
 		event := <-c.notify
-		old := c.state
+		old = c.state
 		err := event.exec(c)
 		if TraceEvent != nil {
 			TraceEvent(old.String(), c.state.String(), event.String(), err)
@@ -101,6 +126,16 @@ func (c *Connection) serve() error {
 		}
 	}
 
+	if old != closing {
+		if ConnectionAbortNotify != nil {
+			ConnectionAbortNotify(c)
+		}
+		return errors.New("connection aborted")
+	}
+
+	if ConnectionDownNotify != nil {
+		ConnectionDownNotify(c)
+	}
 	return nil
 }
 
@@ -108,7 +143,7 @@ func (c *Connection) serve() error {
 func (c *Connection) Close(cause Enumerated) {
 	if c.state == open {
 		c.notify <- eventLock{}
-		for len(rcvQueue) != 0 || len(sndQueue) != 0 {
+		for len(c.rcvQueue) != 0 || len(c.sndQueue) != 0 {
 			time.Sleep(time.Millisecond * 100)
 		}
 	}

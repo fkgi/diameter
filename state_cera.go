@@ -177,18 +177,18 @@ func (v eventRcvCER) exec(c *Connection) error {
 		if _, ok := authApps[0xffffffff]; ok {
 		} else if len(applications) == 0 {
 			for aid, vid := range authApps {
-				applications[aid] = application{
+				c.applications[aid] = application{
 					venID:    vid,
 					handlers: make(map[uint32]Handler)}
 			}
 		} else {
-			var commonApp = make(map[uint32]application)
+			// var commonApp = make(map[uint32]application)
 			for laid, lapp := range applications {
 				if pvid, ok := authApps[laid]; ok && pvid == lapp.venID {
-					commonApp[laid] = lapp
+					c.applications[laid] = lapp
 				}
 			}
-			if len(commonApp) == 0 {
+			if len(c.applications) == 0 {
 				rap := "required applications are "
 				for k := range authApps {
 					rap = fmt.Sprintf("%s, %d", rap, k)
@@ -196,9 +196,9 @@ func (v eventRcvCER) exec(c *Connection) error {
 				err = InvalidMessage{
 					Code:   ApplicationUnsupported,
 					ErrMsg: rap}
-			} else {
+			} /* else {
 				applications = commonApp
-			}
+			}*/
 		}
 	}
 
@@ -271,11 +271,11 @@ func (v eventRcvCER) exec(c *Connection) error {
 	if stateID != 0 {
 		setOriginStateID(stateID).MarshalTo(buf)
 	}
-	if len(applications) == 0 {
+	if len(c.applications) == 0 {
 		SetAuthAppID(0xffffffff).MarshalTo(buf)
 	} else {
 		vmap := make(map[uint32]interface{})
-		for aid, app := range applications {
+		for aid, app := range c.applications {
 			if app.venID == 0 {
 				SetAuthAppID(aid).MarshalTo(buf)
 			} else if _, ok := vmap[app.venID]; ok {
@@ -342,7 +342,7 @@ func (v eventRcvCEA) exec(c *Connection) error {
 		InvalidAns++
 		return notAcceptableEvent{e: v, s: c.state}
 	}
-	if _, ok := sndQueue[v.m.HbHID]; !ok {
+	if _, ok := c.sndQueue[v.m.HbHID]; !ok {
 		InvalidAns++
 		return unknownAnswer(v.m.HbHID)
 	}
@@ -473,19 +473,19 @@ func (v eventRcvCEA) exec(c *Connection) error {
 		if _, ok := authApps[0xffffffff]; ok {
 		} else if len(applications) == 0 {
 			for aid, vid := range authApps {
-				applications[aid] = application{
+				c.applications[aid] = application{
 					venID:    vid,
 					handlers: make(map[uint32]Handler)}
 			}
 		} else {
-			var commonApp = make(map[uint32]application)
+			// var commonApp = make(map[uint32]application)
 			for laid, lapp := range applications {
 				if pvid, ok := authApps[laid]; ok && pvid == lapp.venID {
-					commonApp[laid] = lapp
+					c.applications[laid] = lapp
 					break
 				}
 			}
-			if len(commonApp) == 0 {
+			if len(c.applications) == 0 {
 				rap := "required applications are "
 				for k := range authApps {
 					rap = fmt.Sprintf("%s, %d", rap, k)
@@ -493,9 +493,9 @@ func (v eventRcvCEA) exec(c *Connection) error {
 				err = InvalidMessage{
 					Code:   ApplicationUnsupported,
 					ErrMsg: rap}
-			} else {
+			} /* else {
 				applications = commonApp
-			}
+			}*/
 		}
 	}
 
@@ -543,7 +543,7 @@ func (v eventRcvCEA) exec(c *Connection) error {
 		c.wdTimer = time.AfterFunc(WDInterval, func() {
 			c.notify <- eventWatchdog{}
 		})
-		delete(sndQueue, v.m.HbHID)
+		delete(c.sndQueue, v.m.HbHID)
 		//ch <- v.m
 		if ConnectionUpNotify != nil {
 			ConnectionUpNotify(c)
@@ -556,7 +556,7 @@ func (v eventRcvCEA) exec(c *Connection) error {
 
 	if err != nil {
 		c.wdTimer.Stop()
-		delete(sndQueue, v.m.HbHID)
+		delete(c.sndQueue, v.m.HbHID)
 		// close(ch)
 		c.conn.Close()
 	}

@@ -75,11 +75,15 @@ func sockOpenV6() (int, error) {
 }
 
 func sockListen(fd int) error {
-	return syscall.Listen(fd, 1024)
+	e := syscall.Listen(fd, 1024)
+	if e != nil {
+		return e
+	}
+	return syscall.SetNonblock(fd, true)
 }
 
 func sockAccept(fd int) (nfd int, e error) {
-	nfd, _, e = syscall.Accept4(fd, 0)
+	nfd, _, e = syscall.Accept(fd)
 	return
 }
 

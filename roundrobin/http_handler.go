@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fkgi/diameter/connector"
 	"github.com/fkgi/diameter/dictionary"
 )
 
@@ -59,7 +58,7 @@ func handleTx(w http.ResponseWriter, r *http.Request) {
 	msg.EtEID = nextEtE()
 	msg.FlgP = true
 
-	msg = connector.DefaultTxHandler(msg)
+	msg = DefaultTxHandler(msg)
 	if avps, e = msg.GetAVP(); e != nil {
 		errorAnswer(
 			"unable to get AVPs from message", e.Error(),

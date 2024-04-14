@@ -5,7 +5,58 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math/rand"
+	"time"
 )
+
+const (
+	VendorID    uint32 = 41102         // VendorID of this code
+	ProductName        = "round-robin" // ProductName of this code
+	FirmwareRev uint32 = 230619001     // FirmwareRev of this code
+
+	avpBufferSize = 10
+)
+
+var (
+	hbhID     = make(chan uint32, 1) // Hop-by-Hop ID source
+	eteID     = make(chan uint32, 1) // End-to-End ID source
+	sessionID = make(chan uint32, 1) // Session-ID source
+)
+
+func init() {
+	ut := time.Now().Unix()
+	hbhID <- rand.Uint32()
+	eteID <- (uint32(ut^0xFFF) << 20) | (rand.Uint32() ^ 0xFFFFF)
+	sessionID <- rand.Uint32()
+	stateID = uint32(ut)
+}
+
+type application struct {
+	venID    uint32
+	handlers map[uint32]Handler
+}
+
+func nextHbH() uint32 {
+	ret := <-hbhID
+	hbhID <- ret + 1
+	return ret
+}
+
+func nextEtE() uint32 {
+	ret := <-eteID
+	eteID <- ret + 1
+	return ret
+}
+
+// NextSession generate new session ID data
+func NextSession(h string) string {
+	ret := <-sessionID
+	sessionID <- ret + 1
+	if h == "" {
+		h = Host.String()
+	}
+	return fmt.Sprintf("%s;%d;%d;0", h, time.Now().Unix()+2208988800, ret)
+}
 
 /*
 Message is Diameter message.

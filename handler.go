@@ -6,14 +6,21 @@ import (
 	"time"
 )
 
+// Acceptable Application-ID and commands of the application.
+// Empty map indicate that accept any application.
+var applications = make(map[uint32]application)
+
 // Handler handles Diameter message.
 // Inputs are Retry flag and AVPs of Request. Outputs are Error flag and AVPs of Answer.
 type Handler func(bool, []AVP) (bool, []AVP)
 
+// Router select destination peer for specific message.
+type Router func(Message) *Connection
+
 // Handle registers Diameter request handler for specified command.
 // Input Handler is called when when request is from peer.
 // Output Handler is used when send request to peer.
-func Handle(code, appID, venID uint32, h Handler, s func() *Connection) Handler {
+func Handle(code, appID, venID uint32, h Handler, rt Router) Handler {
 	if _, ok := applications[appID]; !ok {
 		applications[appID] = application{
 			venID:    venID,
@@ -27,11 +34,18 @@ func Handle(code, appID, venID uint32, h Handler, s func() *Connection) Handler 
 			Code: code, AppID: appID,
 			HbHID: nextHbH(), EtEID: nextEtE()}
 		m.SetAVP(avp)
-		m = s().send(m)
 
-		var e error
-		avp, e = m.GetAVP()
-		if e != nil {
+		var err error
+		if rt == nil {
+			err = errors.New("no route found")
+		} else if c := rt(m); c == nil {
+			err = errors.New("no route found")
+		} else {
+			m = c.send(m)
+			avp, err = m.GetAVP()
+		}
+
+		if err != nil {
 			return true, []AVP{
 				SetResultCode(UnableToDeliver),
 				SetOriginHost(Host),
@@ -93,7 +107,7 @@ func rxHandlerHelper(req Message) (ans Message, err error) {
 
 // DefaultTxHandler for sending Diameter request message without Handler or relay application.
 func (c *Connection) DefaultTxHandler(m Message) Message {
-	if _, ok := applications[m.AppID]; !ok && len(applications) != 0 {
+	if _, ok := c.applications[m.AppID]; !ok && len(c.applications) != 0 {
 		return m.generateAnswerBy(UnableToDeliver)
 	}
 
@@ -114,7 +128,7 @@ func (c *Connection) send(m Message) Message {
 	}
 
 	ch := make(chan Message)
-	sndQueue[m.HbHID] = ch
+	c.sndQueue[m.HbHID] = ch
 	c.notify <- eventSndMsg{m}
 
 	t := time.AfterFunc(WDInterval, func() {

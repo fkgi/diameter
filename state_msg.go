@@ -27,13 +27,13 @@ func (v eventRcvReq) exec(c *Connection) error {
 	var err error
 	if c.state == locked {
 		result = UnableToDeliver
-	} else if len(rcvQueue) == cap(rcvQueue) {
+	} else if len(c.rcvQueue) == cap(c.rcvQueue) {
 		result = TooBusy
 		err = errors.New("too busy, receive queue is full")
-	} else if len(applications) == 0 {
-		rcvQueue <- v.m
-	} else if _, ok := applications[v.m.AppID]; ok {
-		rcvQueue <- v.m
+	} else if len(c.applications) == 0 {
+		c.rcvQueue <- v.m
+	} else if _, ok := c.applications[v.m.AppID]; ok {
+		c.rcvQueue <- v.m
 	} else {
 		result = ApplicationUnsupported
 		err = InvalidMessage{
@@ -80,13 +80,13 @@ func (v eventRcvAns) exec(c *Connection) (e error) {
 		TraceMessage(v.m, Rx, nil)
 	}
 
-	if ch, ok := sndQueue[v.m.HbHID]; ok {
+	if ch, ok := c.sndQueue[v.m.HbHID]; ok {
 		ch <- v.m
 	} else {
 		InvalidAns++
 		return unknownAnswer(v.m.HbHID)
 	}
-	delete(sndQueue, v.m.HbHID)
+	delete(c.sndQueue, v.m.HbHID)
 
 	if c.wdCount == 0 {
 		c.wdTimer.Stop()

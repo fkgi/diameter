@@ -149,9 +149,6 @@ func (v eventRcvDPR) exec(c *Connection) error {
 		c.wdTimer = time.AfterFunc(WDInterval, func() {
 			c.conn.Close()
 		})
-		if ConnectionDownNotify != nil {
-			ConnectionDownNotify(c)
-		}
 	}
 
 	if TraceMessage != nil {
@@ -179,7 +176,7 @@ func (v eventRcvDPA) exec(c *Connection) error {
 		InvalidAns++
 		return notAcceptableEvent{e: v, s: c.state}
 	}
-	if _, ok := sndQueue[v.m.HbHID]; !ok {
+	if _, ok := c.sndQueue[v.m.HbHID]; !ok {
 		InvalidAns++
 		return unknownAnswer(v.m.HbHID)
 	}
@@ -262,11 +259,11 @@ func (v eventRcvDPA) exec(c *Connection) error {
 				oRealm, c.Realm, Host)}
 	} else if result != Success {
 		err = FailureAnswer{Code: result}
-		delete(sndQueue, v.m.HbHID)
+		delete(c.sndQueue, v.m.HbHID)
 	} else if err != nil {
 		// invalid AVP value
 	} else {
-		delete(sndQueue, v.m.HbHID)
+		delete(c.sndQueue, v.m.HbHID)
 		c.wdTimer.Stop()
 		err = c.conn.Close()
 	}

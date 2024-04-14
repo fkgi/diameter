@@ -12,44 +12,44 @@ func sockOpenV6() (int, error) {
 	return 0, nil
 }
 
-func sockListen(fd int) error {
+func sockListen(int) error {
 	return nil
 }
 
-func sockAccept(fd int) (int, error) {
+func sockAccept(int) (int, error) {
 	return 0, nil
 }
 
-func sockClose(fd int) error {
+func sockClose(int) error {
 	return nil
 }
 
-func sctpBindx(fd int, addr []byte) error {
+func sctpBindx(int, []byte) error {
 	return nil
 }
 
-func sctpConnectx(fd int, addr []byte) error {
+func sctpConnectx(int, []byte) error {
 	return nil
 }
 
-func sctpSend(fd int, b []byte) (int, error) {
+func sctpSend(int, []byte) (int, error) {
 	return 0, nil
 }
 
-func sctpRecvmsg(fd int, b []byte) (int, error) {
+func sctpRecvmsg(int, []byte) (int, error) {
 	return 0, nil
 }
 
-func sctpGetladdrs(fd int) (unsafe.Pointer, int, error) {
+func sctpGetladdrs(int) (unsafe.Pointer, int, error) {
 	return nil, 0, nil
 }
 
-func sctpFreeladdrs(addr unsafe.Pointer) {
+func sctpFreeladdrs(unsafe.Pointer) {
 }
 
-func sctpGetpaddrs(fd int) (unsafe.Pointer, int, error) {
+func sctpGetpaddrs(int) (unsafe.Pointer, int, error) {
 	return nil, 0, nil
 }
 
-func sctpFreepaddrs(addr unsafe.Pointer) {
+func sctpFreepaddrs(unsafe.Pointer) {
 }

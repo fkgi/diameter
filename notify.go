@@ -32,18 +32,21 @@ var (
 	// ConnectionUpNotify is called when Diameter connection up.
 	ConnectionUpNotify func(*Connection)
 
-	// ConnectionDownNotify is called when Diameter connection going down.
+	// ConnectionDownNotify is called when Diameter connection down.
 	ConnectionDownNotify func(*Connection)
+
+	// ConnectionAbortNotify is called when Diameter connection abort.
+	ConnectionAbortNotify func(*Connection)
 )
 
 // RxQueue returns length of Rx queue
-func RxQueue() int {
-	return len(rcvQueue)
+func (c *Connection) RxQueue() int {
+	return len(c.rcvQueue)
 }
 
 // TxQueue returns length of Tx queue
-func TxQueue() int {
-	return len(sndQueue)
+func (c *Connection) TxQueue() int {
+	return len(c.sndQueue)
 }
 
 // LocalAddr returns transport connection of state machine

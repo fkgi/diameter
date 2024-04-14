@@ -116,7 +116,7 @@ func (v eventConnect) exec(c *Connection) error {
 		AVPs: buf.Bytes()}
 
 	TxReq++
-	sndQueue[cer.HbHID] = make(chan Message)
+	c.sndQueue[cer.HbHID] = make(chan Message)
 
 	c.wdTimer = time.AfterFunc(WDInterval, func() {
 		c.notify <- eventRcvCEA{cer.generateAnswerBy(UnableToDeliver)}
@@ -166,7 +166,7 @@ func (v eventWatchdog) exec(c *Connection) error {
 		AVPs: buf.Bytes()}
 
 	TxReq++
-	sndQueue[dwr.HbHID] = make(chan Message)
+	c.sndQueue[dwr.HbHID] = make(chan Message)
 
 	c.wdTimer = time.AfterFunc(WDInterval, func() {
 		c.notify <- eventRcvDWA{dwr.generateAnswerBy(UnableToDeliver)}
@@ -228,7 +228,7 @@ func (v eventStop) exec(c *Connection) error {
 		AVPs: buf.Bytes()}
 
 	TxReq++
-	sndQueue[dpr.HbHID] = make(chan Message)
+	c.sndQueue[dpr.HbHID] = make(chan Message)
 
 	c.wdTimer = time.AfterFunc(WDInterval, func() {
 		c.notify <- eventRcvDPA{dpr.generateAnswerBy(UnableToDeliver)}
@@ -237,8 +237,6 @@ func (v eventStop) exec(c *Connection) error {
 	err := dpr.MarshalTo(c.conn)
 	if err != nil {
 		c.conn.Close()
-	} else if ConnectionDownNotify != nil {
-		ConnectionDownNotify(c)
 	}
 
 	if TraceMessage != nil {
@@ -260,10 +258,10 @@ func (v eventPeerDisc) exec(c *Connection) error {
 	c.conn.Close()
 	c.state = closed
 
-	for _, ch := range sndQueue {
+	for _, ch := range c.sndQueue {
 		close(ch)
 	}
-	close(rcvQueue)
+	close(c.rcvQueue)
 
 	return v.reason
 }

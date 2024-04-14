@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -13,9 +12,12 @@ import (
 	"github.com/fkgi/diameter"
 	"github.com/fkgi/diameter/connector"
 	"github.com/fkgi/diameter/dictionary"
+	"github.com/fkgi/diameter/multiplexer"
 )
 
 const apipath = "/msg/v1/"
+
+var DefaultTxHandler func(diameter.Message) diameter.Message
 
 func main() {
 	host, err := os.Hostname()
@@ -25,13 +27,10 @@ func main() {
 	dl := flag.String("diameter-local", host,
 		"Diameter local host with format [tcp|sctp://][realm/]hostname[:port].")
 	dp := flag.String("diameter-peer", "",
-		"Diameter peer host for dial with format as same as -diameter-local.")
-	hl := flag.String("http-local", "",
-		"HTTP local host with format [host][:port].")
-	hp := flag.String("http-peer", "",
-		"HTTP peer host with format host[:port].")
-	dic := flag.String("dictionary", "dictionary.json",
-		"Diameter dictionary file path.")
+		"Diameter peer host to connect with format as same as -diameter-local.")
+	hl := flag.String("http-local", "", "HTTP local host with format [host][:port].")
+	hp := flag.String("http-peer", "", "HTTP peer host with format host[:port].")
+	dic := flag.String("dictionary", "dictionary.json", "Diameter dictionary file path.")
 	flag.Parse()
 
 	log.Printf("booting Round-Robin Diameter debugger <%s REV.%d>...",
@@ -85,22 +84,12 @@ func main() {
 		}()
 	}
 
-	connector.TermSignals = []os.Signal{
-		syscall.SIGINT, syscall.SIGTERM, os.Interrupt}
-	connector.TransportUpNotify = func(c net.Conn) {
-		buf := new(strings.Builder)
-		fmt.Fprintln(buf, "transport connection up")
-		fmt.Fprintln(buf, "| local address: ", c.LocalAddr())
-		fmt.Fprintln(buf, "| remote address:", c.RemoteAddr())
-		log.Print(buf)
-	}
+	connector.TermSignals = []os.Signal{syscall.SIGINT, syscall.SIGTERM, os.Interrupt}
 	diameter.ConnectionUpNotify = func(c *diameter.Connection) {
 		buf := new(strings.Builder)
 		fmt.Fprintln(buf, "Diameter connection up")
-		fmt.Fprintln(buf, "| local host/realm:",
-			diameter.Host, "/", diameter.Realm)
-		fmt.Fprintln(buf, "| peer host/realm: ",
-			c.Host, "/", c.Realm)
+		fmt.Fprintln(buf, "| local host/realm:", diameter.Host, "/", diameter.Realm)
+		fmt.Fprintln(buf, "| peer host/realm: ", c.Host, "/", c.Realm)
 		log.Print(buf)
 	}
 	diameter.TraceEvent = func(old, new, event string, err error) {
@@ -115,12 +104,14 @@ func main() {
 		log.Print(buf)
 	}
 
-	if *dp == "" {
-		log.Println("listening Diameter...")
-		log.Println("closed, error=", connector.ListenAndServe(*dl))
-	} else {
+	if len(*dp) != 0 {
+		DefaultTxHandler = connector.DefaultTxHandler
 		log.Println("connecting Diameter...")
 		log.Println("closed, error=", connector.DialAndServe(*dl, *dp))
+	} else {
+		DefaultTxHandler = multiplexer.DefaultTxHandler
+		log.Println("listening Diameter...")
+		log.Println("closed, error=", multiplexer.ListenAndServe(*dl))
 	}
 }
 
