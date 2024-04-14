@@ -13,7 +13,6 @@ import (
 
 var (
 	cons map[net.Conn]*diameter.Connection
-	dest int
 )
 
 func ListenAndServe(la string) (err error) {

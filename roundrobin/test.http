@@ -1,4 +1,4 @@
-@url = http://192.168.56.107:8080
+@url = http://10.255.200.18:8080
 #@url = http://localhost:8081
 
 @realm=epc.mnc99.mcc999.3gppnetwork.org

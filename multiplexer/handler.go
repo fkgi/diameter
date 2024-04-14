@@ -2,6 +2,7 @@ package multiplexer
 
 import (
 	"bytes"
+	"math/rand"
 
 	"github.com/fkgi/diameter"
 )
@@ -27,16 +28,13 @@ var DefaultRouter diameter.Router = func(m diameter.Message) *diameter.Connectio
 		}
 	}
 
+	t := rand.Intn(len(cons))
 	i := 0
 	for _, con := range cons {
-		if i < dest {
-			continue
+		if i == t {
+			return con
 		}
-		dest++
-		if dest > len(cons) {
-			dest = 0
-		}
-		return con
+		i++
 	}
 	return nil
 }
