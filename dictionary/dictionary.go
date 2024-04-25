@@ -145,7 +145,7 @@ func LoadDictionary(data []byte) (Dictionary, error) {
 				decf = decIPFilterRule
 			default:
 				return dictionary,
-					errors.New("infalid AVP type: " + name)
+					errors.New("invalid AVP type: " + name)
 			}
 
 			code := uint32(avp.ID)

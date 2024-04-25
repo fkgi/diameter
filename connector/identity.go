@@ -11,7 +11,7 @@ import (
 )
 
 /*
-ResolveIdentiry parse Diameter peer parameter.
+ResolveIdentity parse Diameter peer parameter.
 
 [tcp|sctp://][realm/]hostname[:port]
 
@@ -20,7 +20,7 @@ Default realm is generated from hostname (following text after first ".").
 Default port is 3868.
 IP addresses are resolved from hostname.
 */
-func ResolveIdentiry(uri string) (
+func ResolveIdentity(uri string) (
 	scheme string, host, realm diameter.Identity, ip []net.IP, port int, err error) {
 	t := abnf.ParseString(uri, _uri())
 	if t == nil {

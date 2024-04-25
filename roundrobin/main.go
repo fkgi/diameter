@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"syscall"
@@ -15,11 +16,14 @@ import (
 	"github.com/fkgi/diameter/multiplexer"
 )
 
-const apipath = "/msg/v1/"
+const apiPath = "/msg/v1/"
 
-var DefaultTxHandler func(diameter.Message) diameter.Message
+var rxPath string
 
 func main() {
+	log.Printf("booting Round-Robin Diameter debugger <%s REV.%d>...",
+		diameter.ProductName, diameter.FirmwareRev)
+
 	host, err := os.Hostname()
 	if err != nil {
 		host = "hub.internal"
@@ -33,51 +37,75 @@ func main() {
 	dic := flag.String("dictionary", "dictionary.json", "Diameter dictionary file path.")
 	flag.Parse()
 
-	log.Printf("booting Round-Robin Diameter debugger <%s REV.%d>...",
-		diameter.ProductName, diameter.FirmwareRev)
-
 	log.Println("loading dictionary file", *dic)
-	diameter.DefaultRxHandler = handleRx
+	var dicData dictionary.Dictionary
 	if data, err := os.ReadFile(*dic); err != nil {
 		log.Fatalln("failed to open dictionary file:", err)
-	} else if d, err := dictionary.LoadDictionary(data); err != nil {
+	} else if dicData, err = dictionary.LoadDictionary(data); err != nil {
 		log.Fatalln("failed to read dictionary file:", err)
-	} else {
-		buf := new(strings.Builder)
-		fmt.Fprintln(buf, "supported data")
-		for vndname, vnd := range d {
-			fmt.Fprintf(buf, "| vendor: %s(%d)", vndname, vnd.ID)
+	}
+
+	buf := new(strings.Builder)
+	fmt.Fprintln(buf, "supported data")
+	for vn, vnd := range dicData {
+		fmt.Fprintf(buf, "| vendor: %s(%d)", vn, vnd.ID)
+		fmt.Fprintln(buf)
+		for an, app := range vnd.Apps {
+			fmt.Fprintf(buf, "| | application: %s(%d)", an, app.ID)
 			fmt.Fprintln(buf)
-			for appname, app := range vnd.Apps {
-				fmt.Fprintf(buf, "| | application: %s(%d)", appname, app.ID)
-				fmt.Fprintln(buf)
-				fmt.Fprint(buf, "| | | command:")
-				for cmdname, cmd := range app.Cmds {
-					fmt.Fprintf(buf, " %s(%d)", cmdname, cmd.ID)
-				}
-				fmt.Fprintln(buf)
-			}
-			fmt.Fprint(buf, "| | AVP:")
-			for name, avp := range vnd.Avps {
-				fmt.Fprintf(buf, " %s(%d,%s)", name, avp.ID, avp.Type)
+			fmt.Fprint(buf, "| | | command:")
+			for cn, cmd := range app.Cmds {
+				fmt.Fprintf(buf, " %s(%d)", cn, cmd.ID)
 			}
 			fmt.Fprintln(buf)
 		}
-		log.Print(buf)
+		fmt.Fprint(buf, "| | AVP:")
+		for an, avp := range vnd.Avps {
+			fmt.Fprintf(buf, " %s(%d,%s)", an, avp.ID, avp.Type)
+		}
+		fmt.Fprintln(buf)
 	}
+	log.Print(buf)
+
+	var router diameter.Router
+	if *dp == "" {
+		router = multiplexer.DefaultRouter
+	} else {
+		router = connector.DefaultRouter
+	}
+	for vn, vnd := range dicData {
+		if vnd.ID == 0 {
+			continue
+		}
+		for an, app := range vnd.Apps {
+			for cn, cmd := range app.Cmds {
+				registerHandler(apiPath+vn+"/"+an+"/"+cn,
+					cmd.ID, app.ID, vnd.ID, router)
+			}
+		}
+	}
+	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		httpErr("not found", "invalid URI path", http.StatusNotFound, w)
+	})
 
 	if *hp == "" {
 		log.Println("no HTTP peer defined, Rx message will reject")
 	} else {
-		rxPath = "http://" + *hp + apipath
-		log.Println("HTTP peer:", rxPath)
+		rxPath = "http://" + *hp
+		_, err = url.Parse(rxPath)
+		if err != nil {
+			log.Println("invalid HTTP peer host, Rx message will reject")
+			rxPath = ""
+		} else {
+			log.Println("HTTP peer:", rxPath)
+		}
 	}
 	if *hl == "" {
 		log.Println("no HTTP local port defined, Tx message is not available")
 	} else {
 		log.Println("listening HTTP local port:", *hl)
 		go func() {
-			err := http.ListenAndServe(*hl, http.HandlerFunc(handleTx))
+			err := http.ListenAndServe(*hl, nil)
 			if err != nil {
 				log.Fatalln("failed to listen HTTP:", err)
 			}
@@ -105,36 +133,10 @@ func main() {
 	}
 
 	if len(*dp) != 0 {
-		DefaultTxHandler = connector.DefaultTxHandler
 		log.Println("connecting Diameter...")
 		log.Println("closed, error=", connector.DialAndServe(*dl, *dp))
 	} else {
-		DefaultTxHandler = multiplexer.DefaultTxHandler
 		log.Println("listening Diameter...")
 		log.Println("closed, error=", multiplexer.ListenAndServe(*dl))
 	}
-}
-
-func formatAVPs(avps []diameter.AVP) (map[string]any, error) {
-	result := make(map[string]any)
-	for _, a := range avps {
-		n, v, e := dictionary.DecodeAVP(a)
-		if e != nil {
-			return nil, e
-		}
-		result[n] = v
-	}
-	return result, nil
-}
-
-func parseAVPs(d map[string]any) ([]diameter.AVP, error) {
-	avps := make([]diameter.AVP, 0, 10)
-	for k, v := range d {
-		a, e := dictionary.EncodeAVP(k, v)
-		if e != nil {
-			return nil, fmt.Errorf("%s is invalid: %v", k, e)
-		}
-		avps = append(avps, a)
-	}
-	return avps, nil
 }

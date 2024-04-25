@@ -14,4 +14,4 @@ Connection: close\r
     "Auth-Application-Id": 16777251,
     "Vendor-Id": 10415
   }
-}'| nc -l 8082
+}'| nc -l 8081

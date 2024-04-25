@@ -22,14 +22,14 @@ var (
 // DialAndServe start diameter connection handling process as initiator.
 // Inputs are string of local(la) and peer(pa) host information with format for ResolveIdentiry.
 func DialAndServe(la, pa string) (err error) {
-	lscheme, host, realm, lips, lport, err := ResolveIdentiry(la)
+	lscheme, host, realm, lips, lport, err := ResolveIdentity(la)
 	if err != nil {
 		return
 	}
 	diameter.Host = host
 	diameter.Realm = realm
 
-	pscheme, host, realm, pips, pport, err := ResolveIdentiry(pa)
+	pscheme, host, realm, pips, pport, err := ResolveIdentity(pa)
 	if err != nil {
 		return
 	}
@@ -78,14 +78,14 @@ func DialAndServe(la, pa string) (err error) {
 // ListenAndServe start diameter connection handling process as responder.
 // Inputs are string of local(la) host information with format for ResolveIdentiry.
 func ListenAndServe(la, pa string) (err error) {
-	lscheme, host, realm, lips, lport, err := ResolveIdentiry(la)
+	lscheme, host, realm, lips, lport, err := ResolveIdentity(la)
 	if err != nil {
 		return
 	}
 	diameter.Host = host
 	diameter.Realm = realm
 
-	pscheme, host, realm, pips, pport, err := ResolveIdentiry(pa)
+	pscheme, host, realm, pips, pport, err := ResolveIdentity(pa)
 	if err != nil {
 		return
 	}
@@ -170,4 +170,8 @@ func checkIP(addrs []string, ips []net.IP) bool {
 		}
 	}
 	return true
+}
+
+var DefaultRouter diameter.Router = func(diameter.Message) *diameter.Connection {
+	return &con
 }

@@ -1,6 +1,8 @@
 package multiplexer
 
 import (
+	"bytes"
+	"math/rand"
 	"net"
 	"os"
 	"os/signal"
@@ -15,8 +17,10 @@ var (
 	cons map[net.Conn]*diameter.Connection
 )
 
+// ListenAndServe start diameter connection handling process as responder.
+// Inputs are string of local(la) host information with format for ResolveIdentiry.
 func ListenAndServe(la string) (err error) {
-	scheme, host, realm, ips, port, err := connector.ResolveIdentiry(la)
+	scheme, host, realm, ips, port, err := connector.ResolveIdentity(la)
 	if err != nil {
 		return
 	}
@@ -72,4 +76,36 @@ func ListenAndServe(la string) (err error) {
 	}
 
 	return
+}
+
+var DefaultRouter diameter.Router = func(m diameter.Message) *diameter.Connection {
+	var dHost diameter.Identity
+	for rdr := bytes.NewReader(m.AVPs); rdr.Len() != 0; {
+		a := diameter.AVP{}
+		if err := a.UnmarshalFrom(rdr); err != nil {
+			continue
+		}
+		if a.VendorID != 0 {
+			continue
+		}
+		switch a.Code {
+		case 293:
+			dHost, _ = diameter.GetDestinationHost(a)
+		}
+	}
+	for _, con := range cons {
+		if con.Host == dHost {
+			return con
+		}
+	}
+
+	t := rand.Intn(len(cons))
+	i := 0
+	for _, con := range cons {
+		if i == t {
+			return con
+		}
+		i++
+	}
+	return nil
 }
