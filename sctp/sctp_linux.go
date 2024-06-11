@@ -1,3 +1,5 @@
+//go:build linux && !386
+
 package sctp
 
 import (
@@ -46,8 +48,6 @@ import (
 		0)
 	}
 
-
-
 	n, e := C.setsockopt(
 			C.int(fd),
 			C.SOL_SCTP,
@@ -86,19 +86,6 @@ func sockAccept(fd int) (nfd int, e error) {
 	nfd, _, e = syscall.Accept(fd)
 	return
 }
-
-/*
-	Stream  uint16
-	SSN     uint16
-	Flags   uint16
-	_       uint16
-	PPID    uint32
-	Context uint32
-	TTL     uint32
-	TSN     uint32
-	CumTSN  uint32
-	AssocID int32
-*/
 
 func sockClose(fd int) error {
 	/*
@@ -166,24 +153,18 @@ func sctpConnectx(fd int, addr []byte) error {
 }
 
 func sctpSend(fd int, b []byte) (int, error) {
-	buf := new(bytes.Buffer)
 	hdr := &syscall.Cmsghdr{
 		Level: syscall.IPPROTO_SCTP,
 		Type:  2, //SCTP_SNDINFO
 	}
 	hdr.SetLen(syscall.CmsgSpace(16))
-	/*
-		__u16 snd_sid;
-		__u16 snd_flags;
-		__u32 snd_ppid;
-		__u32 snd_context;
-		sctp_assoc_t(u32) snd_assoc_id;
-	*/
+
+	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.LittleEndian, hdr)
-	binary.Write(buf, binary.LittleEndian, uint16(0))      // session ID=0
+	binary.Write(buf, binary.LittleEndian, uint16(0))      // stream ID=0
 	binary.Write(buf, binary.LittleEndian, uint16(0x0001)) // flag=SCTP_UNORDERED
 	binary.Write(buf, binary.BigEndian, ProtocolID)        // PPID=diameter
-	buf.Write(make([]byte, 8))
+	buf.Write(make([]byte, 8))                             // context(4 bytes) = empty, assoc ID(4 bytes) = 0
 
 	return syscall.SendmsgN(fd, b, buf.Bytes(), nil, 0)
 }

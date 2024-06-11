@@ -31,11 +31,19 @@ var (
 )
 
 func EncodeAVP(name string, value any) (diameter.AVP, error) {
-	return encAVPs[name](value)
+	f, ok := encAVPs[name]
+	if !ok {
+		return diameter.AVP{}, errors.New("unknown AVP name")
+	}
+	return f(value)
 }
 
 func DecodeAVP(a diameter.AVP) (string, any, error) {
-	return decAVPs[(uint64(a.VendorID)<<32)|uint64(a.Code)](a)
+	f, ok := decAVPs[(uint64(a.VendorID)<<32)|uint64(a.Code)]
+	if !ok {
+		return "", nil, errors.New("unknown AVP")
+	}
+	return f(a)
 }
 
 func EncodeMessage(name string) (m diameter.Message, e error) {

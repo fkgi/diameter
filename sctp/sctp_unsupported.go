@@ -1,3 +1,5 @@
+//go:build !linux || (linux && 386)
+
 package sctp
 
 import (
