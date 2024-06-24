@@ -176,5 +176,6 @@ func LoadDictionary(data []byte) (Dictionary, error) {
 				}
 		}
 	}
+
 	return dictionary, nil
 }

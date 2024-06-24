@@ -5,136 +5,156 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"strconv"
 	"strings"
 
 	"github.com/fkgi/diameter"
 	"github.com/fkgi/diameter/sctp"
 )
 
+const UndefinedCause diameter.Enumerated = -1
+
 var (
-	TermSignals []os.Signal              // Signals for closing diameter connection.
-	TermCause   diameter.Enumerated = -1 // Cause value for termination
+	TermSignals []os.Signal                          // Signals for closing diameter connection.
+	TermCause   diameter.Enumerated = UndefinedCause // Cause value for termination
 
 	con diameter.Connection // default Diameter connection
 )
 
 // DialAndServe start diameter connection handling process as initiator.
-// Inputs are string of local(la) and peer(pa) host information with format for ResolveIdentiry.
+// Inputs are string of local(la) and peer(pa) host information with format for ResolveIdentity.
 func DialAndServe(la, pa string) (err error) {
-	lscheme, host, realm, lips, lport, err := ResolveIdentity(la)
+	src, dst, err := resolveAddresses(la, pa)
 	if err != nil {
-		return
-	}
-	diameter.Host = host
-	diameter.Realm = realm
-
-	pscheme, host, realm, pips, pport, err := ResolveIdentity(pa)
-	if err != nil {
-		return
-	}
-	con = diameter.Connection{Host: host, Realm: realm}
-
-	if lscheme == "" {
-		lscheme = "tcp"
-	}
-	if pscheme != "" && lscheme != pscheme {
-		err = errors.New("transport protocol mismatch")
 		return
 	}
 
 	var c net.Conn
-	switch lscheme {
+	switch src.Network() {
 	case "sctp":
-		c, err = sctp.DialSCTP(
-			&sctp.SCTPAddr{IP: lips, Port: lport},
-			&sctp.SCTPAddr{IP: pips, Port: pport})
+		ssrc := src.(*sctp.SCTPAddr)
+		sdst := dst.(*sctp.SCTPAddr)
+		c, err = sctp.DialSCTP(ssrc, sdst)
 	default:
-		c, err = net.DialTCP("tcp",
-			&net.TCPAddr{IP: lips[0], Port: lport},
-			&net.TCPAddr{IP: pips[0], Port: pport})
+		tsrc := src.(*net.TCPAddr)
+		tdst := dst.(*net.TCPAddr)
+		c, err = net.DialTCP("tcp", tsrc, tdst)
 	}
 	if err != nil {
 		return
 	}
 
-	if len(TermSignals) != 0 {
-		sigc := make(chan os.Signal, 1)
-		signal.Notify(sigc, TermSignals...)
-		go func() {
-			<-sigc
-			if TermCause == diameter.Rebooting ||
-				TermCause == diameter.DoNotWantToTalkToYou {
-				con.Close(TermCause)
-			} else {
-				con.Close(diameter.Rebooting)
-			}
-		}()
+	if TransportUpNotify != nil {
+		TransportUpNotify(c.LocalAddr(), c.RemoteAddr())
 	}
-
+	registerTermSignals(diameter.Rebooting)
 	return con.DialAndServe(c)
 }
 
 // ListenAndServe start diameter connection handling process as responder.
-// Inputs are string of local(la) host information with format for ResolveIdentiry.
+// Inputs are string of local(la) and peer(pa) host information with format for ResolveIdentity.
+// Connection request will be rejected if peer address is not same as pa.
 func ListenAndServe(la, pa string) (err error) {
-	lscheme, host, realm, lips, lport, err := ResolveIdentity(la)
+	src, dst, err := resolveAddresses(la, pa)
+	if err != nil {
+		return
+	}
+
+	ehs, ep, err := net.SplitHostPort(dst.String())
+	if err != nil {
+		return
+	}
+
+	var l net.Listener
+	switch src.Network() {
+	case "sctp":
+		ssrc := src.(*sctp.SCTPAddr)
+		l, err = sctp.ListenSCTP(ssrc)
+	default:
+		tsrc := src.(*net.TCPAddr)
+		l, err = net.ListenTCP("tcp", tsrc)
+	}
+	if err != nil {
+		return
+	}
+
+	c, err := l.Accept()
+	l.Close()
+	if err != nil {
+		return
+	}
+
+	if TransportUpNotify != nil {
+		TransportUpNotify(c.LocalAddr(), c.RemoteAddr())
+	}
+	ahs, ap, err := net.SplitHostPort(c.RemoteAddr().String())
+	if err != nil {
+	} else if ep != "0" && ep != ap {
+		err = errors.New("connection peer transport port is invalid")
+	} else {
+		for _, eh := range strings.Split(ehs, "/") {
+			ok := false
+			for _, ah := range strings.Split(ahs, "/") {
+				if eh == ah {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				err = errors.New("connection peer transport address is invalid")
+				break
+			}
+		}
+	}
+	if err != nil {
+		c.Close()
+		return
+	}
+
+	registerTermSignals(diameter.DoNotWantToTalkToYou)
+	return con.ListenAndServe(c)
+}
+
+var DefaultRouter diameter.Router = func(diameter.Message) *diameter.Connection {
+	return &con
+}
+
+var TransportInfoNotify func(src, dst net.Addr) = nil
+var TransportUpNotify func(src, dst net.Addr) = nil
+
+func resolveAddresses(la, pa string) (src, dst net.Addr, err error) {
+	scheme, host, realm, pips, pport, err := ResolveIdentity(pa)
+	if err != nil {
+		return
+	}
+	con = diameter.Connection{Host: host, Realm: realm}
+
+	_, host, realm, lips, lport, err := ResolveIdentity(la)
 	if err != nil {
 		return
 	}
 	diameter.Host = host
 	diameter.Realm = realm
 
-	pscheme, host, realm, pips, pport, err := ResolveIdentity(pa)
-	if err != nil {
-		return
-	}
-	con = diameter.Connection{Host: host, Realm: realm}
-
-	if lscheme == "" {
-		lscheme = "tcp"
-	}
-	if pscheme != "" && lscheme != pscheme {
-		err = errors.New("transport protocol mismatch")
-		return
-	}
-
-	var l net.Listener
-	switch lscheme {
+	switch scheme {
 	case "sctp":
-		l, err = sctp.ListenSCTP(&sctp.SCTPAddr{IP: lips, Port: lport})
+		src = &sctp.SCTPAddr{IP: lips, Port: lport}
+		dst = &sctp.SCTPAddr{IP: pips, Port: pport}
+		if TransportInfoNotify != nil {
+			TransportInfoNotify(src, dst)
+		}
+	case "tcp", "":
+		src = &net.TCPAddr{IP: lips[0], Port: lport}
+		dst = &net.TCPAddr{IP: pips[0], Port: pport}
+		if TransportInfoNotify != nil {
+			TransportInfoNotify(src, dst)
+		}
 	default:
-		l, err = net.ListenTCP("tcp", &net.TCPAddr{IP: lips[0], Port: lport})
+		err = errors.New("invalid scheme")
 	}
-	if err != nil {
-		return
-	}
+	return
+}
 
-	var c net.Conn
-	for {
-		c, err = l.Accept()
-		if err != nil {
-			c.Close()
-			return
-		}
-		ra := c.RemoteAddr()
-		hs, p, err := net.SplitHostPort(ra.String())
-		if err != nil {
-			c.Close()
-			continue
-		}
-		if strconv.Itoa(pport) != p {
-			c.Close()
-			continue
-		}
-		if !checkIP(strings.Split(hs, "/"), pips) {
-			c.Close()
-			continue
-		}
-		break
-	}
-	l.Close()
-
+func registerTermSignals(cause diameter.Enumerated) {
 	if len(TermSignals) != 0 {
 		sigc := make(chan os.Signal, 1)
 		signal.Notify(sigc, TermSignals...)
@@ -144,34 +164,8 @@ func ListenAndServe(la, pa string) (err error) {
 				TermCause == diameter.DoNotWantToTalkToYou {
 				con.Close(TermCause)
 			} else {
-				con.Close(diameter.DoNotWantToTalkToYou)
+				con.Close(cause)
 			}
 		}()
 	}
-
-	return con.ListenAndServe(c)
-}
-
-func checkIP(addrs []string, ips []net.IP) bool {
-	for _, h := range addrs {
-		i := net.ParseIP(h)
-		if i == nil {
-			return false
-		}
-		ok := false
-		for _, ip := range ips {
-			if ip.Equal(i) {
-				ok = true
-				break
-			}
-		}
-		if !ok {
-			return false
-		}
-	}
-	return true
-}
-
-var DefaultRouter diameter.Router = func(diameter.Message) *diameter.Connection {
-	return &con
 }

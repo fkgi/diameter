@@ -1,4 +1,4 @@
-package main
+package dictionary
 
 import (
 	"bytes"
@@ -9,14 +9,30 @@ import (
 	"net/http"
 
 	"github.com/fkgi/diameter"
-	"github.com/fkgi/diameter/dictionary"
 )
 
-func registerHandler(path string, cid, aid, vid uint32, rt diameter.Router) {
+func (d Dictionary) RegisterHandler(backend, path string, rt diameter.Router) {
+	for vn, vnd := range d {
+		if vnd.ID == 0 {
+			continue
+		}
+		for an, app := range vnd.Apps {
+			for cn, cmd := range app.Cmds {
+				registerHandler(backend, path+vn+"/"+an+"/"+cn,
+					cmd.ID, app.ID, vnd.ID, rt)
+			}
+		}
+	}
+	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+		httpErr("not found", "invalid URI path", http.StatusNotFound, w)
+	})
+}
+
+func registerHandler(backend, path string, cid, aid, vid uint32, rt diameter.Router) {
 	serveDiameter := func(_ bool, avps []diameter.AVP) (bool, []diameter.AVP) {
-		if rxPath == "" {
+		if backend == "" {
 			return diameterErr(diameter.UnableToDeliver,
-				"no HTTP destination is defined")
+				"no HTTP backend is defined")
 		}
 
 		data, e := formatAVPs(avps)
@@ -29,11 +45,10 @@ func registerHandler(path string, cid, aid, vid uint32, rt diameter.Router) {
 			return diameterErr(diameter.InvalidAvpValue,
 				"unable to marshal AVPs to JSON: "+e.Error())
 		}
-		r, e := http.Post(rxPath+path, "application/json",
-			bytes.NewBuffer(jsondata))
+		r, e := http.Post(backend+path, "application/json", bytes.NewBuffer(jsondata))
 		if e != nil {
 			return diameterErr(diameter.UnableToDeliver,
-				"unable to send HTTP request: "+e.Error())
+				"unable to send HTTP request to backend: "+e.Error())
 		}
 
 		jsondata, e = io.ReadAll(r.Body)
@@ -129,7 +144,7 @@ func diameterErr(code uint32, err string) (bool, []diameter.AVP) {
 func formatAVPs(avps []diameter.AVP) (map[string]any, error) {
 	result := make(map[string]any)
 	for _, a := range avps {
-		n, v, e := dictionary.DecodeAVP(a)
+		n, v, e := DecodeAVP(a)
 		if e != nil {
 			return nil, e
 		}
@@ -141,7 +156,7 @@ func formatAVPs(avps []diameter.AVP) (map[string]any, error) {
 func parseAVPs(d map[string]any) ([]diameter.AVP, error) {
 	avps := make([]diameter.AVP, 0, 10)
 	for k, v := range d {
-		a, e := dictionary.EncodeAVP(k, v)
+		a, e := EncodeAVP(k, v)
 		if e != nil {
 			return nil, fmt.Errorf("%s is invalid: %v", k, e)
 		}

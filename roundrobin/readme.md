@@ -12,45 +12,63 @@ It receive HTTP REST answer, then make Diameter answer message from received HTT
 HTTP REST request/answer must have specific format JSON document. Dictionary file for converting Diameter message and JSON document must pre-configured.
 
 # How to run Round-Robin
-Execute binary file with below options.
+Commandline options.
 
 ```
-rountdobin -diameter-local sctp://mme.epc.mcc99.mnc999.3gppnetwork.org -diameter-peer sctp://hss.ecp.mcc99.mnc999.3gppnetwork.org -http-local :8080 -http-peer mockserver:8080 -dictionary ./s6a.json
+roundrobin [OPTION]... DIAMETER_PEER
+DIAMETER_PEER = [(tcp|sctp)://][realm/]hostname[:port]
 ```
+
+Commandline example
+
+```
+roundrobin -l mme.epc.mcc99.mnc999.3gppnetwork.org -i :8080 -b mockserver:8080 -c rebooting -d ./s6a.json sctp://hss.ecp.mcc99.mnc999.3gppnetwork.org
+```
+
+## Args
+- `DIAMETER_PEER`  
+Diameter peer host definition.  
+If Round-Robin run as client, Round-Robin connect to specified Diameter peer.
+If Round-Robin run as server, Round-Robin check source of incoming connection by compareing specified Diameter peer.
 
 ## Options
-- diameter-local  
+- `-l`  
 Diameter local host definition.
-Hostname of operating system is used as default.
+Value must have format `[realm/]host[:port]`.
+Hostname of operating system is used as default of `host`.
+Refer following section about other parameters.
 
-- diameter-peer  
-Diameter peer host definition.
-If this parameter is used, Round-Robin run as client and try to connect to specified peer node.
-
-- http-local  
+- `-i`  
 Local listening address and port for receiving HTTP REST request.
 Value must have format `host[:port]`.
 `host` is hostname or IP address.
 IP address is resolved from hostname if hostname is specified.
 `port` is port number.
 
-- http-peer  
-Peer connecting address and port for sending HTTP REST request.
+- `-b`  
+Peer address and port for sending HTTP REST request.
 Value must have format `host[:port]`.
 `host` is hostname or IP address.
 IP address is resolved from hostname if hostname is specified.
 `port` is port number.
 
-- dictionary  
+- `-d`  
 Path for dictionary JSON file.
 `dictionary.json` file in current directory is used as default.
 
+- `-c`  
+Diameter connection disconnecting cause. Available value is `rebooting` or `busy` or `do_not_want_to_talk_to_you`.
+Default value is `rebooting` if Round-Robin run as client, or `do_not_want_to_talk_to_you` if Round-Robin run server.
+
+- `-s`  
+If this parameter is enabled, Round-Robin run as client and try to connect to specified peer node.
+
 ## Format of Diameter node identity
-`diameter-local` and `diameter-peer` option must have below format.
+
 ```
-[tcp|sctp://][realm/]hostname[:port]
+[(tcp|sctp)://][realm/]hostname[:port]
 ```
-Transport layer protocol is specified by first item `[tcp|sctp://]`.
+Transport layer protocol is specified by first item `[(tcp|sctp)://]`.
 `tcp` and `sctp` is acceptable value. `tcp` is used as default if this item is omitted.
 
 Diameter Realm is specified by second item `[realm/]`.
@@ -63,7 +81,10 @@ IP address is derived from hostname.
 
 Transport layer port number is specified by last item `[:port]`.
 It must available port number digit.
-3868 is used as default if this item is omitted.
+`3868` is used as default if this item is omitted.
+
+Port `0` is used as any for source port.
+If local port is 0 and Round-Robin run as client, local port is automaticaly selected by system. If peer port is 0 and Round-Robin run as server, connection from any peer port is accepted.
 
 # Format of Dictionary file
 Dictionary file is JSON document.

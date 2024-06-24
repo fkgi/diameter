@@ -31,9 +31,17 @@ func ListenAndServe(la string) (err error) {
 	var l net.Listener
 	switch scheme {
 	case "sctp":
-		l, err = sctp.ListenSCTP(&sctp.SCTPAddr{IP: ips, Port: port})
+		src := &sctp.SCTPAddr{IP: ips, Port: port}
+		if connector.TransportInfoNotify != nil {
+			connector.TransportInfoNotify(src, nil)
+		}
+		l, err = sctp.ListenSCTP(src)
 	default:
-		l, err = net.ListenTCP("tcp", &net.TCPAddr{IP: ips[0], Port: port})
+		src := &net.TCPAddr{IP: ips[0], Port: port}
+		if connector.TransportInfoNotify != nil {
+			connector.TransportInfoNotify(src, nil)
+		}
+		l, err = net.ListenTCP("tcp", src)
 	}
 	if err != nil {
 		return
