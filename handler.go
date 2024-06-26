@@ -107,7 +107,7 @@ func rxHandlerHelper(req Message) (ans Message, err error) {
 
 // DefaultTxHandler for sending Diameter request message without Handler or relay application.
 func (c *Connection) DefaultTxHandler(m Message) Message {
-	if _, ok := c.applications[m.AppID]; !ok && len(c.applications) != 0 {
+	if _, ok := c.commonApp[m.AppID]; !ok && len(c.commonApp) != 0 {
 		return m.generateAnswerBy(UnableToDeliver)
 	}
 

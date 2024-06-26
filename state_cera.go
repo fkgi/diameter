@@ -66,8 +66,8 @@ func (v eventRcvCER) exec(c *Connection) error {
 	var oHost Identity
 	var oRealm Identity
 	var hostIP = make([]net.IP, 0, 2)
-	// var venID uint32
-	// var prodName string
+	var venID uint32
+	var prodName string
 	var oState uint32
 	var supportVendor = []uint32{}
 	var authApps = make(map[uint32]uint32)
@@ -107,21 +107,17 @@ func (v eventRcvCER) exec(c *Connection) error {
 				err = e
 			}
 		case 266:
-			/*
-				if venID != 0 {
-					err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
-				} else {
-					venID, err = GetVendorID(a)
-				}
-			*/
+			if venID != 0 {
+				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
+			} else {
+				venID, err = GetVendorID(a)
+			}
 		case 269:
-			/*
-				if len(prodName) != 0 {
-					err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
-				} else {
-					prodName, err = getProductName(a)
-				}
-			*/
+			if len(prodName) != 0 {
+				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
+			} else {
+				prodName, err = getProductName(a)
+			}
 		case 265:
 			var vid uint32
 			if vid, err = getSupportedVendorID(a); err == nil {
@@ -146,9 +142,7 @@ func (v eventRcvCER) exec(c *Connection) error {
 				oState, err = getOriginStateID(a)
 			}
 		case 267:
-			/*
-				firmwareRevision, err = getFirmwareRevision(a)
-			*/
+			_, err = getFirmwareRevision(a)
 		default:
 			if a.Mandatory {
 				err = InvalidAVP{Code: AvpUnsupported, AVP: a}
@@ -174,21 +168,24 @@ func (v eventRcvCER) exec(c *Connection) error {
 	}
 
 	if err == nil {
-		if _, ok := authApps[0xffffffff]; ok {
+		if _, ok := authApps[0xffffffff]; ok && len(applications) != 0 {
+			for aid, app := range applications {
+				c.commonApp[aid] = app
+			}
 		} else if len(applications) == 0 {
 			for aid, vid := range authApps {
-				c.applications[aid] = application{
+				c.commonApp[aid] = application{
 					venID:    vid,
 					handlers: make(map[uint32]Handler)}
 			}
 		} else {
-			// var commonApp = make(map[uint32]application)
 			for laid, lapp := range applications {
 				if pvid, ok := authApps[laid]; ok && pvid == lapp.venID {
-					c.applications[laid] = lapp
+					c.commonApp[laid] = lapp
+					break
 				}
 			}
-			if len(c.applications) == 0 {
+			if len(c.commonApp) == 0 {
 				rap := "required applications are "
 				for k := range authApps {
 					rap = fmt.Sprintf("%s, %d", rap, k)
@@ -196,9 +193,7 @@ func (v eventRcvCER) exec(c *Connection) error {
 				err = InvalidMessage{
 					Code:   ApplicationUnsupported,
 					ErrMsg: rap}
-			} /* else {
-				applications = commonApp
-			}*/
+			}
 		}
 	}
 
@@ -271,11 +266,11 @@ func (v eventRcvCER) exec(c *Connection) error {
 	if stateID != 0 {
 		setOriginStateID(stateID).MarshalTo(buf)
 	}
-	if len(c.applications) == 0 {
+	if len(c.commonApp) == 0 {
 		SetAuthAppID(0xffffffff).MarshalTo(buf)
 	} else {
 		vmap := make(map[uint32]interface{})
-		for aid, app := range c.applications {
+		for aid, app := range c.commonApp {
 			if app.venID == 0 {
 				SetAuthAppID(aid).MarshalTo(buf)
 			} else if _, ok := vmap[app.venID]; ok {
@@ -352,8 +347,8 @@ func (v eventRcvCEA) exec(c *Connection) error {
 	var oHost Identity
 	var oRealm Identity
 	var hostIP = make([]net.IP, 0, 2)
-	// var venID uint32
-	// var prodName string
+	var venID uint32
+	var prodName string
 	var oState uint32
 	var errorMsg string
 	var failedAVP []AVP
@@ -401,21 +396,17 @@ func (v eventRcvCEA) exec(c *Connection) error {
 				err = e
 			}
 		case 266:
-			/*
-				if venID != 0 {
-					err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
-				} else {
-					venID, err = GetVendorID(a)
-				}
-			*/
+			if venID != 0 {
+				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
+			} else {
+				venID, err = GetVendorID(a)
+			}
 		case 269:
-			/*
-				if len(prodName) != 0 {
-					err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
-				} else {
-					prodName, err = getProductName(a)
-				}
-			*/
+			if len(prodName) != 0 {
+				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
+			} else {
+				prodName, err = getProductName(a)
+			}
 		case 265:
 			var vid uint32
 			if vid, err = getSupportedVendorID(a); err == nil {
@@ -444,9 +435,7 @@ func (v eventRcvCEA) exec(c *Connection) error {
 		case 279:
 			failedAVP, err = getFailedAVP(a)
 		case 267:
-			/*
-				firmwareRevision, err = getFirmwareRevision(a)
-			*/
+			_, err = getFirmwareRevision(a)
 		default:
 			if a.Mandatory {
 				err = InvalidAVP{Code: AvpUnsupported, AVP: a}
@@ -470,22 +459,24 @@ func (v eventRcvCEA) exec(c *Connection) error {
 		}
 	}
 	if err == nil {
-		if _, ok := authApps[0xffffffff]; ok {
+		if _, ok := authApps[0xffffffff]; ok && len(applications) != 0 {
+			for aid, app := range applications {
+				c.commonApp[aid] = app
+			}
 		} else if len(applications) == 0 {
 			for aid, vid := range authApps {
-				c.applications[aid] = application{
+				c.commonApp[aid] = application{
 					venID:    vid,
 					handlers: make(map[uint32]Handler)}
 			}
 		} else {
-			// var commonApp = make(map[uint32]application)
 			for laid, lapp := range applications {
 				if pvid, ok := authApps[laid]; ok && pvid == lapp.venID {
-					c.applications[laid] = lapp
+					c.commonApp[laid] = lapp
 					break
 				}
 			}
-			if len(c.applications) == 0 {
+			if len(c.commonApp) == 0 {
 				rap := "required applications are "
 				for k := range authApps {
 					rap = fmt.Sprintf("%s, %d", rap, k)
@@ -493,9 +484,7 @@ func (v eventRcvCEA) exec(c *Connection) error {
 				err = InvalidMessage{
 					Code:   ApplicationUnsupported,
 					ErrMsg: rap}
-			} /* else {
-				applications = commonApp
-			}*/
+			}
 		}
 	}
 

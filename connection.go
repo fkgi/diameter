@@ -15,9 +15,6 @@ var (
 	stateID uint32   // Local diameter state ID
 
 	OverwriteAddr []net.IP // Overwrite IP addresses of local host in CER
-
-	//sndQueue = make(map[uint32]chan Message, 65535) // Sending Request message queue
-	//rcvQueue = make(chan Message, 65535)            // Receiving Request message queue
 )
 
 type Connection struct {
@@ -35,7 +32,7 @@ type Connection struct {
 	sndQueue map[uint32]chan Message // Sending Request message queue
 	rcvQueue chan Message            // Receiving Request message queue
 
-	applications map[uint32]application
+	commonApp map[uint32]application
 }
 
 func (c *Connection) DialAndServe(con net.Conn) (e error) {
@@ -59,7 +56,7 @@ func (c *Connection) serve() error {
 	c.notify = make(chan stateEvent, 16)
 	c.sndQueue = make(map[uint32]chan Message, 65535)
 	c.rcvQueue = make(chan Message, 65535)
-	c.applications = make(map[uint32]application)
+	c.commonApp = make(map[uint32]application)
 
 	go func() {
 		// read transport socket

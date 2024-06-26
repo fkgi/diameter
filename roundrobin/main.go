@@ -136,6 +136,16 @@ func main() {
 		fmt.Fprintln(buf, "Diameter connection up")
 		fmt.Fprintln(buf, "| local host/realm:", diameter.Host, "/", diameter.Realm)
 		fmt.Fprintln(buf, "| peer  host/realm:", c.Host, "/", c.Realm)
+		fmt.Fprint(buf, "| available application: ")
+		for _, ap := range c.AvailableApplications() {
+			for _, v := range dicData {
+				for k, app := range v.Apps {
+					if app.ID == ap {
+						fmt.Fprintf(buf, "%s(%d), ", k, ap)
+					}
+				}
+			}
+		}
 		log.Print(buf)
 	}
 	diameter.TraceEvent = func(old, new, event string, err error) {

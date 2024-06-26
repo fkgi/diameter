@@ -64,6 +64,15 @@ func (c *Connection) State() string {
 	return c.state.String()
 }
 
+// AvailableApplications returns supported application list
+func (c *Connection) AvailableApplications() []uint32 {
+	ret := []uint32{}
+	for k := range c.commonApp {
+		ret = append(ret, k)
+	}
+	return ret
+}
+
 var (
 	// Statistics values
 	RxReq     uint64

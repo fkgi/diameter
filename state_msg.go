@@ -30,9 +30,9 @@ func (v eventRcvReq) exec(c *Connection) error {
 	} else if len(c.rcvQueue) == cap(c.rcvQueue) {
 		result = TooBusy
 		err = errors.New("too busy, receive queue is full")
-	} else if len(c.applications) == 0 {
+	} else if len(c.commonApp) == 0 {
 		c.rcvQueue <- v.m
-	} else if _, ok := c.applications[v.m.AppID]; ok {
+	} else if _, ok := c.commonApp[v.m.AppID]; ok {
 		c.rcvQueue <- v.m
 	} else {
 		result = ApplicationUnsupported
