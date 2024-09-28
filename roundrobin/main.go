@@ -16,7 +16,7 @@ import (
 	"github.com/fkgi/diameter/dictionary"
 )
 
-const apiPath = "/msg/v1/"
+const apiPath = "/diamsg/v1/"
 
 var rxPath string
 
@@ -81,6 +81,8 @@ func main() {
 		fmt.Fprintln(buf)
 	}
 	log.Print(buf)
+
+	http.HandleFunc("/state/v1/connection", conStateHandler)
 
 	rxPath = "http://" + *hpeer
 	_, err = url.Parse(rxPath)
@@ -167,4 +169,36 @@ func main() {
 		log.Println("connecting Diameter...")
 		log.Println("closed, error=", connector.DialAndServe(*dlocal, dpeer))
 	}
+}
+
+const constatFmt = `{
+	"state": "%s",
+	"local": {
+		"host": "%s",
+		"realm": "%s",
+		"address": "%s"
+	},
+	"peer": {
+		"host": "%s",
+		"realm": "%s",
+		"address": "%s"
+	}
+}`
+
+func conStateHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Add("Allow", "GET")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf(constatFmt,
+		connector.State(),
+		diameter.Host,
+		diameter.Realm,
+		connector.LocalAddr(),
+		connector.PeerName(),
+		connector.PeerRealm(),
+		connector.PeerAddr())))
 }

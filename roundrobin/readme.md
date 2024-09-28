@@ -170,10 +170,10 @@ Value of the Map is Enumerated digit value
 
 # Format of REST message
 Only POST method is acceptable for HTTP REST request.
-HTTP URI path has prefix `/msg/v1`.
+HTTP URI path has prefix `/diamsg/v1`.
 HTTP URI path has required Diameter command by `/{vendor name}/{application name}/{command name}`. Each names are defined in dictionary file.
 ```
-POST http://roundrobin:8080/msg/v1/3GPP/S6a/Update-Location
+POST http://roundrobin:8080/diamsg/v1/3GPP/S6a/Update-Location
 ```
 
 HTTP body is JSON Map object.

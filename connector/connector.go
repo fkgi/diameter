@@ -169,3 +169,27 @@ func registerTermSignals(cause diameter.Enumerated) {
 		}()
 	}
 }
+
+// RxQueue returns length of Rx queue
+func RxQueue() int { return con.RxQueue() }
+
+// TxQueue returns length of Tx queue
+func TxQueue() int { return con.TxQueue() }
+
+// LocalAddr returns local address of transport connection
+func LocalAddr() net.Addr { return con.LocalAddr() }
+
+// PeerAddr returns transport connection
+func PeerAddr() net.Addr { return con.PeerAddr() }
+
+// PeerName returns hostname of diameter connection
+func PeerName() diameter.Identity { return con.Host }
+
+// PeerRealm returns realm of diameter connection
+func PeerRealm() diameter.Identity { return con.Realm }
+
+// State returns state machine state
+func State() string { return con.State() }
+
+// AvailableApplications returns supported application list
+func AvailableApplications() []uint32 { return con.AvailableApplications() }
