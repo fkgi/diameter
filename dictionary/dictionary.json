@@ -38,6 +38,27 @@
                         "id": 324
                     }
                 }
+            },
+            "S6c": {
+                "id": 16777312,
+                "command": {
+                    "Send-Routing-Info-for-SM": {
+                        "id": 8388647
+                    },
+                    "Alert-Service-Centre": {
+                        "id": 8388648
+                    },
+                    "Report-SM-Delivery-Status": {
+                        "id": 8388649
+                    }
+                }
+            },
+            "SGd": {
+                "id": 16777313,
+                "command": {
+                    "MO-Forward-Short-Message": 8388645,
+                    "MT-Forward-Short-Message": 8388646
+                }
             }
         },
         "avps": {
@@ -714,8 +735,8 @@
                 "id": 1613,
                 "type": "Enumerated",
                 "map": {
-                    "SIPTO_above_RAN _ALLOWED": 0,
-                    "SIPTO_above_RAN _NOTALLOWED": 1
+                    "SIPTO_above_RAN_ALLOWED": 0,
+                    "SIPTO_above_RAN_NOTALLOWED": 1
                 }
             },
             "MDT-Configuration": {
@@ -1504,14 +1525,6 @@
                 "id": 3148,
                 "type": "Time"
             },
-            "Maximum-UE-Availability-Time": {
-                "id": 3329,
-                "type": "Time"
-            },
-            "Load": {
-                "id": 650,
-                "type": "Grouped"
-            },
             "Extended-eNodeB-ID": {
                 "id": 4013,
                 "type": "OctetString"
@@ -1559,6 +1572,292 @@
             "SCEF-Reference-ID-for-Deletion-Ext": {
                 "id": 3187,
                 "type": "Unsigned64"
+            },
+            "Emergency-Services": {
+                "id": 1538,
+                "type": "Unsigned32"
+            },
+            "SM-RP-MTI": {
+                "id": 3308,
+                "mandatory": true,
+                "type": "Enumerated",
+                "map": {
+                    "SM_DELIVER": 0,
+                    "SM_STATUS_REPORT": 1
+                }
+            },
+            "SM-RP-SMEA": {
+                "id": 3309,
+                "mandatory": true,
+                "type": "OctetString"
+            },
+            "SRR-Flags": {
+                "id": 3310,
+                "mandatory": true,
+                "type": "Unsigned32"
+            },
+            "SM-Delivery-Not-Intended": {
+                "id": 3311,
+                "mandatory": true,
+                "type": "Enumerated",
+                "map": {
+                    "ONLY_IMSI_REQUESTED": 0,
+                    "ONLY_MCC_MNC_REQUESTED": 1
+                }
+            },
+            "MWD-Status": {
+                "id": 3312,
+                "mandatory": true,
+                "type": "Unsigned32"
+            },
+            "MME-Absent-User-Diagnostic-SM": {
+                "id": 3313,
+                "mandatory": true,
+                "type": "Unsigned32"
+            },
+            "MSC-Absent-User-Diagnostic-SM": {
+                "id": 3314,
+                "mandatory": true,
+                "type": "Unsigned32"
+            },
+            "SGSN-Absent-User-Diagnostic SM": {
+                "id": 3315,
+                "mandatory": true,
+                "type": "Unsigned32"
+            },
+            "SM-Delivery-Outcome": {
+                "id": 3316,
+                "mandatory": true,
+                "type": "Grouped"
+            },
+            "MME-SM-Delivery-Outcome": {
+                "id": 3317,
+                "mandatory": true,
+                "type": "Grouped"
+            },
+            "MSC-SM-Delivery-Outcome": {
+                "id": 3318,
+                "mandatory": true,
+                "type": "Grouped"
+            },
+            "SGSN-SM-Delivery-Outcome": {
+                "id": 3319,
+                "mandatory": true,
+                "type": "Grouped"
+            },
+            "IP-SM-GW-SM-Delivery-Outcome": {
+                "id": 3320,
+                "mandatory": true,
+                "type": "Grouped"
+            },
+            "SM-Delivery-Cause": {
+                "id": 3321,
+                "mandatory": true,
+                "type": "Enumerated",
+                "map": {
+                    "UE_ MEMORY_CAPACITY_EXCEEDED": 0,
+                    "ABSENT_USER": 1,
+                    "SUCCESSFUL_TRANSFER": 2
+                }
+            },
+            "Absent-User-Diagnostic-SM": {
+                "id": 3322,
+                "mandatory": true,
+                "type": "Unsigned32"
+            },
+            "RDR-Flags": {
+                "id": 3323,
+                "type": "Unsigned32"
+            },
+            "Maximum-UE-Availability-Time": {
+                "id": 3329,
+                "type": "Time"
+            },
+            "SMS-GMSC-Alert-Event": {
+                "id": 3333,
+                "type": "Unsigned32"
+            },
+            "SMSF-3GPP-Absent-User-Diagnostic-SM": {
+                "id": 3334,
+                "type": "Unsigned32"
+            },
+            "SMSF-Non-3GPP-Absent-User-Diagnostic-SM": {
+                "id": 3335,
+                "type": "Unsigned32"
+            },
+            "SMSF-3GPP-SM-Delivery-Outcome": {
+                "id": 3336,
+                "type": "Grouped"
+            },
+            "SMSF-Non-3GPP-SM-Delivery-Outcome": {
+                "id": 3337,
+                "type": "Grouped"
+            },
+            "SMSF-3GPP-Number": {
+                "id": 3338,
+                "type": "OctetString"
+            },
+            "SMSF-Non-3GPP-Number": {
+                "id": 3339,
+                "type": "OctetString"
+            },
+            "SMSF-3GPP-Name": {
+                "id": 3340,
+                "type": "DiameterIdentity"
+            },
+            "SMSF-Non-3GPP-Name": {
+                "id": 3341,
+                "type": "DiameterIdentity"
+            },
+            "SMSF-3GPP-Realm": {
+                "id": 3342,
+                "type": "DiameterIdentity"
+            },
+            "SMSF-Non-3GPP-Realm": {
+                "id": 3343,
+                "type": "DiameterIdentity"
+            },
+            "SMSF-3GPP-Address": {
+                "id": 3344,
+                "type": "Grouped"
+            },
+            "SMSF-Non-3GPP-Address": {
+                "id": 3345,
+                "type": "Grouped"
+            },
+            "SC-Address": {
+                "id": 3300,
+                "mandatory": true,
+                "type": "OctetString"
+            },
+            "SM-RP-UI": {
+                "id": 3301,
+                "mandatory": true,
+                "type": "OctetString"
+            },
+            "TFR-Flags": {
+                "id": 3302,
+                "mandatory": true,
+                "type": "Unsigned32"
+            },
+            "SM-Delivery-Failure-Cause": {
+                "id": 3303,
+                "mandatory": true,
+                "type": "Grouped"
+            },
+            "SM-Enumerated-Delivery-Failure-Cause": {
+                "id": 3304,
+                "mandatory": true,
+                "type": "Enumerated",
+                "map": {
+                    "MEMORY_CAPACITY_EXCEEDED": 0,
+                    "EQUIPMENT_PROTOCOL_ERROR": 1,
+                    "EQUIPMENT_NOT_SM-EQUIPPED": 2,
+                    "UNKNOWN_SERVICE_CENTRE": 3,
+                    "SC-CONGESTION": 4,
+                    "INVALID_SME-ADDRESS": 5,
+                    "USER_NOT_SC-USER": 6
+                }
+            },
+            "SM-Diagnostic-Info": {
+                "id": 3305,
+                "mandatory": true,
+                "type": "OctetString"
+            },
+            "SM-Delivery-Timer": {
+                "id": 3306,
+                "mandatory": true,
+                "type": "Unsigned32"
+            },
+            "SM-Delivery-Start-Time": {
+                "id": 3307,
+                "mandatory": true,
+                "type": "Time"
+            },
+            "SMSMI-Correlation-ID": {
+                "id": 3324,
+                "type": "Grouped"
+            },
+            "HSS-ID": {
+                "id": 3325,
+                "type": "OctetString"
+            },
+            "Originating-SIP-URI": {
+                "id": 3326,
+                "type": "UTF8String"
+            },
+            "Destination-SIP-URI": {
+                "id": 3327,
+                "type": "UTF8String"
+            },
+            "OFR-Flags": {
+                "id": 3328,
+                "type": "Unsigned32"
+            },
+            "Maximum-Retransmission-Time": {
+                "id": 3330,
+                "type": "Time"
+            },
+            "Requested-Retransmission-Time": {
+                "id": 3331,
+                "type": "Time"
+            },
+            "SMS-GMSC-Address": {
+                "id": 3332,
+                "type": "OctetString"
+            },
+            "LMSI": {
+                "id": 2400,
+                "mandatory": true,
+                "type": "OctetString"
+            },
+            "Serving-Node": {
+                "id": 2401,
+                "mandatory": true,
+                "type": "Grouped"
+            },
+            "MSC-Number": {
+                "id": 2403,
+                "mandatory": true,
+                "type": "OctetString"
+            },
+            "MME-Name": {
+                "id": 2402,
+                "mandatory": true,
+                "type": "DiameterIdentity"
+            },
+            "MME-Realm": {
+                "id": 2408,
+                "mandatory": true,
+                "type": "DiameterIdentity"
+            },
+            "SGSN-Name": {
+                "id": 2409,
+                "type": "DiameterIdentity"
+            },
+            "SGSN-Realm": {
+                "id": 2410,
+                "type": "DiameterIdentity"
+            },
+            "Additional-Serving-Node": {
+                "id": 2406,
+                "mandatory": true,
+                "type": "Grouped"
+            },
+            "User-Identifier": {
+                "id": 3102,
+                "mandatory": true,
+                "type": "Grouped"
+            },
+            "IP-SM-GW-Name": {
+                "id": 3101,
+                "mandatory": true,
+                "type": "DiameterIdentity"
+            },
+            "IP-SM-GW-Number": {
+                "id": 3100,
+                "mandatory": true,
+                "type": "OctetString"
             }
         }
     },
@@ -1747,9 +2046,9 @@
                 "id": 623,
                 "type": "Grouped"
             },
-            "Emergency-Services": {
-                "id": 1538,
-                "type": "Unsigned32"
+            "Load": {
+                "id": 650,
+                "type": "Grouped"
             }
         }
     }

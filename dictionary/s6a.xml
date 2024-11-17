@@ -1,0 +1,769 @@
+<dictionary>
+    <vendor name="3GPP" id="10415">
+        <application name="S6a" id="16777251">
+            <command name="Update-Location" id="316" />
+            <command name="Cancel-Location" id="317" />
+            <command name="Authentication-Information" id="318" />
+            <command name="Insert-Subscriber-Data" id="319" />
+            <command name="Delete-Subscriber-Data" id="320" />
+            <command name="Purge-UE" id="321" />
+            <command name="Reset" id="322" />
+            <command name="Notify" id="323" />
+        </application>
+
+        <!-- TS29.338 S6c AVP -->
+        <avp name="Subscription-Data" id="1400" type="Grouped" mandatory="true" />
+        <avp name="Terminal-Information" id="1401" type="Grouped" mandatory="true" />
+        <avp name="IMEI" id="1402" type="UTF8String" mandatory="true" />
+        <avp name="Software-Version" id="1403" type="UTF8String" mandatory="true" />
+        <avp name="QoS-Subscribed" id="1404" type="OctetString" mandatory="true" />
+        <avp name="ULR-Flags" id="1405" type="Unsigned32" mandatory="true" />
+        <avp name="ULA-Flags" id="1406" type="Unsigned32" mandatory="true" />
+        <avp name="Visited-PLMN-Id" id="1407" type="OctetString" mandatory="true" />
+        <avp name="Requested-EUTRAN-Authentication-Info" id="1408" type="Grouped" mandatory="true" />
+        <avp name="Requested-UTRAN-GERAN-Authentication-Info" id="1409" type="Grouped"
+            mandatory="true" />
+        <avp name="Number-Of-Requested-Vectors" id="1410" type="Unsigned32" mandatory="true" />
+        <avp name="Re-Synchronization-Info" id="1411" type="OctetString" mandatory="true" />
+        <avp name="Immediate-Response-Preferred" id="1412" type="Unsigned32" mandatory="true" />
+        <avp name="Authentication-Info" id="1413" type="Grouped" mandatory="true" />
+        <avp name="E-UTRAN-Vector" id="1414" type="Grouped" mandatory="true" />
+        <avp name="UTRAN-Vector" id="1415" type="Grouped" mandatory="true" />
+        <avp name="GERAN-Vector" id="1416" type="Grouped" mandatory="true" />
+        <avp name="Network-Access-Mode" id="1417" type="Enumerated" mandatory="true">
+            <enum value="0">PACKET_AND_CIRCUIT</enum>
+            <enum value="2">ONLY_PACKET</enum>
+        </avp>
+        <avp name="HPLMN-ODB" id="1418" type="Unsigned32" mandatory="true" />
+        <avp name="Item-Number" id="1419" type="Unsigned32" mandatory="true" />
+        <avp name="Cancellation-Type" id="1420" type="Enumerated" mandatory="true">
+            <enum value="0">MME_UPDATE_PROCEDURE</enum>
+            <enum value="1">SGSN_UPDATE_PROCEDURE</enum>
+            <enum value="2">SUBSCRIPTION_WITHDRAWAL</enum>
+            <enum value="3">UPDATE_PROCEDURE_IWF</enum>
+            <enum value="4">INITIAL_ATTACH_PROCEDURE</enum>
+        </avp>
+        <avp name="DSR-Flags" id="1421" type="Unsigned32" mandatory="true" />
+        <avp name="DSA-Flags" id="1422" type="Unsigned32" mandatory="true" />
+        <avp name="Context-Identifier" id="1423" type="Unsigned32" mandatory="true" />
+        <avp name="Subscriber-Status" id="1424" type="Enumerated" mandatory="true">
+            <enum value="0">SERVICE_GRANTED</enum>
+            <enum value="1">OPERATOR_DETERMINED_BARRING</enum>
+        </avp>
+        <avp name="Operator-Determined-Barring" id="1425" type="Unsigned32" mandatory="true" />
+        <avp name="Access-Restriction-Data" id="1426" type="Unsigned32" mandatory="true" />
+        <avp name="APN-OI-Replacement" id="1427" type="UTF8String" mandatory="true" />
+        <avp name="All-APN-Configurations-Included-Indicator" id="1428" type="Enumerated"
+            mandatory="true">
+            <enum value="0">All_APN_CONFIGURATIONS_INCLUDED</enum>
+            <enum value="1">MODIFIED_ADDED_APN_CONFIGURATIONS_INCLUDED</enum>
+        </avp>
+        <avp name="APN-Configuration-Profile" id="1429" type="Grouped" mandatory="true" />
+        <avp name="APN-Configuration" id="1430" type="Grouped" mandatory="true" />
+        <avp name="EPS-Subscribed-QoS-Profile" id="1431" type="Grouped" mandatory="true" />
+        <avp name="VPLMN-Dynamic-Address-Allowed" id="1432" type="Enumerated" mandatory="true">
+            <enum value="0">NOTALLOWED</enum>
+            <enum value="1">ALLOWED</enum>
+        </avp>
+        <avp name="STN-SR" id="1433" type="OctetString" mandatory="true" />
+        <avp name="Alert-Reason" id="1434" type="Enumerated" mandatory="true">
+            <enum value="0">UE_PRESENT</enum>
+            <enum value="1">UE_MEMORY_AVAILABLE</enum>
+        </avp>
+        <avp name="AMBR" id="1435" type="Grouped" mandatory="true" />
+        <avp name="CSG-Subscription-Data" id="1436" type="Grouped" />
+        <avp name="CSG-Id" id="1437" type="Unsigned32" mandatory="true" />
+        <avp name="PDN-GW-Allocation-Type" id="1438" type="Enumerated" mandatory="true">
+            <enum value="0">STATIC</enum>
+            <enum value="1">DYNAMIC</enum>
+        </avp>
+        <avp name="Expiration-Date" id="1439" type="Time" mandatory="true" />
+        <avp name="RAT-Frequency-Selection-Priority-ID" id="1440" type="Unsigned32" mandatory="true" />
+        <avp name="IDA-Flags" id="1441" type="Unsigned32" mandatory="true" />
+        <avp name="PUA-Flags" id="1442" type="Unsigned32" mandatory="true" />
+        <avp name="NOR-Flags" id="1443" type="Unsigned32" mandatory="true" />
+        <avp name="User-Id" id="1444" type="UTF8String" />
+        <avp name="Equipment-Status" id="1445" type="Enumerated" mandatory="true">
+            <enum value="0">WHITELISTED</enum>
+            <enum value="1">BLACKLISTED</enum>
+        </avp>
+        <avp name="Regional-Subscription-Zone-Code" id="1446" type="OctetString" mandatory="true" />
+        <avp name="RAND" id="1447" type="OctetString" mandatory="true" />
+        <avp name="XRES" id="1448" type="OctetString" mandatory="true" />
+        <avp name="AUTN" id="1449" type="OctetString" mandatory="true" />
+        <avp name="KASME" id="1450" type="OctetString" mandatory="true" />
+        <avp name="Trace-Collection-Entity" id="1452" type="Address" mandatory="true" />
+        <avp name="Kc" id="1453" type="OctetString" mandatory="true" />
+        <avp name="SRES" id="1454" type="OctetString" mandatory="true" />
+        <avp name="PDN-Type" id="1456" type="Enumerated" mandatory="true">
+            <enum value="0">IPv4</enum>
+            <enum value="1">IPv6</enum>
+            <enum value="2">IPv4v6</enum>
+            <enum value="3">IPv4_OR_IPv6</enum>
+        </avp>
+        <avp name="Roaming-Restricted-Due-To-Unsupported-Feature" id="1457" type="Enumerated"
+            mandatory="true">
+            <enum value="0">Roaming-Restricted-Due-To-Unsupported-Feature</enum>
+        </avp>
+        <avp name="Trace-Data" id="1458" type="Grouped" mandatory="true" />
+        <avp name="Trace-Reference" id="1459" type="OctetString" mandatory="true" />
+        <avp name="Trace-Depth" id="1462" type="Enumerated" mandatory="true">
+            <enum value="0">Minimum</enum>
+            <enum value="1">Medium</enum>
+            <enum value="2">Maximum</enum>
+            <enum value="3">MinimumWithoutVendorSpecificExtension</enum>
+            <enum value="4">MediumWithoutVendorSpecificExtension</enum>
+            <enum value="5">MaximumWithoutVendorSpecificExtension</enum>
+        </avp>
+        <avp name="Trace-NE-Type-List" id="1463" type="OctetString" mandatory="true" />
+        <avp name="Trace-Interface-List" id="1464" type="OctetString" mandatory="true" />
+        <avp name="Trace-Event-List" id="1465" type="OctetString" mandatory="true" />
+        <avp name="OMC-Id" id="1466" type="OctetString" mandatory="true" />
+        <avp name="GPRS-Subscription-Data" id="1467" type="Grouped" mandatory="true" />
+        <avp name="Complete-Data-List-Included-Indicator" id="1468" type="Enumerated"
+            mandatory="true">
+            <enum value="0">All_PDP_CONTEXTS_INCLUDED</enum>
+            <enum value="1">MODIFIED_ADDED_PDP CONTEXTS_INCLUDED</enum>
+        </avp>
+        <avp name="PDP-Context" id="1469" type="Grouped" mandatory="true" />
+        <avp name="PDP-Type" id="1470" type="OctetString" mandatory="true" />
+        <avp name="3GPP2-MEID" id="1471" type="OctetString" mandatory="true" />
+        <avp name="Specific-APN-Info" id="1472" type="Grouped" mandatory="true" />
+        <avp name="LCS-Info" id="1473" type="Grouped" mandatory="true" />
+        <avp name="GMLC-Number" id="1474" type="OctetString" mandatory="true" />
+        <avp name="LCS-PrivacyException" id="1475" type="Grouped" mandatory="true" />
+        <avp name="SS-Code" id="1476" type="OctetString" mandatory="true" />
+        <avp name="SS-Status" id="1477" type="OctetString" mandatory="true" />
+        <avp name="Notification-To-UE-User" id="1478" type="Enumerated" mandatory="true">
+            <enum value="0">NOTIFY_LOCATION_ALLOWED</enum>
+            <enum value="1">NOTIFYANDVERIFY_LOCATION_ALLOWED_IF_NO_RESPONSE</enum>
+            <enum value="2">NOTIFYANDVERIFY_LOCATION_NOT_ALLOWED_IF_NO_RESPONSE</enum>
+            <enum value="3">LOCATION_NOT_ALLOWED</enum>
+        </avp>
+        <avp name="External-Client" id="1479" type="Grouped" mandatory="true" />
+        <avp name="Client-Identity" id="1480" type="OctetString" mandatory="true" />
+        <avp name="GMLC-Restriction" id="1481" type="Enumerated" mandatory="true">
+            <enum value="0">GMLC_LIST</enum>
+            <enum value="1">HOME_COUNTRY</enum>
+        </avp>
+        <avp name="PLMN-Client" id="1482" type="Enumerated" mandatory="true">
+            <enum value="0">BROADCAST_SERVICE</enum>
+            <enum value="1">O_AND_M_HPLMN</enum>
+            <enum value="2">O_AND_M_VPLMN</enum>
+            <enum value="3">ANONYMOUS_LOCATION</enum>
+            <enum value="4">TARGET_UE_SUBSCRIBED_SERVICE</enum>
+        </avp>
+        <avp name="Service-Type" id="1483" type="Grouped" mandatory="true" />
+        <avp name="ServiceTypeIdentity" id="1484" type="Unsigned32" mandatory="true" />
+        <avp name="MO-LR" id="1485" type="Grouped" mandatory="true" />
+        <avp name="Teleservice-List" id="1486" type="Grouped" mandatory="true" />
+        <avp name="TS-Code" id="1487" type="OctetString" mandatory="true" />
+        <avp name="Call-Barring-Info" id="1488" type="Grouped" mandatory="true" />
+        <avp name="SGSN-Number" id="1489" type="OctetString" mandatory="true" />
+        <avp name="IDR-Flags" id="1490" type="Unsigned32" mandatory="true" />
+        <avp name="ICS-Indicator" id="1491" type="Enumerated">
+            <enum value="0">FALSE</enum>
+            <enum value="1">TRUE</enum>
+        </avp>
+        <avp name="IMS-Voice-Over-PS-Sessions-Supported" id="1492" type="Enumerated">
+            <enum value="0">NOT_SUPPORTED</enum>
+            <enum value="1">SUPPORTED</enum>
+        </avp>
+        <avp name="Homogeneous-Support-of-IMS-Voice-Over-PS-Sessions" id="1493" type="Enumerated">
+            <enum value="0">NOT_SUPPORTED</enum>
+            <enum value="1">SUPPORTED</enum>
+        </avp>
+        <avp name="Last-UE-Activity-Time" id="1494" type="Time" />
+        <avp name="EPS-User-State" id="1495" type="Grouped" />
+        <avp name="EPS-Location-Information" id="1496" type="Grouped" />
+        <avp name="MME-User-State" id="1497" type="Grouped" />
+        <avp name="SGSN-User-State" id="1498" type="Grouped" />
+        <avp name="User-State" id="1499" type="Enumerated">
+            <enum value="0">DETACHED</enum>
+            <enum value="1">ATTACHED_NOT_REACHABLE_FOR_PAGING</enum>
+            <enum value="2">ATTACHED_REACHABLE_FOR_PAGING</enum>
+            <enum value="3">CONNECTED_NOT_REACHABLE_FOR_PAGING</enum>
+            <enum value="4">CONNECTED_REACHABLE_FOR_PAGING</enum>
+            <enum value="5">RESERVED</enum>
+        </avp>
+        <avp name="MME-Location Information" id="1600" type="Grouped" />
+        <avp name="SGSN-Location-Information" id="1601" type="Grouped" />
+        <avp name="E-UTRAN-Cell-Global-Identity" id="1602" type="OctetString" />
+        <avp name="Tracking-Area-Identity" id="1603" type="OctetString" />
+        <avp name="Cell-Global-Identity" id="1604" type="OctetString" />
+        <avp name="Routing-Area-Identity" id="1605" type="OctetString" />
+        <avp name="Location-Area-Identity" id="1606" type="OctetString" />
+        <avp name="Service-Area-Identity" id="1607" type="OctetString" />
+        <avp name="Geographical-Information" id="1608" type="OctetString" />
+        <avp name="Geodetic-Information" id="1609" type="OctetString" />
+        <avp name="Current-Location-Retrieved" id="1610" type="Enumerated">
+            <enum value="0">ACTIVE-LOCATION-RETRIEVAL</enum>
+        </avp>
+        <avp name="Age-Of-Location-Information" id="1611" type="Unsigned32" />
+        <avp name="Active-APN" id="1612" type="Grouped" />
+        <avp name="Error-Diagnostic" id="1614" type="Enumerated">
+            <enum value="0">GPRS_DATA_SUBSCRIBED</enum>
+            <enum value="1">NO_GPRS_DATA_SUBSCRIBED</enum>
+            <enum value="2">ODB_ALL_APN</enum>
+            <enum value="3">ODB_HPLMN_APN</enum>
+            <enum value="4">ODB_VPLMN_APN</enum>
+        </avp>
+        <avp name="Ext-PDP-Address" id="1621" type="Address" />
+        <avp name="UE-SRVCC-Capability" id="1615" type="Enumerated">
+            <enum value="0">UE-SRVCC-NOT-SUPPORTED</enum>
+            <enum value="1">UE-SRVCC-SUPPORTED</enum>
+        </avp>
+        <avp name="MPS-Priority" id="1616" type="Unsigned32" />
+        <avp name="VPLMN-LIPA-Allowed" id="1617" type="Enumerated">
+            <enum value="0">LIPA_NOTALLOWED</enum>
+            <enum value="1">LIPA_ALLOWED</enum>
+        </avp>
+        <avp name="LIPA-Permission" id="1618" type="Enumerated">
+            <enum value="0">LIPA_PROHIBITED</enum>
+            <enum value="1">LIPA_ONLY</enum>
+            <enum value="2">LIPA_CONDITIONAL</enum>
+        </avp>
+        <avp name="Subscribed-Periodic-RAU-TAU-Timer" id="1619" type="Unsigned32" />
+        <avp name="Ext-PDP-Type" id="1620" type="OctetString" />
+        <avp name="SIPTO-Permission" id="1613" type="Enumerated">
+            <enum value="0">SIPTO_above_RAN_ALLOWED</enum>
+            <enum value="1">SIPTO_above_RAN_NOTALLOWED</enum>
+        </avp>
+        <avp name="MDT-Configuration" id="1622" type="Grouped" />
+        <avp name="Job-Type" id="1623" type="Enumerated">
+            <enum value="0">Immediate MDT only</enum>
+            <enum value="1">Logged MDT only</enum>
+            <enum value="2">Trace only</enum>
+            <enum value="3">Immediate MDT and Trace</enum>
+            <enum value="4">RLF reports only</enum>
+            <enum value="5">RCEF reports only</enum>
+            <enum value="6">Logged MBSFN MDT</enum>
+        </avp>
+        <avp name="Area-Scope" id="1624" type="Grouped" />
+        <avp name="List-Of-Measurements" id="1625" type="Unsigned32" />
+        <avp name="Reporting-Trigger" id="1626" type="Unsigned32" />
+        <avp name="Report-Interval" id="1627" type="Enumerated">
+            <enum value="0">UMTS 250 ms</enum>
+            <enum value="1">UMTS 500 ms</enum>
+            <enum value="2">UMTS 1000 ms</enum>
+            <enum value="3">UMTS 2000 ms</enum>
+            <enum value="4">UMTS 3000 ms</enum>
+            <enum value="5">UMTS 4000 ms</enum>
+            <enum value="6">UMTS 6000 ms</enum>
+            <enum value="7">UMTS 8000 ms</enum>
+            <enum value="8">UMTS 12000 ms</enum>
+            <enum value="9">UMTS 16000 ms</enum>
+            <enum value="10">UMTS 20000 ms</enum>
+            <enum value="11">UMTS 24000 ms</enum>
+            <enum value="12">UMTS 28000 ms</enum>
+            <enum value="13">UMTS 32000 ms</enum>
+            <enum value="14">UMTS 64000 ms</enum>
+            <enum value="15">LTE 120 ms</enum>
+            <enum value="16">LTE 240 ms</enum>
+            <enum value="17">LTE 480 ms</enum>
+            <enum value="18">LTE 640 ms</enum>
+            <enum value="19">LTE 1024 ms</enum>
+            <enum value="20">LTE 2048 ms</enum>
+            <enum value="21">LTE 5120 ms</enum>
+            <enum value="22">LTE 10240 ms</enum>
+            <enum value="23">LTE 60000 ms</enum>
+            <enum value="24">LTE 360000 ms</enum>
+            <enum value="25">LTE 720000 ms</enum>
+            <enum value="26">LTE 1800000 ms</enum>
+            <enum value="27">LTE 3600000 ms</enum>
+            <enum value="28">NR 120 ms</enum>
+            <enum value="29">NR 240 ms</enum>
+            <enum value="30">NR 480 ms</enum>
+            <enum value="31">NR 640 ms</enum>
+            <enum value="32">NR 1024 ms</enum>
+            <enum value="33">NR 2048 ms</enum>
+            <enum value="34">NR 5120 ms</enum>
+            <enum value="35">NR 10240 ms</enum>
+            <enum value="36">NR 20480 ms</enum>
+            <enum value="37">NR 40960 ms</enum>
+            <enum value="38">NR 60000 ms</enum>
+            <enum value="39">NR 360000 ms</enum>
+            <enum value="40">NR 720000 ms</enum>
+            <enum value="41">NR 1800000 ms</enum>
+            <enum value="42">NR 3600000 ms</enum>
+        </avp>
+        <avp name="Report-Amount" id="1628" type="Enumerated">
+            <enum value="0">0</enum>
+            <enum value="1">2</enum>
+            <enum value="2">4</enum>
+            <enum value="3">8</enum>
+            <enum value="4">16</enum>
+            <enum value="5">32</enum>
+            <enum value="6">64</enum>
+            <enum value="7">infinity</enum>
+        </avp>
+        <avp name="Event-Threshold-RSRP" id="1629" type="Unsigned32" />
+        <avp name="Event-Threshold-RSRQ" id="1630" type="Unsigned32" />
+        <avp name="Logging-Interval" id="1631" type="Enumerated">
+            <enum value="0">1280 ms</enum>
+            <enum value="1">2560 ms</enum>
+            <enum value="2">5120 ms</enum>
+            <enum value="3">10240 ms</enum>
+            <enum value="4">20480 ms</enum>
+            <enum value="5">30720 ms</enum>
+            <enum value="6">40960 ms</enum>
+            <enum value="7">61440 ms</enum>
+            <enum value="8">320 ms</enum>
+            <enum value="9">640 ms</enum>
+            <enum value="10">infinity</enum>
+        </avp>
+        <avp name="Logging-Duration" id="1632" type="Enumerated">
+            <enum value="0">UMTS and LTE 600 sec</enum>
+            <enum value="1">UMTS and LTE 1200 sec</enum>
+            <enum value="2">UMTS and LTE 2400 sec</enum>
+            <enum value="3">UMTS and LTE 3600 sec</enum>
+            <enum value="4">UMTS and LTE 5400 sec</enum>
+            <enum value="5">UMTS and LTE 7200 sec</enum>
+            <enum value="6">NR 600 sec</enum>
+            <enum value="7">NR 1200 sec</enum>
+            <enum value="8">NR 2400 sec</enum>
+            <enum value="9">NR 3600 sec</enum>
+            <enum value="10">NR 5400 sec</enum>
+            <enum value="11">NR 7200 sec</enum>
+        </avp>
+        <avp name="Relay-Node-Indicator" id="1633" type="Enumerated">
+            <enum value="0">NOT_RELAY_NODE</enum>
+            <enum value="1">RELAY_NODE</enum>
+        </avp>
+        <avp name="MDT-User-Consent" id="1634" type="Enumerated">
+            <enum value="0">CONSENT_NOT_GIVEN</enum>
+            <enum value="1">CONSENT_GIVEN</enum>
+        </avp>
+        <avp name="PUR-Flags" id="1635" type="Unsigned32" />
+        <avp name="Subscribed-VSRVCC" id="1636" type="Enumerated">
+            <enum value="0">VSRVCC_SUBSCRIBED</enum>
+        </avp>
+        <avp name="Equivalent-PLMN-List " id="1637" type="Grouped" />
+        <avp name="CLR-Flags" id="1638" type="Unsigned32" />
+        <avp name="UVR-Flags" id="1639" type="Unsigned32" mandatory="true" />
+        <avp name="UVA-Flags" id="1640" type="Unsigned32" mandatory="true" />
+        <avp name="VPLMN-CSG-Subscription-Data" id="1641" type="Grouped" mandatory="true" />
+        <avp name="Time-Zone" id="1642" type="UTF8String" />
+        <avp name="A-MSISDN" id="1643" type="OctetString" />
+        <avp name="MME-Number-for-MT-SMS" id="1645" type="OctetString" />
+        <avp name="SMS-Register-Request" id="1648" type="Enumerated">
+            <enum value="0">SMS_REGISTRATION_REQUIRED</enum>
+            <enum value="1">SMS_REGISTRATION_NOT_PREFERRED</enum>
+            <enum value="2">NO_PREFERENCE</enum>
+        </avp>
+        <avp name="Local-Time-Zone" id="1649" type="Grouped" />
+        <avp name="Daylight-Saving-Time" id="1650" type="Enumerated">
+            <enum value="0">NO_ADJUSTMENT</enum>
+            <enum value="1">PLUS_ONE_HOUR_ADJUSTMENT</enum>
+            <enum value="2">PLUS_TWO_HOURS_ADJUSTMENT</enum>
+        </avp>
+        <avp name="Subscription-Data-Flags" id="1654" type="Unsigned32" />
+        <avp name="Measurement-Period-LTE" id="1655" type="Enumerated">
+            <enum value="0">1024 ms</enum>
+            <enum value="1">1280 ms</enum>
+            <enum value="2">2048 ms</enum>
+            <enum value="3">2560 ms</enum>
+            <enum value="4">5120 ms</enum>
+            <enum value="5">10240 ms</enum>
+            <enum value="6">1 min</enum>
+        </avp>
+        <avp name="Measurement-Period-UMTS" id="1656" type="Enumerated">
+            <enum value="0">250 ms</enum>
+            <enum value="1">500 ms</enum>
+            <enum value="2">1000 ms</enum>
+            <enum value="3">2000 ms</enum>
+            <enum value="4">3000 ms</enum>
+            <enum value="5">4000 ms</enum>
+            <enum value="6">6000 ms</enum>
+            <enum value="7">8000 ms</enum>
+            <enum value="8">12000 ms</enum>
+            <enum value="9">16000 ms</enum>
+            <enum value="10">20000 ms</enum>
+            <enum value="11">24000 ms</enum>
+            <enum value="12">28000 ms</enum>
+            <enum value="13">32000 ms</enum>
+            <enum value="14">64000 ms</enum>
+        </avp>
+        <avp name="Collection-Period-RRM-LTE" id="1657" type="Enumerated">
+            <enum value="0">1024 ms</enum>
+            <enum value="1">1280 ms</enum>
+            <enum value="2">2048 ms</enum>
+            <enum value="3">2560 ms</enum>
+            <enum value="4">5120 ms</enum>
+            <enum value="5">10240 ms</enum>
+            <enum value="6">1 min</enum>
+        </avp>
+        <avp name="Collection-Period-RRM-UMTS" id="1658" type="Enumerated">
+            <enum value="0">250 ms</enum>
+            <enum value="1">500 ms</enum>
+            <enum value="2">1000 ms</enum>
+            <enum value="3">2000 ms</enum>
+            <enum value="4">3000 ms</enum>
+            <enum value="5">4000 ms</enum>
+            <enum value="6">6000 ms</enum>
+            <enum value="7">8000 ms</enum>
+            <enum value="8">12000 ms</enum>
+            <enum value="9">16000 ms</enum>
+            <enum value="10">20000 ms</enum>
+            <enum value="11">24000 ms</enum>
+            <enum value="12">28000 ms</enum>
+            <enum value="13">32000 ms</enum>
+            <enum value="14">64000 ms</enum>
+        </avp>
+        <avp name="Positioning-Method" id="1659" type="OctetString" />
+        <avp name="Measurement-Quantity" id="1660" type="OctetString" />
+        <avp name="Event-Threshold-Event-1F" id="1661" type="Integer32" />
+        <avp name="Event-Threshold-Event-1I" id="1662" type="Integer32" />
+        <avp name="Restoration-Priority" id="1663" type="Unsigned32" />
+        <avp name="SGs-MME-Identity" id="1664" type="UTF8String" />
+        <avp name="SIPTO-Local-Network-Permission" id="1665" type="Unsigned32" />
+        <avp name="Coupled-Node-Diameter-ID" id="1666" type="DiameterIdentity" />
+        <avp name="WLAN-offloadability" id="1667" type="Grouped" />
+        <avp name="WLAN-offloadability-EUTRAN" id="1668" type="Unsigned32" />
+        <avp name="WLAN-offloadability-UTRAN" id="1669" type="Unsigned32" />
+        <avp name="Reset-ID" id="1670" type="OctetString" />
+        <avp name="MDT-Allowed-PLMN-Id" id="1671" type="OctetString" />
+        <avp name="Adjacent-PLMNs" id="1672" type="Grouped" />
+        <avp name="Adjacent-Access-Restriction-Data" id="1673" type="Grouped" />
+        <avp name="DL-Buffering-Suggested-Packet-Count" id="1674" type="Integer32" />
+        <avp name="IMSI-Group-Id" id="1675" type="Grouped" />
+        <avp name="Group-Service-Id" id="1676" type="Unsigned32" />
+        <avp name="Group-PLMN-Id" id="1677" type="OctetString" />
+        <avp name="Local-Group-Id" id="1678" type="OctetString" />
+        <avp name="AIR-Flags" id="1679" type="Unsigned32" />
+        <avp name="UE-Usage-Type" id="1680" type="Unsigned32" />
+        <avp name="Non-IP-PDN-Type-Indicator" id="1681" type="Enumerated">
+            <enum value="0">FALSE</enum>
+            <enum value="1">TRUE</enum>
+        </avp>
+        <avp name="Non-IP-Data-Delivery-Mechanism" id="1682" type="Unsigned32" />
+        <avp name="Additional-Context-ID" id="1683" type="Unsigned32" />
+        <avp name="SCEF-Realm" id="1684" type="DiameterIdentity" />
+        <avp name="Subscription-Data-Deletion" id="1685" type="Grouped" />
+        <avp name="Preferred-Data-Mode" id="1686" type="Unsigned32" />
+        <avp name="Emergency-Info" id="1687" type="Grouped" />
+        <avp name="V2X-Subscription-Data" id="1688" type="Grouped" />
+        <avp name="V2X-Permission" id="1689" type="Unsigned32" />
+        <avp name="PDN-Connection-Continuity" id="1690" type="Unsigned32" />
+        <avp name="eDRX-Cycle-Length" id="1691" type="Grouped" />
+        <avp name="eDRX-Cycle-Length-Value" id="1692" type="OctetString" />
+        <avp name="UE-PC5-AMBR" id="1693" type="Unsigned32" />
+        <avp name="MBSFN-Area" id="1694" type="Grouped" />
+        <avp name="MBSFN-Area-ID" id="1695" type="Unsigned32" />
+        <avp name="Carrier-Frequency" id="1696" type="Unsigned32" />
+        <avp name="RDS-Indicator" id="1697" type="Enumerated">
+            <enum value="0">DISABLED</enum>
+            <enum value="1">ENABLED</enum>
+        </avp>
+        <avp name="Service-Gap-Time" id="1698" type="Unsigned32" />
+        <avp name="Aerial-UE-Subscription-Information" id="1699" type="Unsigned32" />
+        <avp name="Broadcast-Location-Assistance-Data-Types" id="1700" type="Unsigned64" />
+        <avp name="Paging-Time-Window" id="1701" type="Grouped" />
+        <avp name="Operation-Mode" id="1702" type="Unsigned32" />
+        <avp name="Paging-Time-Window-Length" id="1703" type="OctetString" />
+        <avp name="Core-Network-Restrictions" id="1704" type="Unsigned32" />
+        <avp name="eDRX-Related-RAT" id="1705" type="Grouped" />
+        <avp name="Interworking-5GS-Indicator" id="1706" type="Enumerated">
+            <enum value="0">NOT-SUBSCRIBED</enum>
+            <enum value="1">SUBSCRIBED</enum>
+        </avp>
+        <avp name="Ethernet-PDN-Type-Indicator" id="1707" type="Enumerated">
+            <enum value="0">FALSE</enum>
+            <enum value="1">TRUE</enum>
+        </avp>
+        <avp name="Subscribed-ARPI" id="1708" type="Unsigned32" />
+        <avp name="IAB-Operation-Permission" id="1709" type="Enumerated">
+            <enum value="0">IAB_OPERATION_ALLOWED</enum>
+            <enum value="1">IAB_OPERATION_NOTALLOWED</enum>
+        </avp>
+        <avp name="V2X-Subscription-Data-Nr" id="1710" type="Grouped" />
+        <avp name="UE-PC5-QoS" id="1711" type="Grouped" />
+        <avp name="PC5-QoS-Flow" id="1712" type="Grouped" />
+        <avp name="5QI" id="1713" type="Integer32" />
+        <avp name="PC5-Flow-Bitrates" id="1714" type="Grouped" />
+        <avp name="Guaranteed-Flow-Bitrates" id="1715" type="Integer32" />
+        <avp name="Maximum-Flow-Bitrates" id="1716" type="Integer32" />
+        <avp name="PC5-Range" id="1717" type="Integer32" />
+        <avp name="PC5-Link-AMBR" id="1718" type="Integer32" />
+        <avp name="Third-Context-Identifier" id="1719" type="Unsigned32" />
+
+        <!-- TS 29.061 AVP -->
+        <avp name="3GPP-Charging-Characteristics" id="13" type="UTF8String" />
+        <!-- TS 29.214 AVP -->
+        <avp name="Max-Requested-Bandwidth-DL" id="515" type="Unsigned32" mandatory="ture" />
+        <avp name="Max-Requested-Bandwidth-UL" id="516" type="Unsigned32" mandatory="ture" />
+        <avp name="Extended-Max-Requested-BW-DL" id="554" type="Unsigned32" />
+        <avp name="Extended-Max-Requested-BW-UL" id="555" type="Unsigned32" />
+        <!-- TS29.229 AVP -->
+        <avp name="Visited-Network-Identifier" id="600" type="OctetString" />
+        <avp name="Confidentiality-Key" id="625" type="OctetString" mandatory="ture" />
+        <avp name="Integrity-Key" id="626" type="OctetString" mandatory="ture" />
+        <avp name="Supported-Features" id="628" type="Grouped" mandatory="ture" />
+        <avp name="Feature-List-ID" id="629" type="Unsigned32" />
+        <avp name="Feature-List" id="630" type="Unsigned32" />
+        <!-- TS 29.329 AVP -->
+        <avp name="MSISDN" id="701" type="OctetString" mandatory="ture" />
+        <!-- TS 32.299 AVP -->
+        <avp name="Served-Party-IP-Address" id="848" type="Address" mandatory="ture" />
+        <avp name="Charged-Party" id="857" type="UTF8String" />
+        <avp name="PDP-Address" id="1227" type="Address" mandatory="ture" />
+        <avp name="User-CSG-Information" id="2319" type="Grouped" />
+        <!-- TS 29.212 AVP -->
+        <avp name="QoS-Class-Identifier" id="1028" type="Enumerated" mandatory="ture">
+            <enum value="1">QCI_1</enum>
+            <enum value="2">QCI_2</enum>
+            <enum value="3">QCI_3</enum>
+            <enum value="4">QCI_4</enum>
+            <enum value="5">QCI_5</enum>
+            <enum value="6">QCI_6</enum>
+            <enum value="7">QCI_7</enum>
+            <enum value="8">QCI_8</enum>
+            <enum value="9">QCI_9</enum>
+            <enum value="65">QCI_65</enum>
+            <enum value="66">QCI_66</enum>
+            <enum value="69">QCI_69</enum>
+            <enum value="70">QCI_70</enum>
+            <enum value="75">QCI_75</enum>
+            <enum value="79">QCI_79</enum>
+            <enum value="80">QCI_80</enum>
+            <enum value="82">QCI_82</enum>
+            <enum value="83">QCI_83</enum>
+            <enum value="84">QCI_84</enum>
+            <enum value="85">QCI_85</enum>
+        </avp>
+        <avp name="RAT-Type" id="1032" type="Enumerated" mandatory="ture">
+            <enum value="0">WLAN</enum>
+            <enum value="1">VIRTUAL</enum>
+            <enum value="1000">UTRAN</enum>
+            <enum value="1001">GERAN</enum>
+            <enum value="1002">GAN</enum>
+            <enum value="1003">HSPA_EVOLUTION</enum>
+            <enum value="1004">EUTRAN</enum>
+            <enum value="1005">EUTRAN-NB-IoT</enum>
+            <enum value="1006">NG-RAN</enum>
+            <enum value="2000">CDMA2000_1X</enum>
+            <enum value="2001">HRPD</enum>
+            <enum value="2002">UMB</enum>
+            <enum value="2030">EHRPD</enum>
+        </avp>
+        <avp name="Allocation-Retention-Priority" id="1034" type="Grouped" />
+        <avp name="Priority-Level" id="1046" type="Unsigned32" />
+        <avp name="Pre-emption-Capability" id="1047" type="Enumerated">
+            <enum value="0">PRE-EMPTION_CAPABILITY_ENABLED</enum>
+            <enum value="1">PRE-EMPTION_CAPABILITY_DISABLED</enum>
+        </avp>
+        <avp name="Pre-emption-Vulnerability" id="1048" type="Enumerated">
+            <enum value="0">PRE-EMPTION_VULNERABILITY_ENABLEDM</enum>
+            <enum value="1">PRE-EMPTION_VULNERABILITY_DISABLED</enum>
+        </avp>
+        <!-- TS 29.273 AVP -->
+        <avp name="Emergency-Services" id="1538" type="Unsigned32" />
+        <!-- TS 29.173 AVP -->
+        <avp name="GMLC-Address" id="2405" type="Address" />
+        <!-- TS 29.336 AVP -->
+        <avp name="External-Identifier" id="3111" type="UTF8String" />
+        <avp name="AESE-Communication-Pattern" id="3113" type="Grouped" />
+        <avp name="Communication-Pattern-set" id="3114" type="Grouped" />
+        <avp name="Monitoring-Event-Configuration" id="3122" type="Grouped" />
+        <avp name="Monitoring-Event-Report" id="3123" type="Grouped" />
+        <avp name="SCEF-Reference-ID" id="3124" type="Unsigned32" />
+        <avp name="SCEF-ID" id="3125" type="DiameterIdentity" />
+        <avp name="SCEF-Reference-ID-for-Deletion" id="3126" type="Unsigned32" />
+        <avp name="Monitoring-Type" id="3127" type="Unsigned32" />
+        <avp name="Maximum-Number-of-Reports" id="3128" type="Unsigned32" />
+        <avp name="UE-Reachability-Configuration" id="3129" type="Grouped" />
+        <avp name="Monitoring-Duration" id="3130" type="Time" />
+        <avp name="Reachability-Type" id="3132" type="Unsigned32" />
+        <avp name="Maximum-Response-Time" id="3134" type="Unsigned32" />
+        <avp name="Location-Information-Configuration" id="3135" type="Grouped" />
+        <avp name="Reachability-Information" id="3140" type="Unsigned32" />
+        <avp name="Monitoring-Event-Config-Status" id="3142" type="Grouped" />
+        <avp name="Supported-Services" id="3143" type="Grouped" />
+        <avp name="Supported-Monitoring-Events" id="3144" type="Unsigned64" />
+        <avp name="Reference-ID-Validity-Time" id="3148" type="Time" />
+        <avp name="Loss-Of-Connectivity-Reason" id="3162" type="Unsigned32" />
+        <avp name="MTC-Provider-Info" id="3178" type="Grouped" />
+        <avp name="PDN-Connectivity-Status-Configuration" id="3180" type="Grouped" />
+        <avp name="PDN-Connectivity-Status-Report" id="3181" type="Grouped" />
+        <avp name="Traffic-Profile" id="3183" type="Unsigned32" />
+        <avp name="Battery-Indicator" id="3185" type="Unsigned32" />
+        <avp name="SCEF-Reference-ID-Ext" id="3186" type="Unsigned64" />
+        <avp name="SCEF-Reference-ID-for-Deletion-Ext" id="3187" type="Unsigned64" />
+        <!-- TS 29.338 AVP -->
+        <avp name="Maximum-UE-Availability-Time" id="3329" type="Time" />
+        <!-- TS 29.344 AVP -->
+        <avp name="ProSe-Subscription-Data" id="3701" type="Grouped" />
+        <!-- TS 29.217 AVP -->
+        <avp name="eNodeB-ID" id="4008" type="OctetString" />
+        <avp name="Extended-eNodeB-ID" id="4013" type="OctetString" />
+        <!-- TS 29.128 AVP -->
+        <avp name="Idle-Status-Indication" id="4322" type="Grouped" />
+        <avp name="Active-Time" id="4324" type="Unsigned32" />
+    </vendor>
+
+    <vendor name="IETF" id="0">
+        <application name="base" id="0">
+            <command name="Capabilities-Exchange" id="257" />
+            <command name="Device-Watchdog" id="280" />
+            <command name="Disconnect-Peer" id="282" />
+        </application>
+
+        <!-- RFC 6733 -->
+        <avp name="Acct-Interim-Interval" id="85" type="Unsigned32" mandatory="true" />
+        <avp name="Accounting-Realtime-Required" id="483" type="Enumerated" mandatory="true">
+            <enum value="1">DELIVER_AND_GRANT</enum>
+            <enum value="2">GRANT_AND_STORE</enum>
+            <enum value="3">GRANT_AND_LOSE</enum>
+        </avp>
+        <avp name="Acct-Multi-Session-Id" id="50" type="UTF8String" mandatory="true" />
+        <avp name="Accounting-Record-Number" id="485" type="Unsigned32" mandatory="true" />
+        <avp name="Accounting-Record-Type" id="480" type="Enumerated" mandatory="true">
+            <enum value="1">EVENT_RECORD</enum>
+            <enum value="2">START_RECORD</enum>
+            <enum value="3">INTERIM_RECORD</enum>
+            <enum value="4">STOP_RECORD</enum>
+        </avp>
+        <avp name="Accounting-Session-Id" id="44" type="OctetString" mandatory="true" />
+        <avp name="Accounting-Sub-Session-Id" id="287" type="Unsigned64" mandatory="true" />
+        <avp name="Acct-Application-Id" id="259" type="Unsigned32" mandatory="true" />
+        <avp name="Auth-Application-Id" id="258" type="Unsigned32" mandatory="true" />
+        <avp name="Auth-Request-Type" id="274" type="Enumerated" mandatory="true">
+            <enum value="0">AUTHORIZE_ONLY</enum>
+            <enum value="1">AUTHORIZE_AUTHENTICATE</enum>
+        </avp>
+        <avp name="Authorization-Lifetime" id="291" type="Unsigned32" mandatory="true" />
+        <avp name="Auth-Grace-Period" id="276" type="Unsigned32" mandatory="true" />
+        <avp name="Auth-Session-State" id="277" type="Enumerated" mandatory="true">
+            <enum value="0">STATE_MAINTAINED</enum>
+            <enum value="1">NO_STATE_MAINTAINED</enum>
+        </avp>
+        <avp name="Re-Auth-Request-Type" id="285" type="Enumerated" mandatory="true">
+            <enum value="0">AUTHORIZE_ONLY</enum>
+            <enum value="1">AUTHORIZE_AUTHENTICATE</enum>
+        </avp>
+        <avp name="Class" id="25" type="OctetString" mandatory="true" />
+        <avp name="Destination-Host" id="293" type="DiameterIdentity" mandatory="true" />
+        <avp name="Destination-Realm" id="283" type="DiameterIdentity" mandatory="true" />
+        <avp name="Disconnect-Cause" id="273" type="Enumerated" mandatory="true">
+            <enum value="0">REBOOTING</enum>
+            <enum value="1">BUSY</enum>
+            <enum value="2">DO_NOT_WANT_TO_TALK_TO_YOU</enum>
+        </avp>
+        <avp name="E2E-Sequence" id="300" type="Grouped" mandatory="true" />
+        <avp name="Error-Message" id="281" type="UTF8String" />
+        <avp name="Error-Reporting-Host" id="294" type="DiameterIdentity" />
+        <avp name="Event-Timestamp" id="55" type="Time" mandatory="true" />
+        <avp name="Experimental-Result" id="297" type="Grouped" mandatory="true" />
+        <avp name="Experimental-Result-Code" id="298" type="Unsigned32" mandatory="true" />
+        <avp name="Failed-AVP" id="279" type="Grouped" mandatory="true" />
+        <avp name="Firmware-Revision" id="267" type="Unsigned32" />
+        <avp name="Host-IP-Address" id="257" type="Address" mandatory="true" />
+        <avp name="Inband-Security-Id" id="299" type="Unsigned32" mandatory="true" />
+        <avp name="Multi-Round-Time-Out" id="272" type="Unsigned32" mandatory="true" />
+        <avp name="Origin-Host" id="264" type="DiameterIdentity" mandatory="true" />
+        <avp name="Origin-Realm" id="296" type="DiameterIdentity" mandatory="true" />
+        <avp name="Origin-State-Id" id="278" type="Unsigned32" mandatory="true" />
+        <avp name="Product-Name" id="269" type="UTF8String" />
+        <avp name="Proxy-Host" id="280" type="DiameterIdentity" mandatory="true" />
+        <avp name="Proxy-Info" id="284" type="Grouped" mandatory="true" />
+        <avp name="Proxy-State" id="33" type="OctetString" mandatory="true" />
+        <avp name="Redirect-Host" id="292" type="DiamURI" mandatory="true" />
+        <avp name="Redirect-Host-Usage" id="261" type="Enumerated" mandatory="true">
+            <enum value="0">DONT_CACHE</enum>
+            <enum value="1">ALL_SESSION</enum>
+            <enum value="2">ALL_REALM</enum>
+            <enum value="3">REALM_AND_APPLICATION</enum>
+            <enum value="4">ALL_APPLICATION</enum>
+            <enum value="5">ALL_HOST</enum>
+            <enum value="6">ALL_USER</enum>
+        </avp>
+        <avp name="Redirect-Max-Cache-Time" id="262" type="Unsigned32" mandatory="true" />
+        <avp name="Result-Code" id="268" type="Unsigned32" mandatory="true" />
+        <avp name="Route-Record" id="282" type="DiameterIdentity" mandatory="true" />
+        <avp name="Session-Id" id="263" type="UTF8String" mandatory="true" />
+        <avp name="Session-Timeout" id="27" type="Unsigned32" mandatory="true" />
+        <avp name="Session-Binding" id="270" type="Unsigned32" mandatory="true" />
+        <avp name="Session-Server-Failover" id="271" type="Enumerated" mandatory="true">
+            <enum value="0">REFUSE_SERVICE</enum>
+            <enum value="1">TRY_AGAIN</enum>
+            <enum value="2">ALLOW_SERVICE</enum>
+            <enum value="3">TRY_AGAIN_ALLOW_SERVICE</enum>
+        </avp>
+        <avp name="Supported-Vendor-Id" id="265" type="Unsigned32" mandatory="true" />
+        <avp name="Termination-Cause" id="295" type="Enumerated" mandatory="true">
+            <enum value="0">Reserved</enum>
+            <enum value="1">DIAMETER_LOGOUT</enum>
+            <enum value="2">DIAMETER_SERVICE_NOT_PROVIDED</enum>
+            <enum value="3">DIAMETER_BAD_ANSWER</enum>
+            <enum value="4">DIAMETER_ADMINISTRATIVE</enum>
+            <enum value="5">DIAMETER_LINK_BROKEN</enum>
+            <enum value="6">DIAMETER_AUTH_EXPIRED</enum>
+            <enum value="7">DIAMETER_USER_MOVED</enum>
+            <enum value="8">DIAMETER_SESSION_TIMEOUT</enum>
+            <enum value="11">User Request</enum>
+            <enum value="12">Lost Carrier</enum>
+            <enum value="13">Lost Service</enum>
+            <enum value="14">Idle Timeout</enum>
+            <enum value="15">Session Timeout</enum>
+            <enum value="16">Admin Reset</enum>
+            <enum value="17">Admin Reboot</enum>
+            <enum value="18">Port Error</enum>
+            <enum value="19">NAS Error</enum>
+            <enum value="20">NAS Request</enum>
+            <enum value="21">NAS Reboot</enum>
+            <enum value="22">Port Unneeded</enum>
+            <enum value="23">Port Preempted</enum>
+            <enum value="24">Port Suspended</enum>
+            <enum value="25">Service Unavailable</enum>
+            <enum value="26">Callback</enum>
+            <enum value="27">User Error</enum>
+            <enum value="28">Host Request</enum>
+            <enum value="29">Supplicant Restart</enum>
+            <enum value="30">Reauthentication Failure</enum>
+            <enum value="31">Port Reinitialized</enum>
+            <enum value="32">Port Administratively Disabled</enum>
+        </avp>
+        <avp name="User-Name" id="1" type="UTF8String" mandatory="true" />
+        <avp name="Vendor-Id" id="266" type="Unsigned32" mandatory="true" />
+        <avp name="Vendor-Specific-Application-Id" id="260" type="Grouped" mandatory="true" />
+
+        <!-- RFC 5778 -->
+        <avp name="Service-Selection" id="493" type="UTF8String" mandatory="true" />
+        <!-- RFC 5447 -->
+        <avp name="MIP6-Agent-Info" id="486" type="Grouped" />
+        <!-- RFC 4004 -->
+        <avp name="MIP-Home-Agent-Address" id="334" type="Address" mandatory="true" />
+        <avp name="MIP-Home-Agent-Host" id="348" type="DiameterIdentity" mandatory="true" />
+        <!-- RFC 7683 -->
+        <avp name="OC-Supported-Features" id="621" type="Grouped" />
+        <avp name="OC-OLR" id="623" type="Grouped" />
+        <!-- RFC 8581 -->
+        <avp name="SourceID" id="649" type="DiameterIdentity" />
+        <!-- RFC 8583 -->
+        <avp name="Load" id="650" type="Grouped" />
+        <avp name="Load-Type" id="651" type="Enumerated">
+            <enum value="0">HOST</enum>
+            <enum value="1">PEER</enum>
+        </avp>
+        <avp name="Load-Value" id="652" type="Unsigned64" />
+        <!-- RFC 7944 -->
+        <avp name="DRMP" id="301" type="Enumerated">
+            <enum value="0">PRIORITY_0</enum>
+            <enum value="1">PRIORITY_1</enum>
+            <enum value="2">PRIORITY_2</enum>
+            <enum value="3">PRIORITY_3</enum>
+            <enum value="4">PRIORITY_4</enum>
+            <enum value="5">PRIORITY_5</enum>
+            <enum value="6">PRIORITY_6</enum>
+            <enum value="7">PRIORITY_7</enum>
+            <enum value="8">PRIORITY_8</enum>
+            <enum value="9">PRIORITY_9</enum>
+            <enum value="10">PRIORITY_10</enum>
+            <enum value="11">PRIORITY_11</enum>
+            <enum value="12">PRIORITY_12</enum>
+            <enum value="13">PRIORITY_13</enum>
+            <enum value="14">PRIORITY_14</enum>
+            <enum value="15">PRIORITY_15</enum>
+        </avp>
+    </vendor>
+</dictionary>

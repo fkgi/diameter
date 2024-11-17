@@ -1,0 +1,227 @@
+<dictionary>
+    <vendor name="3GPP" id="10415">
+        <application name="S6c" id="16777312">
+            <command name="Send-Routing-Info-for-SM" id="8388647" />
+            <command name="Alert-Service-Centre" id="8388648" />
+            <command name="Report-SM-Delivery-Status" id="8388649" />
+        </application>
+
+        <!-- TS29.338 S6c AVP -->
+        <avp name="SM-RP-MTI" id="3308" type="Enumerated" mandatory="ture">
+            <enum value="0">SM_DELIVER</enum>
+            <enum value="1">SM_STATUS_REPORT</enum>
+        </avp>
+        <avp name="SM-RP-SMEA" id="3309" type="OctetString" mandatory="ture" />
+        <avp name="SRR-Flags" id="3310" type="Unsigned32" mandatory="true" />
+        <avp name="SM-Delivery-Not-Intended" id="3311" type="Enumerated" mandatory="true">
+            <enum value="0">ONLY_IMSI_REQUESTED</enum>
+            <enum value="1">ONLY_MCC_MNC_REQUESTED</enum>
+        </avp>
+        <avp name="MWD-Status" id="3312" type="Unsigned32" mandatory="true" />
+        <avp name="MME-Absent-User-Diagnostic-SM" id="3313" type="Unsigned32" mandatory="true" />
+        <avp name="MSC-Absent-User-Diagnostic-SM" id="3314" type="Unsigned32" mandatory="true" />
+        <avp name="SGSN-Absent-User-Diagnostic SM" id="3315" type="Unsigned32" mandatory="true" />
+        <avp name="SM-Delivery-Outcome" id="3316" type="Grouped" mandatory="true" />
+        <avp name="MME-SM-Delivery-Outcome" id="3317" type="Grouped" mandatory="true" />
+        <avp name="MSC-SM-Delivery-Outcome" id="3318" type="Grouped" mandatory="true" />
+        <avp name="SGSN-SM-Delivery-Outcome" id="3319" type="Grouped" mandatory="true" />
+        <avp name="IP-SM-GW-SM-Delivery-Outcome" id="3320" type="Grouped" mandatory="true" />
+        <avp name="SM-Delivery-Cause" id="3321" type="Enumerated" mandatory="true">
+            <enum value="0">UE_ MEMORY_CAPACITY_EXCEEDED</enum>
+            <enum value="1">ABSENT_USER</enum>
+            <enum value="2">SUCCESSFUL_TRANSFER</enum>
+        </avp>
+        <avp name="Absent-User-Diagnostic-SM" id="3322" type="Unsigned32" mandatory="true" />
+        <avp name="RDR-Flags" id="3323" type="Unsigned32" />
+        <avp name="Maximum-UE-Availability-Time" id="3329" type="Time" />
+        <avp name="SMS-GMSC-Alert-Event" id="3333" type="Unsigned32" />
+        <avp name="SMSF-3GPP-Absent-User-Diagnostic-SM" id="3334" type="Unsigned32" />
+        <avp name="SMSF-Non-3GPP-Absent-User-Diagnostic-SM" id="3335" type="Unsigned32" />
+        <avp name="SMSF-3GPP-SM-Delivery-Outcome" id="3336" type="Grouped" />
+        <avp name="SMSF-Non-3GPP-SM-Delivery-Outcome" id="3337" type="Grouped" />
+        <avp name="SMSF-3GPP-Number" id="3338" type="OctetString" />
+        <avp name="SMSF-Non-3GPP-Number" id="3339" type="OctetString" />
+        <avp name="SMSF-3GPP-Name" id="3340" type="DiameterIdentity" />
+        <avp name="SMSF-Non-3GPP-Name" id="3341" type="DiameterIdentity" />
+        <avp name="SMSF-3GPP-Realm" id="3342" type="DiameterIdentity" />
+        <avp name="SMSF-Non-3GPP-Realm" id="3343" type="DiameterIdentity" />
+        <avp name="SMSF-3GPP-Address" id="3344" type="Grouped" />
+        <avp name="SMSF-Non-3GPP-Address" id="3345" type="Grouped" />
+
+        <!-- TS29.338 SGd/Gdd AVP -->
+        <avp name="SC-Address" id="3300" type="OctetString" mandatory="ture" />
+        <avp name="SM-Delivery-Failure-Cause" id="3303" type="Grouped" mandatory="ture" />
+        <avp name="SMSMI-Correlation-ID" id="3324" type="Grouped" />
+        <avp name="Destination-SIP-URI" id="3327" type="UTF8String" />
+
+        <!-- TS29.229 AVP -->
+        <avp name="Supported-Features" id="628" type="Grouped" mandatory="ture" />
+        <avp name="Feature-List-ID" id="629" type="Unsigned32" />
+        <avp name="Feature-List" id="630" type="Unsigned32" />
+        <!-- TS23.329 AVP -->
+        <avp name="MSISDN" id="701" type="OctetString" mandatory="ture" />
+        <!-- TS29.272 AVP -->
+        <avp name="SGSN-Number" id="1489" type="OctetString" mandatory="ture" />
+        <avp name="MME-Number-for-MT-SMS" id="1645" type="OctetString" mandatory="ture" />
+        <!-- TS29.173 AVP -->
+        <avp name="LMSI" id="2400" type="OctetString" mandatory="ture" />
+        <avp name="Serving-Node" id="2401" type="Grouped" mandatory="ture" />
+        <avp name="MME-Name" id="2402" type="DiameterIdentity" mandatory="ture" />
+        <avp name="MSC-Number" id="2403" type="OctetString" mandatory="ture" />
+        <avp name="Additional-Serving-Node" id="2406" type="Grouped" mandatory="true" />
+        <avp name="MME-Realm" id="2408" type="DiameterIdentity" mandatory="ture" />
+        <avp name="SGSN-Name" id="2409" type="DiameterIdentity" />
+        <avp name="SGSN-Realm" id="2410" type="DiameterIdentity" />
+        <!-- TS29.336 AVP -->
+        <avp name="IP-SM-GW-Number" id="3100" type="OctetString" mandatory="ture" />
+        <avp name="IP-SM-GW-Name" id="3101" type="DiameterIdentity" mandatory="ture" />
+        <avp name="User-Identifier" id="3102" type="Grouped" mandatory="ture" />
+    </vendor>
+
+    <vendor name="IETF" id="0">
+        <application name="base" id="0">
+            <command name="Capabilities-Exchange" id="257" />
+            <command name="Device-Watchdog" id="280" />
+            <command name="Disconnect-Peer" id="282" />
+        </application>
+
+        <!-- RFC 6733 -->
+        <avp name="Acct-Interim-Interval" id="85" type="Unsigned32" mandatory="true" />
+        <avp name="Accounting-Realtime-Required" id="483" type="Enumerated" mandatory="true">
+            <enum value="1">DELIVER_AND_GRANT</enum>
+            <enum value="2">GRANT_AND_STORE</enum>
+            <enum value="3">GRANT_AND_LOSE</enum>
+        </avp>
+        <avp name="Acct-Multi-Session-Id" id="50" type="UTF8String" mandatory="true" />
+        <avp name="Accounting-Record-Number" id="485" type="Unsigned32" mandatory="true" />
+        <avp name="Accounting-Record-Type" id="480" type="Enumerated" mandatory="true">
+            <enum value="1">EVENT_RECORD</enum>
+            <enum value="2">START_RECORD</enum>
+            <enum value="3">INTERIM_RECORD</enum>
+            <enum value="4">STOP_RECORD</enum>
+        </avp>
+        <avp name="Accounting-Session-Id" id="44" type="OctetString" mandatory="true" />
+        <avp name="Accounting-Sub-Session-Id" id="287" type="Unsigned64" mandatory="true" />
+        <avp name="Acct-Application-Id" id="259" type="Unsigned32" mandatory="true" />
+        <avp name="Auth-Application-Id" id="258" type="Unsigned32" mandatory="true" />
+        <avp name="Auth-Request-Type" id="274" type="Enumerated" mandatory="true">
+            <enum value="0">AUTHORIZE_ONLY</enum>
+            <enum value="1">AUTHORIZE_AUTHENTICATE</enum>
+        </avp>
+        <avp name="Authorization-Lifetime" id="291" type="Unsigned32" mandatory="true" />
+        <avp name="Auth-Grace-Period" id="276" type="Unsigned32" mandatory="true" />
+        <avp name="Auth-Session-State" id="277" type="Enumerated" mandatory="true">
+            <enum value="0">STATE_MAINTAINED</enum>
+            <enum value="1">NO_STATE_MAINTAINED</enum>
+        </avp>
+        <avp name="Re-Auth-Request-Type" id="285" type="Enumerated" mandatory="true">
+            <enum value="0">AUTHORIZE_ONLY</enum>
+            <enum value="1">AUTHORIZE_AUTHENTICATE</enum>
+        </avp>
+        <avp name="Class" id="25" type="OctetString" mandatory="true" />
+        <avp name="Destination-Host" id="293" type="DiameterIdentity" mandatory="true" />
+        <avp name="Destination-Realm" id="283" type="DiameterIdentity" mandatory="true" />
+        <avp name="Disconnect-Cause" id="273" type="Enumerated" mandatory="true">
+            <enum value="0">REBOOTING</enum>
+            <enum value="1">BUSY</enum>
+            <enum value="2">DO_NOT_WANT_TO_TALK_TO_YOU</enum>
+        </avp>
+        <avp name="E2E-Sequence" id="300" type="Grouped" mandatory="true" />
+        <avp name="Error-Message" id="281" type="UTF8String" />
+        <avp name="Error-Reporting-Host" id="294" type="DiameterIdentity" />
+        <avp name="Event-Timestamp" id="55" type="Time" mandatory="true" />
+        <avp name="Experimental-Result" id="297" type="Grouped" mandatory="true" />
+        <avp name="Experimental-Result-Code" id="298" type="Unsigned32" mandatory="true" />
+        <avp name="Failed-AVP" id="279" type="Grouped" mandatory="true" />
+        <avp name="Firmware-Revision" id="267" type="Unsigned32" />
+        <avp name="Host-IP-Address" id="257" type="Address" mandatory="true" />
+        <avp name="Inband-Security-Id" id="299" type="Unsigned32" mandatory="true" />
+        <avp name="Multi-Round-Time-Out" id="272" type="Unsigned32" mandatory="true" />
+        <avp name="Origin-Host" id="264" type="DiameterIdentity" mandatory="true" />
+        <avp name="Origin-Realm" id="296" type="DiameterIdentity" mandatory="true" />
+        <avp name="Origin-State-Id" id="278" type="Unsigned32" mandatory="true" />
+        <avp name="Product-Name" id="269" type="UTF8String" />
+        <avp name="Proxy-Host" id="280" type="DiameterIdentity" mandatory="true" />
+        <avp name="Proxy-Info" id="284" type="Grouped" mandatory="true" />
+        <avp name="Proxy-State" id="33" type="OctetString" mandatory="true" />
+        <avp name="Redirect-Host" id="292" type="DiamURI" mandatory="true" />
+        <avp name="Redirect-Host-Usage" id="261" type="Enumerated" mandatory="true">
+            <enum value="0">DONT_CACHE</enum>
+            <enum value="1">ALL_SESSION</enum>
+            <enum value="2">ALL_REALM</enum>
+            <enum value="3">REALM_AND_APPLICATION</enum>
+            <enum value="4">ALL_APPLICATION</enum>
+            <enum value="5">ALL_HOST</enum>
+            <enum value="6">ALL_USER</enum>
+        </avp>
+        <avp name="Redirect-Max-Cache-Time" id="262" type="Unsigned32" mandatory="true" />
+        <avp name="Result-Code" id="268" type="Unsigned32" mandatory="true" />
+        <avp name="Route-Record" id="282" type="DiameterIdentity" mandatory="true" />
+        <avp name="Session-Id" id="263" type="UTF8String" mandatory="true" />
+        <avp name="Session-Timeout" id="27" type="Unsigned32" mandatory="true" />
+        <avp name="Session-Binding" id="270" type="Unsigned32" mandatory="true" />
+        <avp name="Session-Server-Failover" id="271" type="Enumerated" mandatory="true">
+            <enum value="0">REFUSE_SERVICE</enum>
+            <enum value="1">TRY_AGAIN</enum>
+            <enum value="2">ALLOW_SERVICE</enum>
+            <enum value="3">TRY_AGAIN_ALLOW_SERVICE</enum>
+        </avp>
+        <avp name="Supported-Vendor-Id" id="265" type="Unsigned32" mandatory="true" />
+        <avp name="Termination-Cause" id="295" type="Enumerated" mandatory="true">
+            <enum value="0">Reserved</enum>
+            <enum value="1">DIAMETER_LOGOUT</enum>
+            <enum value="2">DIAMETER_SERVICE_NOT_PROVIDED</enum>
+            <enum value="3">DIAMETER_BAD_ANSWER</enum>
+            <enum value="4">DIAMETER_ADMINISTRATIVE</enum>
+            <enum value="5">DIAMETER_LINK_BROKEN</enum>
+            <enum value="6">DIAMETER_AUTH_EXPIRED</enum>
+            <enum value="7">DIAMETER_USER_MOVED</enum>
+            <enum value="8">DIAMETER_SESSION_TIMEOUT</enum>
+            <enum value="11">User Request</enum>
+            <enum value="12">Lost Carrier</enum>
+            <enum value="13">Lost Service</enum>
+            <enum value="14">Idle Timeout</enum>
+            <enum value="15">Session Timeout</enum>
+            <enum value="16">Admin Reset</enum>
+            <enum value="17">Admin Reboot</enum>
+            <enum value="18">Port Error</enum>
+            <enum value="19">NAS Error</enum>
+            <enum value="20">NAS Request</enum>
+            <enum value="21">NAS Reboot</enum>
+            <enum value="22">Port Unneeded</enum>
+            <enum value="23">Port Preempted</enum>
+            <enum value="24">Port Suspended</enum>
+            <enum value="25">Service Unavailable</enum>
+            <enum value="26">Callback</enum>
+            <enum value="27">User Error</enum>
+            <enum value="28">Host Request</enum>
+            <enum value="29">Supplicant Restart</enum>
+            <enum value="30">Reauthentication Failure</enum>
+            <enum value="31">Port Reinitialized</enum>
+            <enum value="32">Port Administratively Disabled</enum>
+        </avp>
+        <avp name="User-Name" id="1" type="UTF8String" mandatory="true" />
+        <avp name="Vendor-Id" id="266" type="Unsigned32" mandatory="true" />
+        <avp name="Vendor-Specific-Application-Id" id="260" type="Grouped" mandatory="true" />
+
+        <!-- RFC 7944 -->
+        <avp name="DRMP" id="301" type="Enumerated">
+            <enum value="0">PRIORITY_0</enum>
+            <enum value="1">PRIORITY_1</enum>
+            <enum value="2">PRIORITY_2</enum>
+            <enum value="3">PRIORITY_3</enum>
+            <enum value="4">PRIORITY_4</enum>
+            <enum value="5">PRIORITY_5</enum>
+            <enum value="6">PRIORITY_6</enum>
+            <enum value="7">PRIORITY_7</enum>
+            <enum value="8">PRIORITY_8</enum>
+            <enum value="9">PRIORITY_9</enum>
+            <enum value="10">PRIORITY_10</enum>
+            <enum value="11">PRIORITY_11</enum>
+            <enum value="12">PRIORITY_12</enum>
+            <enum value="13">PRIORITY_13</enum>
+            <enum value="14">PRIORITY_14</enum>
+            <enum value="15">PRIORITY_15</enum>
+        </avp>
+    </vendor>
+</dictionary>
