@@ -77,7 +77,7 @@ func encGrouped(v any, avp *diameter.AVP) (e error) {
 
 	buf := new(bytes.Buffer)
 	for k, v := range a {
-		avp, e := encAVPs[k](v)
+		avp, e := EncodeAVP(k, v)
 		if e != nil {
 			return fmt.Errorf("%s is invalid: %v", k, e)
 		}

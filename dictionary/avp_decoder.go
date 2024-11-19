@@ -81,7 +81,7 @@ func decGrouped(avp *diameter.AVP) (any, error) {
 		if e != nil {
 			return nil, e
 		}
-		n, v, e := decAVPs[(uint64(a.VendorID)<<32)|uint64(a.Code)](a)
+		n, v, e := DecodeAVP(a)
 		if e != nil {
 			return nil, e
 		}
