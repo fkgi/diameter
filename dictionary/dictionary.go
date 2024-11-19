@@ -1,26 +1,53 @@
 package dictionary
 
 import (
-	"encoding/json"
+	"encoding/xml"
 	"errors"
 
 	"github.com/fkgi/diameter"
 )
 
-type Dictionary map[string]struct {
-	ID   uint32 `json:"id"`
-	Apps map[string]struct {
+/*
+	type Dictionary map[string]struct {
 		ID   uint32 `json:"id"`
-		Cmds map[string]struct {
-			ID uint32 `json:"id"`
-		} `json:"command"`
-	} `json:"applications"`
-	Avps map[string]struct {
-		ID    uint32           `json:"id"`
-		Mflag bool             `json:"mandatory,omitempty"`
-		Type  string           `json:"type"`
-		Enum  map[string]int32 `json:"map,omitempty"`
-	} `json:"avps"`
+		Apps map[string]struct {
+			ID   uint32 `json:"id"`
+			Cmds map[string]struct {
+				ID uint32 `json:"id"`
+			} `json:"command"`
+		} `json:"applications"`
+		Avps map[string]struct {
+			ID    uint32           `json:"id"`
+			Mflag bool             `json:"mandatory,omitempty"`
+			Type  string           `json:"type"`
+			Enum  map[string]int32 `json:"map,omitempty"`
+		} `json:"avps"`
+	}
+*/
+type XDictionary struct {
+	XMLName xml.Name `xml:"dictionary"`
+	V       []struct {
+		N string `xml:"name,attr"`
+		I uint32 `xml:"id,attr"`
+		P []struct {
+			N string `xml:"name,attr"`
+			I uint32 `xml:"id,attr"`
+			C []struct {
+				N string `xml:"name,attr"`
+				I uint32 `xml:"id,attr"`
+			} `xml:"command"`
+		} `xml:"application"`
+		V []struct {
+			N string `xml:"name,attr"`
+			I uint32 `xml:"id,attr"`
+			T string `xml:"type,attr"`
+			M bool   `xml:"mandatory,attr"`
+			E []struct {
+				I int32  `xml:"value,attr"`
+				V string `xml:",chardata"`
+			} `xml:"enum"`
+		} `xml:"avp"`
+	} `xml:"vendor"`
 }
 
 var (
@@ -66,37 +93,44 @@ func DecodeMessage(m diameter.Message) (string, error) {
 	return name, nil
 }
 
-func LoadDictionary(data []byte) (Dictionary, error) {
-	var dictionary Dictionary
+func LoadDictionary(data []byte) (XDictionary, error) {
+	/*
+		dictionary := Dictionary{}
 
-	if e := json.Unmarshal(data, &dictionary); e != nil {
-		return dictionary, errors.Join(
+		if e := json.Unmarshal(data, &dictionary); e != nil {
+			return dictionary, errors.Join(
+				errors.New("failed to unmarshal dictionary file"), e)
+		}
+	*/
+	var xd XDictionary
+	if e := xml.Unmarshal(data, &xd); e != nil {
+		return xd, errors.Join(
 			errors.New("failed to unmarshal dictionary file"), e)
 	}
 
-	for vndname, vnd := range dictionary {
-		for appname, app := range vnd.Apps {
-			for cmdname, cmd := range app.Cmds {
-				p := vndname + "/" + appname + "/" + cmdname
-				i := (uint64(app.ID) << 32) | uint64(cmd.ID)
+	for _, vnd := range xd.V {
+		for _, app := range vnd.P {
+			for _, cmd := range app.C {
+				p := vnd.N + "/" + app.N + "/" + cmd.N
+				i := (uint64(app.I) << 32) | uint64(cmd.I)
 				encCommand[p] = i
 				decCommand[i] = p
 			}
 		}
 
-		for name, avp := range vnd.Avps {
-			if _, ok := encAVPs[name]; ok {
-				return dictionary,
-					errors.New("duplicated AVP definition: " + name)
+		for _, avp := range vnd.V {
+			if _, ok := encAVPs[avp.N]; ok {
+				return xd,
+					errors.New("duplicated AVP definition: " + avp.N)
 			}
-			if _, ok := decAVPs[(uint64(vnd.ID)<<32)|uint64(avp.ID)]; ok {
-				return dictionary,
-					errors.New("duplicated AVP definition: " + name)
+			if _, ok := decAVPs[(uint64(vnd.I)<<32)|uint64(avp.I)]; ok {
+				return xd,
+					errors.New("duplicated AVP definition: " + avp.N)
 			}
 
 			var encf func(any, *diameter.AVP) error
 			var decf func(*diameter.AVP) (any, error)
-			switch avp.Type {
+			switch avp.T {
 			case "OctetString":
 				encf = encOctetString
 				decf = decOctetString
@@ -137,29 +171,30 @@ func LoadDictionary(data []byte) (Dictionary, error) {
 				encf = encDiameterURI
 				decf = decDiameterURI
 			case "Enumerated":
-				enum := avp.Enum
-				encf = func(v any, a *diameter.AVP) error {
-					return encEnumerated(v, a, enum)
+				m1 := make(map[string]int32)
+				m2 := make(map[int32]string)
+				for _, enm := range avp.E {
+					m1[enm.V] = enm.I
+					m2[enm.I] = enm.V
 				}
-				m := make(map[int32]string)
-				for k, v := range avp.Enum {
-					m[v] = k
+				encf = func(v any, a *diameter.AVP) error {
+					return encEnumerated(v, a, m1)
 				}
 				decf = func(a *diameter.AVP) (any, error) {
-					return decEnumerated(a, m)
+					return decEnumerated(a, m2)
 				}
 			case "IPFilterRule":
 				encf = encIPFilterRule
 				decf = decIPFilterRule
 			default:
-				return dictionary,
-					errors.New("invalid AVP type: " + name)
+				return xd,
+					errors.New("invalid AVP type: " + avp.N)
 			}
 
-			code := uint32(avp.ID)
-			vid := uint32(vnd.ID)
-			flg := avp.Mflag
-			encAVPs[name] = func(v any) (diameter.AVP, error) {
+			code := uint32(avp.I)
+			vid := uint32(vnd.I)
+			flg := avp.M
+			encAVPs[avp.N] = func(v any) (diameter.AVP, error) {
 				a := diameter.AVP{
 					Code:      code,
 					VendorID:  vid,
@@ -168,8 +203,8 @@ func LoadDictionary(data []byte) (Dictionary, error) {
 				return a, e
 			}
 
-			n := name
-			decAVPs[(uint64(vnd.ID)<<32)|uint64(avp.ID)] =
+			n := avp.N
+			decAVPs[(uint64(vnd.I)<<32)|uint64(avp.I)] =
 				func(a diameter.AVP) (string, any, error) {
 					v, e := decf(&a)
 					return n, v, e
@@ -177,5 +212,5 @@ func LoadDictionary(data []byte) (Dictionary, error) {
 		}
 	}
 
-	return dictionary, nil
+	return xd, nil
 }

@@ -53,7 +53,7 @@ func main() {
 		diameter.ProductName, diameter.FirmwareRev)
 
 	log.Println("loading dictionary file", *dict)
-	var dicData dictionary.Dictionary
+	var dicData dictionary.XDictionary
 	if data, err := os.ReadFile(*dict); err != nil {
 		log.Fatalln("failed to open dictionary file:", err)
 	} else if dicData, err = dictionary.LoadDictionary(data); err != nil {

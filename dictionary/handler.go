@@ -11,7 +11,7 @@ import (
 	"github.com/fkgi/diameter"
 )
 
-func (d Dictionary) RegisterHandler(backend, path string, rt diameter.Router) {
+func (d XDictionary) RegisterHandler(backend, path string, rt diameter.Router) {
 	for vn, vnd := range d {
 		if vnd.ID == 0 {
 			continue
