@@ -57,7 +57,7 @@ func main() {
 	}
 
 	log.Println("loading dictionary file", *dict)
-	var dicData dictionary.Dictionary
+	var dicData dictionary.XDictionary
 	if data, err := os.ReadFile(*dict); err != nil {
 		log.Fatalln("failed to open dictionary file:", err)
 	} else if dicData, err = dictionary.LoadDictionary(data); err != nil {
@@ -66,21 +66,21 @@ func main() {
 
 	buf := new(strings.Builder)
 	fmt.Fprintln(buf, "supported data")
-	for vn, vnd := range dicData {
-		fmt.Fprintf(buf, "| vendor: %s(%d)", vn, vnd.ID)
+	for _, vnd := range dicData.V {
+		fmt.Fprintf(buf, "| vendor: %s(%d)", vnd.N, vnd.I)
 		fmt.Fprintln(buf)
-		for an, app := range vnd.Apps {
-			fmt.Fprintf(buf, "| | application: %s(%d)", an, app.ID)
+		for _, app := range vnd.P {
+			fmt.Fprintf(buf, "| | application: %s(%d)", app.N, app.I)
 			fmt.Fprintln(buf)
 			fmt.Fprint(buf, "| | | command:")
-			for cn, cmd := range app.Cmds {
-				fmt.Fprintf(buf, " %s(%d)", cn, cmd.ID)
+			for _, cmd := range app.C {
+				fmt.Fprintf(buf, " %s(%d)", cmd.N, cmd.I)
 			}
 			fmt.Fprintln(buf)
 		}
 		fmt.Fprint(buf, "| | AVP:")
-		for an, avp := range vnd.Avps {
-			fmt.Fprintf(buf, " %s(%d,%s)", an, avp.ID, avp.Type)
+		for _, avp := range vnd.V {
+			fmt.Fprintf(buf, " %s(%d,%s)", avp.N, avp.I, avp.T)
 		}
 		fmt.Fprintln(buf)
 	}

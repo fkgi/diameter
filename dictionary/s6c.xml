@@ -7,11 +7,11 @@
         </application>
 
         <!-- TS29.338 S6c AVP -->
-        <avp name="SM-RP-MTI" id="3308" type="Enumerated" mandatory="ture">
+        <avp name="SM-RP-MTI" id="3308" type="Enumerated" mandatory="true">
             <enum value="0">SM_DELIVER</enum>
             <enum value="1">SM_STATUS_REPORT</enum>
         </avp>
-        <avp name="SM-RP-SMEA" id="3309" type="OctetString" mandatory="ture" />
+        <avp name="SM-RP-SMEA" id="3309" type="OctetString" mandatory="true" />
         <avp name="SRR-Flags" id="3310" type="Unsigned32" mandatory="true" />
         <avp name="SM-Delivery-Not-Intended" id="3311" type="Enumerated" mandatory="true">
             <enum value="0">ONLY_IMSI_REQUESTED</enum>
@@ -49,33 +49,33 @@
         <avp name="SMSF-Non-3GPP-Address" id="3345" type="Grouped" />
 
         <!-- TS29.338 SGd/Gdd AVP -->
-        <avp name="SC-Address" id="3300" type="OctetString" mandatory="ture" />
-        <avp name="SM-Delivery-Failure-Cause" id="3303" type="Grouped" mandatory="ture" />
+        <avp name="SC-Address" id="3300" type="OctetString" mandatory="true" />
+        <avp name="SM-Delivery-Failure-Cause" id="3303" type="Grouped" mandatory="true" />
         <avp name="SMSMI-Correlation-ID" id="3324" type="Grouped" />
         <avp name="Destination-SIP-URI" id="3327" type="UTF8String" />
 
         <!-- TS29.229 AVP -->
-        <avp name="Supported-Features" id="628" type="Grouped" mandatory="ture" />
+        <avp name="Supported-Features" id="628" type="Grouped" mandatory="true" />
         <avp name="Feature-List-ID" id="629" type="Unsigned32" />
         <avp name="Feature-List" id="630" type="Unsigned32" />
         <!-- TS23.329 AVP -->
-        <avp name="MSISDN" id="701" type="OctetString" mandatory="ture" />
+        <avp name="MSISDN" id="701" type="OctetString" mandatory="true" />
         <!-- TS29.272 AVP -->
-        <avp name="SGSN-Number" id="1489" type="OctetString" mandatory="ture" />
-        <avp name="MME-Number-for-MT-SMS" id="1645" type="OctetString" mandatory="ture" />
+        <avp name="SGSN-Number" id="1489" type="OctetString" mandatory="true" />
+        <avp name="MME-Number-for-MT-SMS" id="1645" type="OctetString" mandatory="true" />
         <!-- TS29.173 AVP -->
-        <avp name="LMSI" id="2400" type="OctetString" mandatory="ture" />
-        <avp name="Serving-Node" id="2401" type="Grouped" mandatory="ture" />
-        <avp name="MME-Name" id="2402" type="DiameterIdentity" mandatory="ture" />
-        <avp name="MSC-Number" id="2403" type="OctetString" mandatory="ture" />
+        <avp name="LMSI" id="2400" type="OctetString" mandatory="true" />
+        <avp name="Serving-Node" id="2401" type="Grouped" mandatory="true" />
+        <avp name="MME-Name" id="2402" type="DiameterIdentity" mandatory="true" />
+        <avp name="MSC-Number" id="2403" type="OctetString" mandatory="true" />
         <avp name="Additional-Serving-Node" id="2406" type="Grouped" mandatory="true" />
-        <avp name="MME-Realm" id="2408" type="DiameterIdentity" mandatory="ture" />
+        <avp name="MME-Realm" id="2408" type="DiameterIdentity" mandatory="true" />
         <avp name="SGSN-Name" id="2409" type="DiameterIdentity" />
         <avp name="SGSN-Realm" id="2410" type="DiameterIdentity" />
         <!-- TS29.336 AVP -->
-        <avp name="IP-SM-GW-Number" id="3100" type="OctetString" mandatory="ture" />
-        <avp name="IP-SM-GW-Name" id="3101" type="DiameterIdentity" mandatory="ture" />
-        <avp name="User-Identifier" id="3102" type="Grouped" mandatory="ture" />
+        <avp name="IP-SM-GW-Number" id="3100" type="OctetString" mandatory="true" />
+        <avp name="IP-SM-GW-Name" id="3101" type="DiameterIdentity" mandatory="true" />
+        <avp name="User-Identifier" id="3102" type="Grouped" mandatory="true" />
     </vendor>
 
     <vendor name="IETF" id="0">
@@ -144,7 +144,7 @@
         <avp name="Proxy-Host" id="280" type="DiameterIdentity" mandatory="true" />
         <avp name="Proxy-Info" id="284" type="Grouped" mandatory="true" />
         <avp name="Proxy-State" id="33" type="OctetString" mandatory="true" />
-        <avp name="Redirect-Host" id="292" type="DiamURI" mandatory="true" />
+        <avp name="Redirect-Host" id="292" type="DiameterURI" mandatory="true" />
         <avp name="Redirect-Host-Usage" id="261" type="Enumerated" mandatory="true">
             <enum value="0">DONT_CACHE</enum>
             <enum value="1">ALL_SESSION</enum>

@@ -22,7 +22,7 @@ DIAMETER_PEER = [(tcp|sctp)://][realm/]hostname[:port]
 Commandline example
 
 ```
-roundrobin -l mme.epc.mcc99.mnc999.3gppnetwork.org -i :8080 -b mockserver:8080 -c rebooting -d ./s6a.json sctp://hss.ecp.mcc99.mnc999.3gppnetwork.org
+roundrobin -l mme.epc.mcc99.mnc999.3gppnetwork.org -i :8080 -b mockserver:8080 -c rebooting -d ./s6a.xml sctp://hss.ecp.mcc99.mnc999.3gppnetwork.org
 ```
 
 ## Args
@@ -87,64 +87,50 @@ Port `0` is used as any for source port.
 If local port is 0 and Round-Robin run as client, local port is automaticaly selected by system. If peer port is 0 and Round-Robin run as server, connection from any peer port is accepted.
 
 # Format of Dictionary file
-Dictionary file is JSON document.
+Dictionary file is XML document.
 
 ```
-{
-    "3GPP": {
-        "id": 10415,
-        "applications": {
-            "S6a": {
-                "id": 16777251,
-                "command": {
-                    "Update-Location": {
-                        "id": 316
-                    }
-                }
-            }
-        },
-        "avps": {
-            "Subscription-Data": {
-                "id": 1400,
-                "mandatory": true,
-                "type": "Grouped"
-            },
-            "Terminal-Information": {
-                "id": 1401,
-                "mandatory": true,
-                "type": "Grouped"
-            }
-        }
-    }
-}
+<dictionary>
+    <vendor name="3GPP" id="10415">
+        <application name="S6a" id="16777251">
+            <command name="Update-Location" id="316" />
+            <command name="Cancel-Location" id="317" />
+        </application>
+        <avp name="Subscription-Data" id="1400" type="Grouped" mandatory="true" />
+        <avp name="Terminal-Information" id="1401" type="Grouped" mandatory="true" />
+    </vendor>
+    <vendor name="IETF" id="0">
+        <application name="base" id="0">
+            <command name="Capabilities-Exchange" id="257" />
+        </application>
+        <avp name="Acct-Interim-Interval" id="85" type="Unsigned32" mandatory="true" />
+    </vendor>
+</dictionary>
 ```
-Root is JSON Map object.
-Key of the Map is vendor name.
-Value of the Map is JSON object for Vendor layer data.
+Root element is `<dictionary>`.
 
+Second element is `<vendor>` that include Vendor layer data.
 Vendor layer data defines vendor.
-It has `id`, `applications`, `avps` data.
+It has `name` and `id` attributes, `application` and `avps` element data.
+- `name` in Vendor layer is name of the vendor
 - `id` in Vendor layer is vendor ID digit that is assigned in IANA
-- `applications` contains JSON Map object of Application layer data
-- `avps` contains JSON Map object of AVP layer data
+- `application` contains elements of Application layer data
+- `avps` contains elements of AVP layer data
 
 Application layer data defines Diameter application for specified vendor.
-Key of the Map is application name.
-Value of the Map is JSON object for Application layer data.
-It has `id`, `command` data.
+It has `name` and `id` attributes, `command` element data.
+- `name` in Application layer is name of the application
 - `id` in Application layer is application ID digit that is assigned in IANA
-- `command` contains JSON Map object of Command layer data
+- `command` contains elements of Command layer data
 
 Command layer data defines Diameter command in specified application.
-Key of the Map is command name.
-Value of the Map is JSON object for Command layer data.
-It has `id` data.
+It has `name` and `id` attributes.
+- `name` in Command layer is name of the command
 - `id` in Command layer is command code digit that is assigned in IANA
 
 AVP layer data defines Diameter AVP for specified vendor.
-Key of the Map is AVP name.
-Value of the Map is JSON object for AVP layer data.
-It has `id`, `mandatory`, `type` data.
+It has `name`, `id`, `mandatory`, `type` attributes, `enum` element data.
+- `name` in AVP layer is name of the avp
 - `id` in AVP layer is AVP ID digit that is assigned in IANA
 - `mandatory` is boolean data that indicate the AVP is flagged as mandatory
 - `type` is string data that indicate format of the AVP  
@@ -164,9 +150,9 @@ Available format are below
   - DiameterURI
   - Enumerated
   - IPFilterRule  
-- `map` is JSON Map object for defining Enumerated value  
-Key of the Map is Enumerated value name  
-Value of the Map is Enumerated digit value
+- `enum` define Enumerated value mapping  
+`value` attribute is Enumerated digit value  
+Text data of the element is Enumerated value name  
 
 # Format of REST message
 Only POST method is acceptable for HTTP REST request.

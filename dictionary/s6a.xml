@@ -490,26 +490,26 @@
         <!-- TS 29.061 AVP -->
         <avp name="3GPP-Charging-Characteristics" id="13" type="UTF8String" />
         <!-- TS 29.214 AVP -->
-        <avp name="Max-Requested-Bandwidth-DL" id="515" type="Unsigned32" mandatory="ture" />
-        <avp name="Max-Requested-Bandwidth-UL" id="516" type="Unsigned32" mandatory="ture" />
+        <avp name="Max-Requested-Bandwidth-DL" id="515" type="Unsigned32" mandatory="true" />
+        <avp name="Max-Requested-Bandwidth-UL" id="516" type="Unsigned32" mandatory="true" />
         <avp name="Extended-Max-Requested-BW-DL" id="554" type="Unsigned32" />
         <avp name="Extended-Max-Requested-BW-UL" id="555" type="Unsigned32" />
         <!-- TS29.229 AVP -->
         <avp name="Visited-Network-Identifier" id="600" type="OctetString" />
-        <avp name="Confidentiality-Key" id="625" type="OctetString" mandatory="ture" />
-        <avp name="Integrity-Key" id="626" type="OctetString" mandatory="ture" />
-        <avp name="Supported-Features" id="628" type="Grouped" mandatory="ture" />
+        <avp name="Confidentiality-Key" id="625" type="OctetString" mandatory="true" />
+        <avp name="Integrity-Key" id="626" type="OctetString" mandatory="true" />
+        <avp name="Supported-Features" id="628" type="Grouped" mandatory="true" />
         <avp name="Feature-List-ID" id="629" type="Unsigned32" />
         <avp name="Feature-List" id="630" type="Unsigned32" />
         <!-- TS 29.329 AVP -->
-        <avp name="MSISDN" id="701" type="OctetString" mandatory="ture" />
+        <avp name="MSISDN" id="701" type="OctetString" mandatory="true" />
         <!-- TS 32.299 AVP -->
-        <avp name="Served-Party-IP-Address" id="848" type="Address" mandatory="ture" />
+        <avp name="Served-Party-IP-Address" id="848" type="Address" mandatory="true" />
         <avp name="Charged-Party" id="857" type="UTF8String" />
-        <avp name="PDP-Address" id="1227" type="Address" mandatory="ture" />
+        <avp name="PDP-Address" id="1227" type="Address" mandatory="true" />
         <avp name="User-CSG-Information" id="2319" type="Grouped" />
         <!-- TS 29.212 AVP -->
-        <avp name="QoS-Class-Identifier" id="1028" type="Enumerated" mandatory="ture">
+        <avp name="QoS-Class-Identifier" id="1028" type="Enumerated" mandatory="true">
             <enum value="1">QCI_1</enum>
             <enum value="2">QCI_2</enum>
             <enum value="3">QCI_3</enum>
@@ -531,7 +531,7 @@
             <enum value="84">QCI_84</enum>
             <enum value="85">QCI_85</enum>
         </avp>
-        <avp name="RAT-Type" id="1032" type="Enumerated" mandatory="ture">
+        <avp name="RAT-Type" id="1032" type="Enumerated" mandatory="true">
             <enum value="0">WLAN</enum>
             <enum value="1">VIRTUAL</enum>
             <enum value="1000">UTRAN</enum>
@@ -667,7 +667,7 @@
         <avp name="Proxy-Host" id="280" type="DiameterIdentity" mandatory="true" />
         <avp name="Proxy-Info" id="284" type="Grouped" mandatory="true" />
         <avp name="Proxy-State" id="33" type="OctetString" mandatory="true" />
-        <avp name="Redirect-Host" id="292" type="DiamURI" mandatory="true" />
+        <avp name="Redirect-Host" id="292" type="DiameterURI" mandatory="true" />
         <avp name="Redirect-Host-Usage" id="261" type="Enumerated" mandatory="true">
             <enum value="0">DONT_CACHE</enum>
             <enum value="1">ALL_SESSION</enum>

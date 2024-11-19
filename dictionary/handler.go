@@ -12,14 +12,14 @@ import (
 )
 
 func (d XDictionary) RegisterHandler(backend, path string, rt diameter.Router) {
-	for vn, vnd := range d {
-		if vnd.ID == 0 {
+	for _, vnd := range d.V {
+		if vnd.I == 0 {
 			continue
 		}
-		for an, app := range vnd.Apps {
-			for cn, cmd := range app.Cmds {
-				registerHandler(backend, path+vn+"/"+an+"/"+cn,
-					cmd.ID, app.ID, vnd.ID, rt)
+		for _, app := range vnd.P {
+			for _, cmd := range app.C {
+				registerHandler(backend, path+vnd.N+"/"+app.N+"/"+cmd.N,
+					cmd.I, app.I, vnd.I, rt)
 			}
 		}
 	}

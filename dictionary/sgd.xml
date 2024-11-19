@@ -35,14 +35,17 @@
         <!-- TS29.338 S6c AVP -->
         <avp name="Absent-User-Diagnostic-SM" id="3322" type="Unsigned32" mandatory="true" />
 
+        <!-- TS 29.329 AVP -->
+        <avp name="MSISDN" id="701" type="OctetString" mandatory="true" />
+
         <!-- TS29.336 AVP -->
-        <avp name="User-Identifier" id="3102" type="Grouped" mandatory="ture" />
+        <avp name="User-Identifier" id="3102" type="Grouped" mandatory="true" />
         <avp name="External-Identifier" id="3111" type="UTF8String" />
         <!-- TS29.272 AVP -->
         <avp name="SGSN-Number" id="1489" type="OctetString" />
-        <avp name="MME-Number-for-MT-SMS" id="1645" type="OctetString" mandatory="ture" />
+        <avp name="MME-Number-for-MT-SMS" id="1645" type="OctetString" mandatory="true" />
         <!-- TS29.229 AVP -->
-        <avp name="Supported-Features" id="628" type="Grouped" mandatory="ture" />
+        <avp name="Supported-Features" id="628" type="Grouped" mandatory="true" />
         <avp name="Feature-List-ID" id="629" type="Unsigned32" />
         <avp name="Feature-List" id="630" type="Unsigned32" />
     </vendor>
@@ -112,7 +115,7 @@
         <avp name="Proxy-Host" id="280" type="DiameterIdentity" mandatory="true" />
         <avp name="Proxy-Info" id="284" type="Grouped" mandatory="true" />
         <avp name="Proxy-State" id="33" type="OctetString" mandatory="true" />
-        <avp name="Redirect-Host" id="292" type="DiamURI" mandatory="true" />
+        <avp name="Redirect-Host" id="292" type="DiameterURI" mandatory="true" />
         <avp name="Redirect-Host-Usage" id="261" type="Enumerated" mandatory="true">
             <enum value="0">DONT_CACHE</enum>
             <enum value="1">ALL_SESSION</enum>

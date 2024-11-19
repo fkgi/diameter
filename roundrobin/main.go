@@ -32,7 +32,7 @@ func main() {
 		"HTTP local interface address. `[host]:port`")
 	hpeer := flag.String("b", "localhost",
 		"HTTP backend host address. `host[:port]`")
-	dict := flag.String("d", "dictionary.json",
+	dict := flag.String("d", "dictionary.xml",
 		"Diameter dictionary file `path`.")
 	cause := flag.String("c", "rebooting",
 		"Disconnect cause in sending DPR. `rebooting|busy|do_not_want_to_talk_to_you`")
@@ -62,21 +62,21 @@ func main() {
 
 	buf := new(strings.Builder)
 	fmt.Fprintln(buf, "supported data")
-	for vn, vnd := range dicData {
-		fmt.Fprintf(buf, "| vendor: %s(%d)", vn, vnd.ID)
+	for _, vnd := range dicData.V {
+		fmt.Fprintf(buf, "| vendor: %s(%d)", vnd.N, vnd.I)
 		fmt.Fprintln(buf)
-		for an, app := range vnd.Apps {
-			fmt.Fprintf(buf, "| | application: %s(%d)", an, app.ID)
+		for _, app := range vnd.P {
+			fmt.Fprintf(buf, "| | application: %s(%d)", app.N, app.I)
 			fmt.Fprintln(buf)
 			fmt.Fprint(buf, "| | | command:")
-			for cn, cmd := range app.Cmds {
-				fmt.Fprintf(buf, " %s(%d)", cn, cmd.ID)
+			for _, cmd := range app.C {
+				fmt.Fprintf(buf, " %s(%d)", cmd.N, cmd.I)
 			}
 			fmt.Fprintln(buf)
 		}
 		fmt.Fprint(buf, "| | AVP:")
-		for an, avp := range vnd.Avps {
-			fmt.Fprintf(buf, " %s(%d,%s)", an, avp.ID, avp.Type)
+		for _, avp := range vnd.V {
+			fmt.Fprintf(buf, " %s(%d,%s)", avp.N, avp.I, avp.T)
 		}
 		fmt.Fprintln(buf)
 	}
@@ -140,10 +140,10 @@ func main() {
 		fmt.Fprintln(buf, "| peer  host/realm:", c.Host, "/", c.Realm)
 		fmt.Fprint(buf, "| available application: ")
 		for _, ap := range c.AvailableApplications() {
-			for _, v := range dicData {
-				for k, app := range v.Apps {
-					if app.ID == ap {
-						fmt.Fprintf(buf, "%s(%d), ", k, ap)
+			for _, v := range dicData.V {
+				for _, app := range v.P {
+					if app.I == ap {
+						fmt.Fprintf(buf, "%s(%d), ", app.N, ap)
 					}
 				}
 			}
