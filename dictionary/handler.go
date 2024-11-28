@@ -35,6 +35,14 @@ func registerHandler(backend, path string, cid, aid, vid uint32, rt diameter.Rou
 				"no HTTP backend is defined")
 		}
 
+		sid := ""
+		for _, a := range avps {
+			if a.Code == 263 {
+				a.Decode(&sid)
+				break
+			}
+		}
+
 		data, e := formatAVPs(avps)
 		if e != nil {
 			return diameterErr(diameter.InvalidAvpValue,
@@ -68,6 +76,13 @@ func registerHandler(backend, path string, cid, aid, vid uint32, rt diameter.Rou
 				"unable to encode Diameter AVP by dictionary: "+e.Error())
 		}
 
+		for _, a := range avps {
+			if a.Code == 263 && len(a.Data) == 0 {
+				a.Encode(sid)
+				break
+			}
+		}
+
 		return false, avps
 	}
 	handleTx := diameter.Handle(cid, aid, vid, serveDiameter, rt)
@@ -98,6 +113,14 @@ func registerHandler(backend, path string, cid, aid, vid uint32, rt diameter.Rou
 				http.StatusBadRequest, w)
 			return
 		}
+
+		for _, a := range avps {
+			if a.Code == 263 && len(a.Data) == 0 {
+				a.Encode(diameter.NextSession(diameter.Host.String()))
+				break
+			}
+		}
+
 		_, avps = handleTx(true, avps)
 
 		if data, e = formatAVPs(avps); e != nil {

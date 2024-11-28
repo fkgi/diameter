@@ -53,8 +53,8 @@ IP address is resolved from hostname if hostname is specified.
 `port` is port number.
 
 - `-d`  
-Path for dictionary JSON file.
-`dictionary.json` file in current directory is used as default.
+Path for dictionary XML file.
+`dictionary.xml` file in current directory is used as default.
 
 - `-c`  
 Diameter connection disconnecting cause. Available value is `rebooting` or `busy` or `do_not_want_to_talk_to_you`.
@@ -84,7 +84,8 @@ It must available port number digit.
 `3868` is used as default if this item is omitted.
 
 Port `0` is used as any for source port.
-If local port is 0 and Round-Robin run as client, local port is automaticaly selected by system. If peer port is 0 and Round-Robin run as server, connection from any peer port is accepted.
+If local port is 0 and Round-Robin run as client, local port is automaticaly selected by system.
+If peer port is 0 and Round-Robin run as server, connection from any peer port is accepted.
 
 # Format of Dictionary file
 Dictionary file is XML document.
@@ -205,3 +206,10 @@ Value is string, number or nested JSON Map object. The value format is defined a
     "Homogeneous-Support-of-IMS-Voice-Over-PS-Sessions": "NOT_SUPPORTED"
 }
 ```
+
+# Behavior for specific AVP
+## Session-ID
+If Session-ID AVP is exist but the value is empty, Round-Robbin generate session ID automatically and fill in to empty Session-ID.
+New session ID is generated for Session-ID AVP in request message.
+Session ID is copied from request message for Session-ID AVP in response message.
+

@@ -82,7 +82,7 @@ func main() {
 	}
 	log.Print(buf)
 
-	http.HandleFunc("/state/v1/connection", conStateHandler)
+	http.HandleFunc("/diastate/v1/connection", conStateHandler)
 
 	rxPath = "http://" + *hpeer
 	_, err = url.Parse(rxPath)
