@@ -76,9 +76,9 @@ func registerHandler(backend, path string, cid, aid, vid uint32, rt diameter.Rou
 				"unable to encode Diameter AVP by dictionary: "+e.Error())
 		}
 
-		for _, a := range avps {
-			if a.Code == 263 && len(a.Data) == 0 {
-				a.Encode(sid)
+		for i := range avps {
+			if avps[i].Code == 263 && len(avps[i].Data) == 0 {
+				avps[i].Encode(sid)
 				break
 			}
 		}
@@ -114,9 +114,9 @@ func registerHandler(backend, path string, cid, aid, vid uint32, rt diameter.Rou
 			return
 		}
 
-		for _, a := range avps {
-			if a.Code == 263 && len(a.Data) == 0 {
-				a.Encode(diameter.NextSession(diameter.Host.String()))
+		for i := range avps {
+			if avps[i].Code == 263 && len(avps[i].Data) == 0 {
+				avps[i].Encode(diameter.NextSession(diameter.Host.String()))
 				break
 			}
 		}

@@ -40,7 +40,7 @@ POST {{url}}/diamsg/v1/3GPP/S6a/Update-Location
 content-type: application/json
 
 {
-    "Session-Id": "mme.{{realm}};{{$localDatetime iso8601}}",
+    "Session-Id": "",
     "Vendor-Specific-Application-Id": {
         "Vendor-Id": 10415,
         "Auth-Application-Id": 16777251
