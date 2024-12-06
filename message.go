@@ -87,6 +87,9 @@ type Message struct {
 	HbHID uint32 // Hop-by-Hop ID
 	EtEID uint32 // End-to-End ID
 	AVPs  []byte // Message body AVP binary data
+
+	SrcPeer  Identity // peer node that send this message
+	SrcRealm Identity
 }
 
 func (m *Message) SetAVP(avp []AVP) {
@@ -130,9 +133,24 @@ func (m Message) String() string {
 	return w.String()
 }
 
-func (m Message) generateAnswerBy(result uint32) Message {
+func (m Message) GenerateAnswerBy(result uint32) Message {
 	buf := new(bytes.Buffer)
 	SetResultCode(result).MarshalTo(buf)
+	for rdr := bytes.NewReader(m.AVPs); rdr.Len() != 0; {
+		a := AVP{}
+		if e := a.UnmarshalFrom(rdr); e != nil {
+			continue
+		}
+		if a.VendorID != 0 {
+			continue
+		}
+		switch a.Code {
+		case 277:
+			a.MarshalTo(buf)
+		case 263:
+			a.MarshalTo(buf)
+		}
+	}
 	SetOriginHost(Host).MarshalTo(buf)
 	SetOriginRealm(Realm).MarshalTo(buf)
 

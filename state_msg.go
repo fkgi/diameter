@@ -46,7 +46,7 @@ func (v eventRcvReq) exec(c *Connection) error {
 		c.wdTimer.Reset(WDInterval)
 	}
 	if result != Success {
-		ans := v.m.generateAnswerBy(result)
+		ans := v.m.GenerateAnswerBy(result)
 		if e := ans.MarshalTo(c.conn); e != nil {
 			TxAnsFail++
 			c.conn.Close()

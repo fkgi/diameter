@@ -119,7 +119,7 @@ func (v eventConnect) exec(c *Connection) error {
 	c.sndQueue[cer.HbHID] = make(chan Message)
 
 	c.wdTimer = time.AfterFunc(WDInterval, func() {
-		c.notify <- eventRcvCEA{cer.generateAnswerBy(UnableToDeliver)}
+		c.notify <- eventRcvCEA{cer.GenerateAnswerBy(UnableToDeliver)}
 	})
 
 	err := cer.MarshalTo(c.conn)
@@ -169,7 +169,7 @@ func (v eventWatchdog) exec(c *Connection) error {
 	c.sndQueue[dwr.HbHID] = make(chan Message)
 
 	c.wdTimer = time.AfterFunc(WDInterval, func() {
-		c.notify <- eventRcvDWA{dwr.generateAnswerBy(UnableToDeliver)}
+		c.notify <- eventRcvDWA{dwr.GenerateAnswerBy(UnableToDeliver)}
 		c.notify <- eventWatchdog{}
 	})
 
@@ -231,7 +231,7 @@ func (v eventStop) exec(c *Connection) error {
 	c.sndQueue[dpr.HbHID] = make(chan Message)
 
 	c.wdTimer = time.AfterFunc(WDInterval, func() {
-		c.notify <- eventRcvDPA{dpr.generateAnswerBy(UnableToDeliver)}
+		c.notify <- eventRcvDPA{dpr.GenerateAnswerBy(UnableToDeliver)}
 	})
 
 	err := dpr.MarshalTo(c.conn)

@@ -89,6 +89,9 @@ func (c *Connection) serve() error {
 	go func() {
 		// handle Rx Diameter message
 		for req, ok := <-c.rcvQueue; ok; req, ok = <-c.rcvQueue {
+			req.SrcPeer = c.Host
+			req.SrcRealm = c.Realm
+
 			ans, err := rxHandlerHelper(req)
 			if err != nil {
 				ans = DefaultRxHandler(req)

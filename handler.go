@@ -57,7 +57,7 @@ func Handle(code, appID, venID uint32, h Handler, rt Router) Handler {
 
 // DefaultRxHandler for receiving Diameter request message without Handler or ralay application.
 var DefaultRxHandler func(Message) Message = func(m Message) Message {
-	return m.generateAnswerBy(UnableToDeliver)
+	return m.GenerateAnswerBy(UnableToDeliver)
 }
 
 func rxHandlerHelper(req Message) (ans Message, err error) {
@@ -108,12 +108,8 @@ func rxHandlerHelper(req Message) (ans Message, err error) {
 // DefaultTxHandler for sending Diameter request message without Handler or relay application.
 func (c *Connection) DefaultTxHandler(m Message) Message {
 	if _, ok := c.commonApp[m.AppID]; !ok && len(c.commonApp) != 0 {
-		return m.generateAnswerBy(UnableToDeliver)
+		return m.GenerateAnswerBy(UnableToDeliver)
 	}
-
-	buf := bytes.NewBuffer(m.AVPs)
-	SetRouteRecord(Host).MarshalTo(buf)
-	m.AVPs = buf.Bytes()
 
 	m.HbHID = nextHbH()
 	m.FlgR = true
@@ -124,7 +120,7 @@ func (c *Connection) DefaultTxHandler(m Message) Message {
 
 func (c *Connection) send(m Message) Message {
 	if c.state != open {
-		return m.generateAnswerBy(UnableToDeliver)
+		return m.GenerateAnswerBy(UnableToDeliver)
 	}
 
 	ch := make(chan Message)
@@ -132,15 +128,15 @@ func (c *Connection) send(m Message) Message {
 	c.notify <- eventSndMsg{m}
 
 	t := time.AfterFunc(WDInterval, func() {
-		c.notify <- eventRcvAns{m.generateAnswerBy(TooBusy)}
+		c.notify <- eventRcvAns{m.GenerateAnswerBy(TooBusy)}
 	})
 	r, ok := <-ch
 	t.Stop()
 
 	if !ok {
-		m = m.generateAnswerBy(UnableToDeliver)
+		m = m.GenerateAnswerBy(UnableToDeliver)
 	} else if m.Code != r.Code || m.AppID != r.AppID || m.EtEID != r.EtEID {
-		m = m.generateAnswerBy(UnableToDeliver)
+		m = m.GenerateAnswerBy(UnableToDeliver)
 	} else {
 		m = r
 	}
