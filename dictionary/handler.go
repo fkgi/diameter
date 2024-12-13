@@ -77,9 +77,16 @@ func registerHandler(backend, path string, cid, aid, vid uint32, rt diameter.Rou
 		}
 
 		for i := range avps {
-			if avps[i].Code == 263 && len(avps[i].Data) == 0 {
+			if len(avps[i].Data) != 0 {
+				continue
+			}
+			switch avps[i].Code {
+			case 263: // Session-ID
 				avps[i].Encode(sid)
-				break
+			case 264: // Origin-Host
+				avps[i].Encode(diameter.Host)
+			case 296: // Origin-Realm
+				avps[i].Encode(diameter.Realm)
 			}
 		}
 
@@ -114,11 +121,23 @@ func registerHandler(backend, path string, cid, aid, vid uint32, rt diameter.Rou
 			return
 		}
 
+		proxy := true
 		for i := range avps {
-			if avps[i].Code == 263 && len(avps[i].Data) == 0 {
-				avps[i].Encode(diameter.NextSession(diameter.Host.String()))
-				break
+			if len(avps[i].Data) == 0 {
+				continue
 			}
+			switch avps[i].Code {
+			case 263: // Session-ID
+				avps[i].Encode(diameter.NextSession(diameter.Host.String()))
+			case 264: // Origin-Host
+				avps[i].Encode(diameter.Host)
+				proxy = false
+			case 296: // Origin-Realm
+				avps[i].Encode(diameter.Realm)
+			}
+		}
+		if proxy {
+			avps = append(avps, diameter.SetRouteRecord(diameter.Host))
 		}
 
 		_, avps = handleTx(true, avps)
