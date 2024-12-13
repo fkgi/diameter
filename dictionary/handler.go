@@ -31,7 +31,7 @@ func (d XDictionary) RegisterHandler(backend, path string, rt diameter.Router) {
 func registerHandler(backend, path string, cid, aid, vid uint32, rt diameter.Router) {
 	serveDiameter := func(_ bool, avps []diameter.AVP) (bool, []diameter.AVP) {
 		if backend == "" {
-			return diameterErr(diameter.UnableToDeliver,
+			return diameterErr(avps, diameter.UnableToDeliver,
 				"no HTTP backend is defined")
 		}
 
@@ -45,34 +45,34 @@ func registerHandler(backend, path string, cid, aid, vid uint32, rt diameter.Rou
 
 		data, e := formatAVPs(avps)
 		if e != nil {
-			return diameterErr(diameter.InvalidAvpValue,
+			return diameterErr(avps, diameter.InvalidAvpValue,
 				"unable to decode Diameter AVP by dictionary: "+e.Error())
 		}
 		jsondata, e := json.Marshal(data)
 		if e != nil {
-			return diameterErr(diameter.InvalidAvpValue,
+			return diameterErr(avps, diameter.InvalidAvpValue,
 				"unable to marshal AVPs to JSON: "+e.Error())
 		}
 		r, e := http.Post(backend+path, "application/json", bytes.NewBuffer(jsondata))
 		if e != nil {
-			return diameterErr(diameter.UnableToDeliver,
+			return diameterErr(avps, diameter.UnableToDeliver,
 				"unable to send HTTP request to backend: "+e.Error())
 		}
 
 		jsondata, e = io.ReadAll(r.Body)
 		defer r.Body.Close()
 		if e != nil {
-			return diameterErr(diameter.UnableToDeliver,
+			return diameterErr(avps, diameter.UnableToDeliver,
 				"unable to receive HTTP response: "+e.Error())
 		}
 		data = make(map[string]any)
 		if e = json.Unmarshal(jsondata, &data); e != nil {
-			return diameterErr(diameter.UnableToComply,
+			return diameterErr(avps, diameter.UnableToComply,
 				"invalid JSON data of AVP: "+e.Error())
 		}
 		avps, e = parseAVPs(data)
 		if e != nil {
-			return diameterErr(diameter.UnableToComply,
+			return diameterErr(avps, diameter.UnableToComply,
 				"unable to encode Diameter AVP by dictionary: "+e.Error())
 		}
 
@@ -154,14 +154,28 @@ func httpErr(title, detail string, code int, w http.ResponseWriter) {
 	w.Write(data)
 }
 
-func diameterErr(code uint32, err string) (bool, []diameter.AVP) {
+func diameterErr(avp []diameter.AVP, code uint32, err string) (bool, []diameter.AVP) {
 	log.Println(err)
 
-	return true, []diameter.AVP{
+	ret := []diameter.AVP{
 		diameter.SetResultCode(code),
 		diameter.SetOriginHost(diameter.Host),
 		diameter.SetOriginRealm(diameter.Realm),
 		diameter.SetErrorMessage(err)}
+
+	for _, a := range avp {
+		if a.VendorID != 0 {
+			continue
+		}
+		switch a.Code {
+		case 277:
+			ret = append(ret, a)
+		case 263:
+			ret = append(ret, a)
+		}
+	}
+
+	return true, ret
 }
 
 func formatAVPs(avps []diameter.AVP) (map[string]any, error) {

@@ -1,5 +1,5 @@
-@url = http://10.255.200.90:8080
-#@url = http://localhost:8081
+#@url = http://10.255.200.90:8080
+@url = http://192.168.56.109:8080
 
 @realm=epc.mnc99.mcc999.3gppnetwork.org
 
@@ -59,4 +59,81 @@ content-type: application/json
     },
     "UE-SRVCC-Capability": "UE-SRVCC-SUPPORTED",
     "Homogeneous-Support-of-IMS-Voice-Over-PS-Sessions": "NOT_SUPPORTED"
+}
+
+###
+# < MO-Forward-Short-Message-Request > ::=	< Diameter Header: 8388645, REQ, PXY, 16777313 >
+#  < Session-Id >
+#  [ DRMP ]
+#  [ Vendor-Specific-Application-Id ]
+#  { Auth-Session-State }
+#  { Origin-Host }
+#  { Origin-Realm }
+#  [ Destination-Host ]
+#  { Destination-Realm }
+#  { SC-Address }
+#  [ OFR-Flags ]
+# *[ Supported-Features ]
+#  { User-Identifier }
+#  { SM-RP-UI }
+#  [ SMSMI-Correlation-ID ]
+#  [ SM-Delivery-Outcome ]
+# *[ AVP ]
+# *[ Proxy-Info ]
+# *[ Route-Record ]
+
+POST {{url}}/diamsg/v1/3GPP/SGd/MO-Forward-Short-Message
+content-type: application/json
+
+{
+    "Session-Id": "",
+    "Auth-Session-State": "NO_STATE_MAINTAINED",
+    "Origin-Host": "mme.{{realm}}",
+    "Origin-Realm": "{{realm}}",
+    "Destination-Realm": "{{realm}}",
+    "SC-Address": "180900001111",
+    "User-Identifier": {
+        "MSISDN": "819000001112"
+    },
+    "SM-RP-UI": "01400b819010325476f800080a3042304430463048304a"
+}
+
+###
+# < MT-Forward-Short-Message-Request > ::=	< Diameter Header: 8388646, REQ, PXY, 16777313 >
+#  < Session-Id >
+#  [ DRMP ]
+#  [ Vendor-Specific-Application-Id ]
+#  { Auth-Session-State }
+#  { Origin-Host }
+#  { Origin-Realm }
+#  { Destination-Host }
+#  { Destination-Realm }
+#  { User-Name }
+# *[ Supported-Features ]
+#  [ SMSMI-Correlation-ID ]
+#  { SC-Address }
+#  { SM-RP-UI }
+#  [ MME-Number-for-MT-SMS ]
+#  [ SGSN-Number ]
+#  [ TFR-Flags ]
+#  [ SM-Delivery-Timer ]
+#  [ SM-Delivery-Start-Time ]
+#  [ Maximum-Retransmission-Time ]
+#  [ SMS-GMSC-Address ]
+# *[ AVP ]
+# *[ Proxy-Info ]
+# *[ Route-Record ]
+POST {{url}}/diamsg/v1/3GPP/SGd/MT-Forward-Short-Message
+content-type: application/json
+
+{
+    "Session-Id": "",
+    "Auth-Session-State": "NO_STATE_MAINTAINED",
+    "Origin-Host": "smsc.{{realm}}",
+    "Origin-Realm": "{{realm}}",
+    "Destination-Host": "mme.{{realm}}",
+    "Destination-Realm": "{{realm}}",
+    "User-Name": "819000001112",
+    "SC-Address": "180900001111",
+    "SM-RP-UI": "400480214300081130224152046310050003840a013042304430463048304a"
 }

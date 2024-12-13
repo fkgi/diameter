@@ -5,7 +5,7 @@ Content-Type: application/json\r
 Connection: close\r
 \r
 {
-  "Session-Id": "mme.epc.mnc99.mcc999.3gppnetwork.org;2023-09-05T22:33:43+09:00",
+  "Session-Id": "",
   "Auth-Session-State": "NO_STATE_MAINTAINED",
   "Origin-Host": "hss.dummy.net",
   "Origin-Realm": "epc.mnc99.mcc999.3gppnetwork.org",
