@@ -113,7 +113,8 @@ func (v eventConnect) exec(c *Connection) error {
 		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
 		Code: 257, AppID: 0,
 		HbHID: nextHbH(), EtEID: nextEtE(),
-		AVPs: buf.Bytes()}
+		AVPs:     buf.Bytes(),
+		PeerName: c.Host, PeerRealm: c.Realm}
 
 	TxReq++
 	c.sndQueue[cer.HbHID] = make(chan Message)
@@ -163,7 +164,8 @@ func (v eventWatchdog) exec(c *Connection) error {
 		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
 		Code: 280, AppID: 0,
 		HbHID: nextHbH(), EtEID: nextEtE(),
-		AVPs: buf.Bytes()}
+		AVPs:     buf.Bytes(),
+		PeerName: c.Host, PeerRealm: c.Realm}
 
 	TxReq++
 	c.sndQueue[dwr.HbHID] = make(chan Message)
@@ -225,7 +227,8 @@ func (v eventStop) exec(c *Connection) error {
 		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
 		Code: 282, AppID: 0,
 		HbHID: nextHbH(), EtEID: nextEtE(),
-		AVPs: buf.Bytes()}
+		AVPs:     buf.Bytes(),
+		PeerName: c.Host, PeerRealm: c.Realm}
 
 	TxReq++
 	c.sndQueue[dpr.HbHID] = make(chan Message)
@@ -279,6 +282,9 @@ func (v eventSndMsg) exec(c *Connection) error {
 	if c.state != open && c.state != locked {
 		return notAcceptableEvent{e: v, s: c.state}
 	}
+
+	v.m.PeerName = c.Host
+	v.m.PeerRealm = c.Realm
 
 	TxReq++
 	err := v.m.MarshalTo(c.conn)

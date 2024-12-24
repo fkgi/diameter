@@ -123,7 +123,7 @@ func registerHandler(backend, path string, cid, aid, vid uint32, rt diameter.Rou
 
 		proxy := true
 		for i := range avps {
-			if len(avps[i].Data) == 0 {
+			if len(avps[i].Data) != 0 {
 				continue
 			}
 			switch avps[i].Code {

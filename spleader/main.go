@@ -71,17 +71,20 @@ func main() {
 		fmt.Fprintln(buf, "Diameter connection up")
 		fmt.Fprintln(buf, "| local host/realm:", diameter.Host, "/", diameter.Realm)
 		fmt.Fprintln(buf, "| peer  host/realm:", c.Host, "/", c.Realm)
+		fmt.Fprintf(buf, "| applications:    %d\n", c.AvailableApplications())
 		log.Print(buf)
 	}
 	diameter.TraceEvent = func(old, new, event string, err error) {
-		log.Println("Diameter state update:",
-			old, "->", new, "by event", event, "with error", err)
+		if old != new || err != nil {
+			log.Println("Diameter state update:",
+				old, "->", new, "by event", event, "with error", err)
+		}
 	}
 	diameter.TraceMessage = func(msg diameter.Message, dct diameter.Direction, err error) {
-		buf := new(strings.Builder)
-		fmt.Fprintf(buf, "%s diameter message handling: error=%v", dct, err)
-		fmt.Fprintln(buf)
-		log.Print(buf)
+		if msg.AppID != 0 {
+			log.Printf("%s diameter message handling: peer=%s, error=%v\n",
+				dct, msg.PeerName, err)
+		}
 	}
 	log.Println("listening Diameter...")
 	log.Println("closed, error=", ListenAndServe(*dlocal))
@@ -175,7 +178,7 @@ func rxhandler(m diameter.Message) diameter.Message {
 	}
 
 	dcon := []*diameter.Connection{}
-	if m.SrcPeer == defaultRt {
+	if m.PeerName == defaultRt {
 		if dHost == defaultRt {
 			return m.GenerateAnswerBy(diameter.UnableToDeliver)
 		}

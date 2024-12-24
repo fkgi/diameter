@@ -25,7 +25,9 @@ func (i Identity) String() string {
 
 // ParseIdentity parse Diamter identity form string
 func ParseIdentity(str string) (id Identity, err error) {
-	if t := abnf.ParseString(str, _identity()); t == nil {
+	if len(str) == 0 {
+		id = ""
+	} else if t := abnf.ParseString(str, _identity()); t == nil {
 		err = fmt.Errorf("invalid id text")
 	} else {
 		id = Identity(t.Child(idFQDN).V)

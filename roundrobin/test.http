@@ -1,5 +1,5 @@
-#@url = http://10.255.200.90:8080
-@url = http://192.168.56.109:8080
+@url = http://10.255.0.101:8080
+#@url = http://192.168.56.109:8080
 
 @realm=epc.mnc99.mcc999.3gppnetwork.org
 
@@ -88,8 +88,8 @@ content-type: application/json
 {
     "Session-Id": "",
     "Auth-Session-State": "NO_STATE_MAINTAINED",
-    "Origin-Host": "mme.{{realm}}",
-    "Origin-Realm": "{{realm}}",
+    "Origin-Host": "",
+    "Origin-Realm": "",
     "Destination-Realm": "{{realm}}",
     "SC-Address": "180900001111",
     "User-Identifier": {

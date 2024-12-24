@@ -168,9 +168,11 @@ func (v eventRcvCER) exec(c *Connection) error {
 	}
 
 	if err == nil {
-		if _, ok := authApps[0xffffffff]; ok && len(applications) != 0 {
-			for aid, app := range applications {
-				c.commonApp[aid] = app
+		if _, ok := authApps[0xffffffff]; ok {
+			if len(applications) != 0 {
+				for aid, app := range applications {
+					c.commonApp[aid] = app
+				}
 			}
 		} else if len(applications) == 0 {
 			for aid, vid := range authApps {
@@ -459,9 +461,11 @@ func (v eventRcvCEA) exec(c *Connection) error {
 		}
 	}
 	if err == nil {
-		if _, ok := authApps[0xffffffff]; ok && len(applications) != 0 {
-			for aid, app := range applications {
-				c.commonApp[aid] = app
+		if _, ok := authApps[0xffffffff]; ok {
+			if len(applications) != 0 {
+				for aid, app := range applications {
+					c.commonApp[aid] = app
+				}
 			}
 		} else if len(applications) == 0 {
 			for aid, vid := range authApps {

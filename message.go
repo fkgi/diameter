@@ -88,8 +88,8 @@ type Message struct {
 	EtEID uint32 // End-to-End ID
 	AVPs  []byte // Message body AVP binary data
 
-	SrcPeer  Identity // peer node that send this message
-	SrcRealm Identity
+	PeerName  Identity // peer node that send this message
+	PeerRealm Identity
 }
 
 func (m *Message) SetAVP(avp []AVP) {
