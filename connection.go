@@ -98,7 +98,9 @@ func (c *Connection) serve() error {
 				ans.HbHID = req.HbHID
 				ans.EtEID = req.EtEID
 			}
-			c.notify <- eventSndMsg{ans}
+			if ans.AVPs != nil {
+				c.notify <- eventSndMsg{ans}
+			}
 		}
 	}()
 

@@ -82,7 +82,7 @@ func rxHandlerHelper(req Message) (ans Message, err error) {
 			SetOriginRealm(Realm).MarshalTo(buf)
 
 			ans = Message{
-				FlgR: false, FlgP: req.FlgP, FlgE: req.FlgE, FlgT: false,
+				FlgR: false, FlgP: req.FlgP, FlgE: true, FlgT: false,
 				Code: req.Code, AppID: req.AppID,
 				HbHID: req.HbHID, EtEID: req.EtEID,
 				AVPs: buf.Bytes()}
@@ -92,16 +92,19 @@ func rxHandlerHelper(req Message) (ans Message, err error) {
 	}
 
 	req.FlgE, avp = f(req.FlgT, avp)
-	buf := new(bytes.Buffer)
-	for _, a := range avp {
-		a.MarshalTo(buf)
-	}
-
 	ans = Message{
 		FlgR: false, FlgP: req.FlgP, FlgE: req.FlgE, FlgT: false,
 		Code: req.Code, AppID: req.AppID,
-		HbHID: req.HbHID, EtEID: req.EtEID,
-		AVPs: buf.Bytes()}
+		HbHID: req.HbHID, EtEID: req.EtEID}
+
+	if avp != nil {
+		buf := new(bytes.Buffer)
+		for _, a := range avp {
+			a.MarshalTo(buf)
+		}
+		ans.AVPs = buf.Bytes()
+	}
+
 	return
 }
 

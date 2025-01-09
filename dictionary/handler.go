@@ -58,6 +58,14 @@ func registerHandler(backend, path string, cid, aid, vid uint32, rt diameter.Rou
 			return diameterErr(avps, diameter.UnableToDeliver,
 				"unable to send HTTP request to backend: "+e.Error())
 		}
+		switch r.StatusCode {
+		case http.StatusOK:
+		case http.StatusServiceUnavailable:
+			return true, nil
+		default:
+			return diameterErr(avps, diameter.UnableToComply,
+				"error in HTTP")
+		}
 
 		jsondata, e = io.ReadAll(r.Body)
 		defer r.Body.Close()
