@@ -213,3 +213,18 @@ If Session-ID AVP is exist but the value is empty, Round-Robbin generate session
 New session ID is generated for Session-ID AVP in request message.
 Session ID is copied from request message for Session-ID AVP in response message.
 
+## Origin-Host/Realm
+If Origin-Host AVP is exist but the value is empty, Round-Robbin set own local Diameter Host to it.
+If Origin-Realm AVP is exist but the value is empty, Round-Robbin set own local Diameter Realm to it.
+
+# Behavior for specific HTTP result code
+## 200 OK
+If peer HTTP server returns 200 OK response with correct JSON data, Round-Robbin make Diameter response.
+Result code of Diameter response is in part of JSON data.
+
+## 503 Service Unavailable
+If peer HTTP server returns 503 Service Unabailable response, Round-Robbin discard Diameter transaction and does not response to originator Diameter peer.
+
+## Others
+If peer HTTP server returns any other response, Round-Robbin make Diameter response with 5012 UNABLE_TO_COMPLY response code..
+
