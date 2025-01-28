@@ -74,7 +74,7 @@ func decFloat64(avp *diameter.AVP) (any, error) {
 }
 
 func decGrouped(avp *diameter.AVP) (any, error) {
-	result := make(map[string]any)
+	result := make(map[string][]any)
 	for buf := bytes.NewBuffer(avp.Data); buf.Len() != 0; {
 		a := diameter.AVP{}
 		e := a.UnmarshalFrom(buf)
@@ -85,9 +85,22 @@ func decGrouped(avp *diameter.AVP) (any, error) {
 		if e != nil {
 			return nil, e
 		}
-		result[n] = v
+		if l, ok := result[n]; ok {
+			result[n] = append(l, v)
+		} else {
+			result[n] = []any{v}
+		}
 	}
-	return result, nil
+
+	compat := make(map[string]any, len(result))
+	for k, v := range result {
+		if len(v) == 1 {
+			compat[k] = v[0]
+		} else {
+			compat[k] = v
+		}
+	}
+	return compat, nil
 }
 
 func decAddress(avp *diameter.AVP) (any, error) {

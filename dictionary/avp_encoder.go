@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 	"time"
 
 	"github.com/fkgi/diameter"
@@ -75,13 +76,30 @@ func encGrouped(v any, avp *diameter.AVP) (e error) {
 		return errors.New("not Grouped")
 	}
 
+	keys := make([]string, 0, 20)
+	for k := range a {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+
 	buf := new(bytes.Buffer)
-	for k, v := range a {
-		avp, e := EncodeAVP(k, v)
-		if e != nil {
-			return fmt.Errorf("%s is invalid: %v", k, e)
+	for _, k := range keys {
+		v := a[k]
+		if l, ok := v.([]any); ok {
+			for _, v := range l {
+				avp, e := EncodeAVP(k, v)
+				if e != nil {
+					return fmt.Errorf("%s is invalid: %v", k, e)
+				}
+				avp.MarshalTo(buf)
+			}
+		} else {
+			avp, e := EncodeAVP(k, v)
+			if e != nil {
+				return fmt.Errorf("%s is invalid: %v", k, e)
+			}
+			avp.MarshalTo(buf)
 		}
-		avp.MarshalTo(buf)
 	}
 	avp.Data = buf.Bytes()
 	return

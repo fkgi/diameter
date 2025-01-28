@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"slices"
 
 	"github.com/fkgi/diameter"
 )
@@ -169,7 +170,9 @@ func registerHandler(backend, path string, cid, aid, vid uint32, rt diameter.Rou
 }
 
 func httpErr(title, detail string, code int, w http.ResponseWriter) {
-	log.Println(title+":", detail)
+	if NotifyHandlerError != nil {
+		NotifyHandlerError("HTTP", title+": "+detail)
+	}
 
 	data, _ := json.Marshal(struct {
 		T string `json:"title"`
@@ -182,6 +185,9 @@ func httpErr(title, detail string, code int, w http.ResponseWriter) {
 }
 
 func diameterErr(avp []diameter.AVP, code uint32, err string) (bool, []diameter.AVP) {
+	if NotifyHandlerError != nil {
+		NotifyHandlerError("Diameter", err)
+	}
 	log.Println(err)
 
 	ret := []diameter.AVP{
@@ -206,25 +212,55 @@ func diameterErr(avp []diameter.AVP, code uint32, err string) (bool, []diameter.
 }
 
 func formatAVPs(avps []diameter.AVP) (map[string]any, error) {
-	result := make(map[string]any)
+	result := make(map[string][]any)
 	for _, a := range avps {
 		n, v, e := DecodeAVP(a)
 		if e != nil {
 			return nil, e
 		}
-		result[n] = v
+		if l, ok := result[n]; ok {
+			result[n] = append(l, v)
+		} else {
+			result[n] = []any{v}
+		}
 	}
-	return result, nil
+
+	compat := make(map[string]any, len(result))
+	for k, v := range result {
+		if len(v) == 1 {
+			compat[k] = v[0]
+		} else {
+			compat[k] = v
+		}
+	}
+	return compat, nil
 }
 
 func parseAVPs(d map[string]any) ([]diameter.AVP, error) {
-	avps := make([]diameter.AVP, 0, 10)
-	for k, v := range d {
-		a, e := EncodeAVP(k, v)
-		if e != nil {
-			return nil, fmt.Errorf("%s is invalid: %v", k, e)
+	keys := make([]string, 0, 20)
+	for k := range d {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+
+	avps := make([]diameter.AVP, 0, 20)
+	for _, k := range keys {
+		v := d[k]
+		if l, ok := v.([]any); ok {
+			for _, v := range l {
+				a, e := EncodeAVP(k, v)
+				if e != nil {
+					return nil, fmt.Errorf("%s is invalid: %v", k, e)
+				}
+				avps = append(avps, a)
+			}
+		} else {
+			a, e := EncodeAVP(k, v)
+			if e != nil {
+				return nil, fmt.Errorf("%s is invalid: %v", k, e)
+			}
+			avps = append(avps, a)
 		}
-		avps = append(avps, a)
 	}
 	return avps, nil
 }

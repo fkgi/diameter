@@ -84,3 +84,5 @@ func printAVP(prefix, name string, depth int, value any, buf *strings.Builder) {
 		fmt.Fprintln(buf)
 	}
 }
+
+var NotifyHandlerError func(proto, msg string) = nil

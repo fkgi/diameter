@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/fkgi/diameter"
 	"github.com/fkgi/diameter/connector"
@@ -21,7 +22,6 @@ const apiPath = "/diamsg/v1/"
 var rxPath string
 
 func main() {
-
 	host, err := os.Hostname()
 	if err != nil {
 		host = "roundrobin.internal"
@@ -37,6 +37,8 @@ func main() {
 	cause := flag.String("c", "rebooting",
 		"Disconnect cause in sending DPR. `rebooting|busy|do_not_want_to_talk_to_you`")
 	server := flag.Bool("s", false, "Run as server")
+	to := flag.Int("t", int(diameter.WDInterval/time.Second),
+		"message timeout timer [s]")
 	help := flag.Bool("h", false, "Print usage")
 	flag.Parse()
 
@@ -51,6 +53,8 @@ func main() {
 
 	log.Printf("booting Round-Robin debugger for Diameter <%s REV.%d>...",
 		diameter.ProductName, diameter.FirmwareRev)
+
+	diameter.WDInterval = time.Duration(*to) * time.Second
 
 	log.Println("loading dictionary file", *dict)
 	var dicData dictionary.XDictionary
@@ -160,6 +164,9 @@ func main() {
 		fmt.Fprintln(buf)
 		fmt.Fprint(buf, dictionary.TraceMessageVarbose("| ", msg))
 		log.Print(buf)
+	}
+	dictionary.NotifyHandlerError = func(proto, msg string) {
+		log.Println("error in", proto, "with reason", msg)
 	}
 
 	if *server {

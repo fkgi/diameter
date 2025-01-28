@@ -63,6 +63,10 @@ Default value is `rebooting` if Round-Robin run as client, or `do_not_want_to_ta
 - `-s`  
 If this parameter is enabled, Round-Robin run as client and try to connect to specified peer node.
 
+- `-t`  
+Duration of Diameter request timeout in second.
+Not only service message but also control message like DWR follow this duration.
+
 ## Format of Diameter node identity
 
 ```
@@ -183,6 +187,9 @@ Value is string, number or nested JSON Map object. The value format is defined a
   - Enumerated : string that is defined in dictionary
   - IPFilterRule  : string with RFC 6733 IP-Filter-Rule format
 
+If there are multiple AVPs that have same AVP ID, array is used for Value of the MAP.
+Each elements of array are value of independent AVP that has same AVP ID.
+
 ```
 {
     "Session-Id": "mme.ecp.mcc99.mnc999.3gppnetwork.org;12345",
@@ -203,7 +210,19 @@ Value is string, number or nested JSON Map object. The value format is defined a
         "IMEI": "01234567890123"
     },
     "UE-SRVCC-Capability": "UE-SRVCC-SUPPORTED",
-    "Homogeneous-Support-of-IMS-Voice-Over-PS-Sessions": "NOT_SUPPORTED"
+    "Homogeneous-Support-of-IMS-Voice-Over-PS-Sessions": "NOT_SUPPORTED",
+    "Supported-Features": [
+        {  
+            "Vendor-Id": 10415,
+            "Feature-List-ID": 1,
+            "Feature-List": 2
+        },
+        {  
+            "Vendor-Id": 10415,
+            "Feature-List-ID": 2,
+            "Feature-List": 1
+        }
+    ]
 }
 ```
 
@@ -212,10 +231,24 @@ Value is string, number or nested JSON Map object. The value format is defined a
 If Session-ID AVP is exist but the value is empty, Round-Robbin generate session ID automatically and fill in to empty Session-ID.
 New session ID is generated for Session-ID AVP in request message.
 Session ID is copied from request message for Session-ID AVP in response message.
-
+```
+{
+    ...
+    "Session-Id": "",
+    ...
+}
+```
 ## Origin-Host/Realm
 If Origin-Host AVP is exist but the value is empty, Round-Robbin set own local Diameter Host to it.
 If Origin-Realm AVP is exist but the value is empty, Round-Robbin set own local Diameter Realm to it.
+```
+{
+    ...
+    "Origin-Host": "",
+    "Origin-Realm": "",
+    ...
+}
+```
 
 # Behavior for specific HTTP result code
 ## 200 OK
