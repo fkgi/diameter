@@ -193,3 +193,11 @@ func State() string { return con.State() }
 
 // AvailableApplications returns supported application list
 func AvailableApplications() []uint32 { return con.AvailableApplications() }
+
+func Stats() [16]uint64 {
+	return [16]uint64{
+		con.RxReq, con.DscardReq,
+		con.TxAns[0], con.TxAns[1], con.TxAns[2], con.TxAns[3], con.TxAns[4], con.TxAns[5],
+		con.TxReq, con.InvalidAns,
+		con.RxAns[0], con.RxAns[1], con.RxAns[2], con.RxAns[3], con.RxAns[4], con.RxAns[5]}
+}

@@ -116,7 +116,7 @@ func (v eventConnect) exec(c *Connection) error {
 		AVPs:     buf.Bytes(),
 		PeerName: c.Host, PeerRealm: c.Realm}
 
-	TxReq++
+	c.TxReq++
 	c.sndQueue[cer.HbHID] = make(chan Message)
 
 	c.wdTimer = time.AfterFunc(WDInterval, func() {
@@ -167,7 +167,7 @@ func (v eventWatchdog) exec(c *Connection) error {
 		AVPs:     buf.Bytes(),
 		PeerName: c.Host, PeerRealm: c.Realm}
 
-	TxReq++
+	c.TxReq++
 	c.sndQueue[dwr.HbHID] = make(chan Message)
 
 	c.wdTimer = time.AfterFunc(WDInterval, func() {
@@ -230,7 +230,7 @@ func (v eventStop) exec(c *Connection) error {
 		AVPs:     buf.Bytes(),
 		PeerName: c.Host, PeerRealm: c.Realm}
 
-	TxReq++
+	c.TxReq++
 	c.sndQueue[dpr.HbHID] = make(chan Message)
 
 	c.wdTimer = time.AfterFunc(WDInterval, func() {
@@ -286,7 +286,7 @@ func (v eventSndMsg) exec(c *Connection) error {
 	v.m.PeerName = c.Host
 	v.m.PeerRealm = c.Realm
 
-	TxReq++
+	c.TxReq++
 	err := v.m.MarshalTo(c.conn)
 	if err != nil {
 		c.conn.Close()

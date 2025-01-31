@@ -73,60 +73,38 @@ func (c *Connection) AvailableApplications() []uint32 {
 	return ret
 }
 
-var (
-	// Statistics values
-	RxReq     uint64
-	RejectReq uint64
-	TxAnsFail uint64
-	Tx1xxx    uint64
-	Tx2xxx    uint64
-	Tx3xxx    uint64
-	Tx4xxx    uint64
-	Tx5xxx    uint64
-	TxEtc     uint64
-
-	TxReq      uint64
-	InvalidAns uint64
-	Rx1xxx     uint64
-	Rx2xxx     uint64
-	Rx3xxx     uint64
-	Rx4xxx     uint64
-	Rx5xxx     uint64
-	RxEtc      uint64
-)
-
-func CountRxCode(c uint32) {
-	if c < 1000 {
-		RxEtc++
-	} else if c < 2000 {
-		Rx1xxx++
-	} else if c < 3000 {
-		Rx2xxx++
-	} else if c < 4000 {
-		Rx3xxx++
-	} else if c < 5000 {
-		Rx4xxx++
-	} else if c < 6000 {
-		Rx5xxx++
+func (c *Connection) countRxCode(r uint32) {
+	if r < 1000 {
+		c.RxAns[0]++
+	} else if r < 2000 {
+		c.RxAns[1]++
+	} else if r < 3000 {
+		c.RxAns[2]++
+	} else if r < 4000 {
+		c.RxAns[3]++
+	} else if r < 5000 {
+		c.RxAns[4]++
+	} else if r < 6000 {
+		c.RxAns[5]++
 	} else {
-		RxEtc++
+		c.RxAns[0]++
 	}
 }
 
-func CountTxCode(c uint32) {
-	if c < 1000 {
-		TxEtc++
-	} else if c < 2000 {
-		Tx1xxx++
-	} else if c < 3000 {
-		Tx2xxx++
-	} else if c < 4000 {
-		Tx3xxx++
-	} else if c < 5000 {
-		Tx4xxx++
-	} else if c < 6000 {
-		Tx5xxx++
+func (c *Connection) countTxCode(r uint32) {
+	if r < 1000 {
+		c.TxAns[0]++
+	} else if r < 2000 {
+		c.TxAns[1]++
+	} else if r < 3000 {
+		c.TxAns[2]++
+	} else if r < 4000 {
+		c.TxAns[3]++
+	} else if r < 5000 {
+		c.TxAns[4]++
+	} else if r < 6000 {
+		c.TxAns[5]++
 	} else {
-		TxEtc++
+		c.TxAns[0]++
 	}
 }

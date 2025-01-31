@@ -53,9 +53,6 @@ func main() {
 		if src != nil {
 			fmt.Fprintf(buf, "| local: %s://%s\n", src.Network(), src.String())
 		}
-		if dst != nil {
-			fmt.Fprintf(buf, "| peer : %s://%s\n", dst.Network(), dst.String())
-		}
 		log.Print(buf)
 	}
 	connector.TransportUpNotify = func(src, dst net.Addr) {

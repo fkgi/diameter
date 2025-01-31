@@ -35,9 +35,9 @@ func (eventRcvDWR) String() string {
 }
 
 func (v eventRcvDWR) exec(c *Connection) error {
-	RxReq++
+	c.RxReq++
 	if c.state != open && c.state != locked {
-		RejectReq++
+		c.DscardReq++
 		return notAcceptableEvent{e: v, s: c.state}
 	}
 	if TraceMessage != nil {
@@ -145,11 +145,10 @@ func (v eventRcvDWR) exec(c *Connection) error {
 		AVPs: buf.Bytes()}
 
 	if e := dwa.MarshalTo(c.conn); e != nil {
-		TxAnsFail++
 		c.conn.Close()
 		err = e
 	} else if err == nil && c.wdCount == 0 {
-		CountTxCode(result)
+		c.countTxCode(result)
 		c.wdTimer.Stop()
 		c.wdTimer.Reset(WDInterval)
 	}
@@ -172,16 +171,16 @@ func (eventRcvDWA) String() string {
 func (v eventRcvDWA) exec(c *Connection) error {
 	// verify diameter header
 	if v.m.FlgP {
-		InvalidAns++
+		c.InvalidAns++
 		return InvalidMessage{
 			Code: InvalidHdrBits, ErrMsg: "DWA must not enable P flag"}
 	}
 	if c.state != open {
-		InvalidAns++
+		c.InvalidAns++
 		return notAcceptableEvent{e: v, s: c.state}
 	}
 	if _, ok := c.sndQueue[v.m.HbHID]; !ok {
-		InvalidAns++
+		c.InvalidAns++
 		return unknownAnswer(v.m.HbHID)
 	}
 
@@ -231,10 +230,10 @@ func (v eventRcvDWA) exec(c *Connection) error {
 			} else {
 				oState, err = getOriginStateID(a)
 			}
-			// case 281:
+		case 281:
 			//	errorMsg, e = getErrorMessage(a)
 		case 279:
-			//failedAVP, e = getFailedAVP(a)
+			// failedAVP, e = getFailedAVP(a)
 		default:
 			if a.Mandatory {
 				err = InvalidAVP{Code: AvpUnsupported, AVP: a}
@@ -285,7 +284,7 @@ func (v eventRcvDWA) exec(c *Connection) error {
 			c.notify <- eventWatchdog{}
 		})
 	}
-	CountRxCode(result)
+	c.countRxCode(result)
 
 	if TraceMessage != nil {
 		TraceMessage(v.m, Rx, err)

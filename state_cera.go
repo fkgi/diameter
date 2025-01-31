@@ -54,9 +54,9 @@ func (eventRcvCER) String() string {
 }
 
 func (v eventRcvCER) exec(c *Connection) error {
-	RxReq++
+	c.RxReq++
 	if c.state != waitCER {
-		RejectReq++
+		c.DscardReq++
 		return notAcceptableEvent{e: v, s: c.state}
 	}
 	if TraceMessage != nil {
@@ -296,11 +296,10 @@ func (v eventRcvCER) exec(c *Connection) error {
 		AVPs: buf.Bytes()}
 
 	if e := cea.MarshalTo(c.conn); e != nil {
-		TxAnsFail++
 		c.conn.Close()
 		err = e
 	} else if err == nil {
-		CountTxCode(result)
+		c.countTxCode(result)
 		c.state = open
 		// wdTimer.Stop()
 		c.wdTimer = time.AfterFunc(WDInterval, func() {
@@ -310,7 +309,7 @@ func (v eventRcvCER) exec(c *Connection) error {
 			ConnectionUpNotify(c)
 		}
 	} else {
-		CountTxCode(result)
+		c.countTxCode(result)
 	}
 
 	if TraceMessage != nil {
@@ -331,16 +330,16 @@ func (eventRcvCEA) String() string {
 func (v eventRcvCEA) exec(c *Connection) error {
 	// verify diameter header
 	if v.m.FlgP {
-		InvalidAns++
+		c.InvalidAns++
 		return InvalidMessage{
 			Code: InvalidHdrBits, ErrMsg: "CEA must not enable P flag"}
 	}
 	if c.state != waitCEA {
-		InvalidAns++
+		c.InvalidAns++
 		return notAcceptableEvent{e: v, s: c.state}
 	}
 	if _, ok := c.sndQueue[v.m.HbHID]; !ok {
-		InvalidAns++
+		c.InvalidAns++
 		return unknownAnswer(v.m.HbHID)
 	}
 
@@ -542,7 +541,7 @@ func (v eventRcvCEA) exec(c *Connection) error {
 			ConnectionUpNotify(c)
 		}
 	}
-	CountRxCode(result)
+	c.countRxCode(result)
 	if TraceMessage != nil {
 		TraceMessage(v.m, Rx, err)
 	}

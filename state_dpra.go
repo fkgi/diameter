@@ -33,9 +33,9 @@ func (eventRcvDPR) String() string {
 }
 
 func (v eventRcvDPR) exec(c *Connection) error {
-	RxReq++
+	c.RxReq++
 	if c.state != open && c.state != locked {
-		RejectReq++
+		c.DscardReq++
 		return notAcceptableEvent{e: v, s: c.state}
 	}
 
@@ -139,11 +139,10 @@ func (v eventRcvDPR) exec(c *Connection) error {
 		AVPs: buf.Bytes()}
 
 	if e := dpa.MarshalTo(c.conn); e != nil {
-		TxAnsFail++
 		c.conn.Close()
 		err = e
 	} else if err == nil {
-		CountTxCode(result)
+		c.countTxCode(result)
 		c.state = closing
 		c.wdTimer.Stop()
 		c.wdTimer = time.AfterFunc(WDInterval, func() {
@@ -168,16 +167,16 @@ func (eventRcvDPA) String() string {
 func (v eventRcvDPA) exec(c *Connection) error {
 	// verify diameter header
 	if v.m.FlgP {
-		InvalidAns++
+		c.InvalidAns++
 		return InvalidMessage{
 			Code: InvalidHdrBits, ErrMsg: "DPA must not enable P flag"}
 	}
 	if c.state != closing {
-		InvalidAns++
+		c.InvalidAns++
 		return notAcceptableEvent{e: v, s: c.state}
 	}
 	if _, ok := c.sndQueue[v.m.HbHID]; !ok {
-		InvalidAns++
+		c.InvalidAns++
 		return unknownAnswer(v.m.HbHID)
 	}
 
@@ -267,7 +266,7 @@ func (v eventRcvDPA) exec(c *Connection) error {
 		c.wdTimer.Stop()
 		err = c.conn.Close()
 	}
-	CountRxCode(result)
+	c.countRxCode(result)
 
 	if TraceMessage != nil {
 		TraceMessage(v.m, Rx, err)

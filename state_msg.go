@@ -14,9 +14,9 @@ func (eventRcvReq) String() string {
 }
 
 func (v eventRcvReq) exec(c *Connection) error {
-	RxReq++
+	c.RxReq++
 	if c.state == closed || c.state == waitCER || c.state == waitCEA {
-		RejectReq++
+		c.DscardReq++
 		return notAcceptableEvent{e: v, s: c.state}
 	}
 	if TraceMessage != nil {
@@ -48,14 +48,13 @@ func (v eventRcvReq) exec(c *Connection) error {
 	if result != Success {
 		ans := v.m.GenerateAnswerBy(result)
 		if e := ans.MarshalTo(c.conn); e != nil {
-			TxAnsFail++
 			c.conn.Close()
 			err = e
 		} else {
 			if TraceMessage != nil {
 				TraceMessage(ans, Tx, err)
 			}
-			CountTxCode(result)
+			c.countTxCode(result)
 		}
 	}
 
@@ -72,7 +71,7 @@ func (eventRcvAns) String() string {
 
 func (v eventRcvAns) exec(c *Connection) (e error) {
 	if c.state != open && c.state != locked {
-		InvalidAns++
+		c.InvalidAns++
 		return notAcceptableEvent{e: v, s: c.state}
 	}
 
@@ -83,7 +82,7 @@ func (v eventRcvAns) exec(c *Connection) (e error) {
 	if ch, ok := c.sndQueue[v.m.HbHID]; ok {
 		ch <- v.m
 	} else {
-		InvalidAns++
+		c.InvalidAns++
 		return unknownAnswer(v.m.HbHID)
 	}
 	delete(c.sndQueue, v.m.HbHID)

@@ -17,6 +17,7 @@ var (
 	OverwriteAddr []net.IP // Overwrite IP addresses of local host in CER
 )
 
+// Connection of Diameter
 type Connection struct {
 	wdTimer *time.Timer // system message timer
 	wdCount int         // watchdog expired counter
@@ -33,6 +34,14 @@ type Connection struct {
 	rcvQueue chan Message            // Receiving Request message queue
 
 	commonApp map[uint32]application
+
+	// Statistics values
+	RxReq      uint64    // count of Rx request
+	DscardReq  uint64    // count of discarded Rx request
+	TxAns      [6]uint64 // count of Tx answer for each result code, [1]=1xxx [2]=2xxx ... [5]=5xxx [0]=etc
+	TxReq      uint64    // count of Tx request
+	InvalidAns uint64    // count of invalid Rx answer
+	RxAns      [6]uint64 // count of Rx answer for each result code, [1]=1xxx [2]=2xxx ... [5]=5xxx [0]=etc
 }
 
 func (c *Connection) DialAndServe(con net.Conn) (e error) {
