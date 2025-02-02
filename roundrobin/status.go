@@ -40,6 +40,16 @@ func conStateHandler(w http.ResponseWriter, r *http.Request) {
 		connector.PeerAddr())))
 }
 
+var (
+	rxReq  uint64
+	txDisc uint64
+	txAns  [6]uint64
+
+	txReq  uint64
+	rxIvld uint64
+	rxAns  [6]uint64
+)
+
 const statsFmt = `{
 	"rx_request": %d,
 	"tx_discard": %d,
@@ -67,7 +77,9 @@ func statsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	s := connector.Stats()
 	w.Write([]byte(fmt.Sprintf(statsFmt,
-		s[0], s[1], s[2], s[3], s[4], s[5], s[6], s[7], s[8], s[9], s[10], s[11], s[12], s[13], s[14], s[15])))
+		rxReq, txDisc,
+		txAns[0], txAns[1], txAns[2], txAns[3], txAns[4], txAns[5],
+		txReq, rxIvld,
+		rxAns[0], rxAns[1], rxAns[2], rxAns[3], rxAns[4], rxAns[5])))
 }

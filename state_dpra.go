@@ -33,21 +33,22 @@ func (eventRcvDPR) String() string {
 }
 
 func (v eventRcvDPR) exec(c *Connection) error {
-	c.RxReq++
+	var err error
 	if c.state != open && c.state != locked {
-		c.DscardReq++
-		return notAcceptableEvent{e: v, s: c.state}
+		err = RejectRxMessage{
+			State: c.state, ErrMsg: "DPR is not acceptable"}
 	}
-
 	if TraceMessage != nil {
-		TraceMessage(v.m, Rx, nil)
+		TraceMessage(v.m, Rx, err)
+	}
+	if err != nil {
+		return err
 	}
 
 	// Notify(PurgeEvent{tx: false, req: true, conn: c, Err: e})
 	var oHost Identity
 	var oRealm Identity
 	cause := Enumerated(-1)
-	var err error
 
 	for rdr := bytes.NewReader(v.m.AVPs); rdr.Len() != 0; {
 		a := AVP{}
@@ -140,9 +141,8 @@ func (v eventRcvDPR) exec(c *Connection) error {
 
 	if e := dpa.MarshalTo(c.conn); e != nil {
 		c.conn.Close()
-		err = e
+		err = TransportTxError{err: e}
 	} else if err == nil {
-		c.countTxCode(result)
 		c.state = closing
 		c.wdTimer.Stop()
 		c.wdTimer = time.AfterFunc(WDInterval, func() {
@@ -165,19 +165,26 @@ func (eventRcvDPA) String() string {
 }
 
 func (v eventRcvDPA) exec(c *Connection) error {
-	// verify diameter header
+	var err error
+
 	if v.m.FlgP {
-		c.InvalidAns++
-		return InvalidMessage{
+		err = InvalidMessage{
 			Code: InvalidHdrBits, ErrMsg: "DPA must not enable P flag"}
+	} else if c.state != closing {
+		err = InvalidMessage{
+			Code:   UnableToComply,
+			ErrMsg: "DPA is not acceptable in " + c.state.String() + " state"}
+	} else if _, ok := c.sndQueue[v.m.HbHID]; !ok {
+		err = InvalidMessage{
+			Code:   UnableToComply,
+			ErrMsg: "correlated request with the Hop-by-Hop ID not found"}
 	}
-	if c.state != closing {
-		c.InvalidAns++
-		return notAcceptableEvent{e: v, s: c.state}
-	}
-	if _, ok := c.sndQueue[v.m.HbHID]; !ok {
-		c.InvalidAns++
-		return unknownAnswer(v.m.HbHID)
+
+	if err != nil {
+		if TraceMessage != nil {
+			TraceMessage(v.m, Rx, err)
+		}
+		return err
 	}
 
 	var result uint32
@@ -185,7 +192,6 @@ func (v eventRcvDPA) exec(c *Connection) error {
 	var oRealm Identity
 	// var errorMsg string
 	// var failedAVP []AVP
-	var err error
 
 	for rdr := bytes.NewReader(v.m.AVPs); rdr.Len() != 0; {
 		a := AVP{}
@@ -266,7 +272,6 @@ func (v eventRcvDPA) exec(c *Connection) error {
 		c.wdTimer.Stop()
 		err = c.conn.Close()
 	}
-	c.countRxCode(result)
 
 	if TraceMessage != nil {
 		TraceMessage(v.m, Rx, err)

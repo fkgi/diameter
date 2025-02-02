@@ -54,13 +54,16 @@ func (eventRcvCER) String() string {
 }
 
 func (v eventRcvCER) exec(c *Connection) error {
-	c.RxReq++
+	var err error
 	if c.state != waitCER {
-		c.DscardReq++
-		return notAcceptableEvent{e: v, s: c.state}
+		err = RejectRxMessage{
+			State: c.state, ErrMsg: "CER is not acceptable"}
 	}
 	if TraceMessage != nil {
-		TraceMessage(v.m, Rx, nil)
+		TraceMessage(v.m, Rx, err)
+	}
+	if err != nil {
+		return err
 	}
 
 	var oHost Identity
@@ -72,7 +75,6 @@ func (v eventRcvCER) exec(c *Connection) error {
 	var supportVendor = []uint32{}
 	var authApps = make(map[uint32]uint32)
 	// var firmwareRevision uint32
-	var err error
 
 	for rdr := bytes.NewReader(v.m.AVPs); rdr.Len() != 0; {
 		a := AVP{}
@@ -154,20 +156,16 @@ func (v eventRcvCER) exec(c *Connection) error {
 		}
 	}
 
-	if err == nil && len(authApps) == 0 {
+	if len(authApps) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetAuthAppID(0)}
-	}
-
-	if err == nil {
+	} else if err == nil {
 		for _, vid := range supportVendor {
 			if vid == 0 {
 				continue
 			}
 			// ToDo: verify common supported AVP vendor
 		}
-	}
 
-	if err == nil {
 		if _, ok := authApps[0xffffffff]; ok {
 			if len(applications) != 0 {
 				for aid, app := range applications {
@@ -265,10 +263,12 @@ func (v eventRcvCER) exec(c *Connection) error {
 
 	SetVendorID(VendorID).MarshalTo(buf)
 	setProductName(ProductName).MarshalTo(buf)
+
 	if stateID != 0 {
 		setOriginStateID(stateID).MarshalTo(buf)
 	}
-	if len(c.commonApp) == 0 {
+	if err != nil {
+	} else if len(c.commonApp) == 0 {
 		SetAuthAppID(0xffffffff).MarshalTo(buf)
 	} else {
 		vmap := make(map[uint32]interface{})
@@ -284,6 +284,7 @@ func (v eventRcvCER) exec(c *Connection) error {
 			}
 		}
 	}
+
 	if iavp, ok := err.(InvalidAVP); ok {
 		setFailedAVP([]AVP{iavp.AVP}).MarshalTo(buf)
 	}
@@ -297,9 +298,8 @@ func (v eventRcvCER) exec(c *Connection) error {
 
 	if e := cea.MarshalTo(c.conn); e != nil {
 		c.conn.Close()
-		err = e
+		err = TransportTxError{err: e}
 	} else if err == nil {
-		c.countTxCode(result)
 		c.state = open
 		// wdTimer.Stop()
 		c.wdTimer = time.AfterFunc(WDInterval, func() {
@@ -308,8 +308,6 @@ func (v eventRcvCER) exec(c *Connection) error {
 		if ConnectionUpNotify != nil {
 			ConnectionUpNotify(c)
 		}
-	} else {
-		c.countTxCode(result)
 	}
 
 	if TraceMessage != nil {
@@ -328,19 +326,26 @@ func (eventRcvCEA) String() string {
 }
 
 func (v eventRcvCEA) exec(c *Connection) error {
-	// verify diameter header
+	var err error
+
 	if v.m.FlgP {
-		c.InvalidAns++
-		return InvalidMessage{
+		err = InvalidMessage{
 			Code: InvalidHdrBits, ErrMsg: "CEA must not enable P flag"}
+	} else if c.state != waitCEA {
+		err = InvalidMessage{
+			Code:   UnableToComply,
+			ErrMsg: "CEA is not acceptable in " + c.state.String() + " state"}
+	} else if _, ok := c.sndQueue[v.m.HbHID]; !ok {
+		err = InvalidMessage{
+			Code:   UnableToComply,
+			ErrMsg: "correlated request with the Hop-by-Hop ID not found"}
 	}
-	if c.state != waitCEA {
-		c.InvalidAns++
-		return notAcceptableEvent{e: v, s: c.state}
-	}
-	if _, ok := c.sndQueue[v.m.HbHID]; !ok {
-		c.InvalidAns++
-		return unknownAnswer(v.m.HbHID)
+
+	if err != nil {
+		if TraceMessage != nil {
+			TraceMessage(v.m, Rx, err)
+		}
+		return err
 	}
 
 	// verify diameter AVP
@@ -356,7 +361,6 @@ func (v eventRcvCEA) exec(c *Connection) error {
 	var supportVendor = []uint32{}
 	var authApps = make(map[uint32]uint32)
 	// var firmwareRevision uint32
-	var err error
 
 	for rdr := bytes.NewReader(v.m.AVPs); rdr.Len() != 0; {
 		a := AVP{}
@@ -541,7 +545,6 @@ func (v eventRcvCEA) exec(c *Connection) error {
 			ConnectionUpNotify(c)
 		}
 	}
-	c.countRxCode(result)
 	if TraceMessage != nil {
 		TraceMessage(v.m, Rx, err)
 	}

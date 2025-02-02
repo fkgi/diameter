@@ -116,9 +116,7 @@ func (v eventConnect) exec(c *Connection) error {
 		AVPs:     buf.Bytes(),
 		PeerName: c.Host, PeerRealm: c.Realm}
 
-	c.TxReq++
 	c.sndQueue[cer.HbHID] = make(chan Message)
-
 	c.wdTimer = time.AfterFunc(WDInterval, func() {
 		c.notify <- eventRcvCEA{cer.GenerateAnswerBy(UnableToDeliver)}
 	})
@@ -126,6 +124,7 @@ func (v eventConnect) exec(c *Connection) error {
 	err := cer.MarshalTo(c.conn)
 	if err != nil {
 		c.conn.Close()
+		err = TransportTxError{err: err}
 	}
 
 	if TraceMessage != nil {
@@ -167,9 +166,7 @@ func (v eventWatchdog) exec(c *Connection) error {
 		AVPs:     buf.Bytes(),
 		PeerName: c.Host, PeerRealm: c.Realm}
 
-	c.TxReq++
 	c.sndQueue[dwr.HbHID] = make(chan Message)
-
 	c.wdTimer = time.AfterFunc(WDInterval, func() {
 		c.notify <- eventRcvDWA{dwr.GenerateAnswerBy(UnableToDeliver)}
 		c.notify <- eventWatchdog{}
@@ -178,6 +175,7 @@ func (v eventWatchdog) exec(c *Connection) error {
 	err := dwr.MarshalTo(c.conn)
 	if err != nil {
 		c.conn.Close()
+		err = TransportTxError{err: err}
 	}
 
 	if TraceMessage != nil {
@@ -230,9 +228,7 @@ func (v eventStop) exec(c *Connection) error {
 		AVPs:     buf.Bytes(),
 		PeerName: c.Host, PeerRealm: c.Realm}
 
-	c.TxReq++
 	c.sndQueue[dpr.HbHID] = make(chan Message)
-
 	c.wdTimer = time.AfterFunc(WDInterval, func() {
 		c.notify <- eventRcvDPA{dpr.GenerateAnswerBy(UnableToDeliver)}
 	})
@@ -240,6 +236,7 @@ func (v eventStop) exec(c *Connection) error {
 	err := dpr.MarshalTo(c.conn)
 	if err != nil {
 		c.conn.Close()
+		err = TransportTxError{err: err}
 	}
 
 	if TraceMessage != nil {
@@ -286,10 +283,10 @@ func (v eventSndMsg) exec(c *Connection) error {
 	v.m.PeerName = c.Host
 	v.m.PeerRealm = c.Realm
 
-	c.TxReq++
 	err := v.m.MarshalTo(c.conn)
 	if err != nil {
 		c.conn.Close()
+		err = TransportTxError{err: err}
 	}
 
 	if TraceMessage != nil {

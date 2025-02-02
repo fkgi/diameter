@@ -14,17 +14,19 @@ func (eventRcvReq) String() string {
 }
 
 func (v eventRcvReq) exec(c *Connection) error {
-	c.RxReq++
+	var err error
 	if c.state == closed || c.state == waitCER || c.state == waitCEA {
-		c.DscardReq++
-		return notAcceptableEvent{e: v, s: c.state}
+		err = RejectRxMessage{
+			State: c.state, ErrMsg: "Request Message is not acceptable"}
 	}
 	if TraceMessage != nil {
-		TraceMessage(v.m, Rx, nil)
+		TraceMessage(v.m, Rx, err)
+	}
+	if err != nil {
+		return err
 	}
 
 	result := Success
-	var err error
 	if c.state == locked {
 		result = UnableToDeliver
 	} else if len(c.rcvQueue) == cap(c.rcvQueue) {
@@ -50,11 +52,9 @@ func (v eventRcvReq) exec(c *Connection) error {
 		if e := ans.MarshalTo(c.conn); e != nil {
 			c.conn.Close()
 			err = e
-		} else {
-			if TraceMessage != nil {
-				TraceMessage(ans, Tx, err)
-			}
-			c.countTxCode(result)
+		}
+		if TraceMessage != nil {
+			TraceMessage(ans, Tx, err)
 		}
 	}
 
@@ -70,27 +70,31 @@ func (eventRcvAns) String() string {
 }
 
 func (v eventRcvAns) exec(c *Connection) (e error) {
+	var err error
+
 	if c.state != open && c.state != locked {
-		c.InvalidAns++
-		return notAcceptableEvent{e: v, s: c.state}
+		err = InvalidMessage{
+			Code:   UnableToComply,
+			ErrMsg: "Answer Message is not acceptable in " + c.state.String() + " state"}
+	} else if ch, ok := c.sndQueue[v.m.HbHID]; ok {
+		ch <- v.m
+	} else {
+		err = InvalidMessage{
+			Code:   UnableToComply,
+			ErrMsg: "correlated request with the Hop-by-Hop ID not found"}
 	}
 
 	if TraceMessage != nil {
-		TraceMessage(v.m, Rx, nil)
+		TraceMessage(v.m, Rx, err)
+	}
+	if err == nil {
+		delete(c.sndQueue, v.m.HbHID)
+
+		if c.wdCount == 0 {
+			c.wdTimer.Stop()
+			c.wdTimer.Reset(WDInterval)
+		}
 	}
 
-	if ch, ok := c.sndQueue[v.m.HbHID]; ok {
-		ch <- v.m
-	} else {
-		c.InvalidAns++
-		return unknownAnswer(v.m.HbHID)
-	}
-	delete(c.sndQueue, v.m.HbHID)
-
-	if c.wdCount == 0 {
-		c.wdTimer.Stop()
-		c.wdTimer.Reset(WDInterval)
-	}
-
-	return nil
+	return err
 }

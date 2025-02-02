@@ -20,6 +20,8 @@ func (e InvalidMessage) Error() string {
 		return "unsupported application, " + e.ErrMsg
 	case UnknownPeer:
 		return "unknown peer, " + e.ErrMsg
+	case UnableToComply:
+		return "unable to comply, " + e.ErrMsg
 	}
 	return fmt.Sprintf("generic invalid message (code=%d), %s", e.Code, e.ErrMsg)
 }
@@ -73,6 +75,24 @@ func (e FailureAnswer) Error() string {
 		e.Code, e.VenID, e.ErrMsg, acodes)
 }
 
+type RejectRxMessage struct {
+	State  conState
+	ErrMsg string
+}
+
+func (err RejectRxMessage) Error() string {
+	return fmt.Sprintf("Rx message is rejected in state %s: %s",
+		err.State, err.ErrMsg)
+}
+
+type TransportTxError struct {
+	err error
+}
+
+func (err TransportTxError) Error() string {
+	return fmt.Sprintf("failed to send data on lower layer: %s", err.err)
+}
+
 type notAcceptableEvent struct {
 	e stateEvent
 	s conState
@@ -80,10 +100,4 @@ type notAcceptableEvent struct {
 
 func (err notAcceptableEvent) Error() string {
 	return fmt.Sprintf("event %s is not acceptable in state %s", err.e, err.s)
-}
-
-type unknownAnswer uint32
-
-func (e unknownAnswer) Error() string {
-	return fmt.Sprintf("Unknown hop-by-hop ID %d answer", e)
 }

@@ -35,19 +35,21 @@ func (eventRcvDWR) String() string {
 }
 
 func (v eventRcvDWR) exec(c *Connection) error {
-	c.RxReq++
+	var err error
 	if c.state != open && c.state != locked {
-		c.DscardReq++
-		return notAcceptableEvent{e: v, s: c.state}
+		err = RejectRxMessage{
+			State: c.state, ErrMsg: "DWR is not acceptable"}
 	}
 	if TraceMessage != nil {
-		TraceMessage(v.m, Rx, nil)
+		TraceMessage(v.m, Rx, err)
+	}
+	if err != nil {
+		return err
 	}
 
 	var oHost Identity
 	var oRealm Identity
 	var oState uint32
-	var err error
 
 	for rdr := bytes.NewReader(v.m.AVPs); rdr.Len() != 0; {
 		a := AVP{}
@@ -146,9 +148,8 @@ func (v eventRcvDWR) exec(c *Connection) error {
 
 	if e := dwa.MarshalTo(c.conn); e != nil {
 		c.conn.Close()
-		err = e
+		err = TransportTxError{err: e}
 	} else if err == nil && c.wdCount == 0 {
-		c.countTxCode(result)
 		c.wdTimer.Stop()
 		c.wdTimer.Reset(WDInterval)
 	}
@@ -169,19 +170,26 @@ func (eventRcvDWA) String() string {
 }
 
 func (v eventRcvDWA) exec(c *Connection) error {
-	// verify diameter header
+	var err error
+
 	if v.m.FlgP {
-		c.InvalidAns++
-		return InvalidMessage{
+		err = InvalidMessage{
 			Code: InvalidHdrBits, ErrMsg: "DWA must not enable P flag"}
+	} else if c.state != open {
+		err = InvalidMessage{
+			Code:   UnableToComply,
+			ErrMsg: "DWA is not acceptable in " + c.state.String() + " state"}
+	} else if _, ok := c.sndQueue[v.m.HbHID]; !ok {
+		err = InvalidMessage{
+			Code:   UnableToComply,
+			ErrMsg: "correlated request with the Hop-by-Hop ID not found"}
 	}
-	if c.state != open {
-		c.InvalidAns++
-		return notAcceptableEvent{e: v, s: c.state}
-	}
-	if _, ok := c.sndQueue[v.m.HbHID]; !ok {
-		c.InvalidAns++
-		return unknownAnswer(v.m.HbHID)
+
+	if err != nil {
+		if TraceMessage != nil {
+			TraceMessage(v.m, Rx, err)
+		}
+		return err
 	}
 
 	var result uint32
@@ -190,7 +198,6 @@ func (v eventRcvDWA) exec(c *Connection) error {
 	// var errorMsg string
 	// var failedAVP []AVP
 	var oState uint32
-	var err error
 
 	for rdr := bytes.NewReader(v.m.AVPs); rdr.Len() != 0; {
 		a := AVP{}
@@ -284,7 +291,6 @@ func (v eventRcvDWA) exec(c *Connection) error {
 			c.notify <- eventWatchdog{}
 		})
 	}
-	c.countRxCode(result)
 
 	if TraceMessage != nil {
 		TraceMessage(v.m, Rx, err)
