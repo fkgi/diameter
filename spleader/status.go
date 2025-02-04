@@ -8,7 +8,7 @@ import (
 type constat struct {
 	Host  string `json:"host"`
 	Realm string `json:"realm"`
-	Addr  string `json:"peer_address"`
+	Addr  string `json:"address"`
 	State string `json:"state"`
 }
 
