@@ -100,14 +100,34 @@ func rxhandler(m diameter.Message) diameter.Message {
 			return m.GenerateAnswerBy(diameter.UnableToDeliver)
 		}
 		for _, con := range cons {
-			if con.Host == dHost {
+			if con.Host != dHost {
+				continue
+			}
+			if len(con.AvailableApplications()) == 0 {
 				dcon = append(dcon, con)
+				continue
+			}
+			for _, i := range con.AvailableApplications() {
+				if i == m.AppID {
+					dcon = append(dcon, con)
+					continue
+				}
 			}
 		}
 		if len(dcon) == 0 {
 			for _, con := range cons {
-				if con.Host != upLink {
+				if con.Host == upLink {
+					continue
+				}
+				if len(con.AvailableApplications()) == 0 {
 					dcon = append(dcon, con)
+					continue
+				}
+				for _, i := range con.AvailableApplications() {
+					if i == m.AppID {
+						dcon = append(dcon, con)
+						continue
+					}
 				}
 			}
 		}

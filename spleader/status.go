@@ -6,10 +6,11 @@ import (
 )
 
 type constat struct {
-	Host  string `json:"host"`
-	Realm string `json:"realm"`
-	Addr  string `json:"address"`
-	State string `json:"state"`
+	Host  string   `json:"host"`
+	Realm string   `json:"realm"`
+	Addr  string   `json:"address"`
+	State string   `json:"state"`
+	Apps  []uint32 `json:"apps"`
 }
 
 func conStateHandler(w http.ResponseWriter, r *http.Request) {
@@ -25,7 +26,8 @@ func conStateHandler(w http.ResponseWriter, r *http.Request) {
 			Host:  c.Host.String(),
 			Realm: c.Realm.String(),
 			Addr:  c.PeerAddr().String(),
-			State: c.State()})
+			State: c.State(),
+			Apps:  c.AvailableApplications()})
 	}
 	if b, e := json.Marshal(stats); e != nil {
 		w.WriteHeader(http.StatusInternalServerError)

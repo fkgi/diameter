@@ -47,5 +47,4 @@ func init() {
 				dct, msg.PeerName, err)
 		}
 	}
-
 }
