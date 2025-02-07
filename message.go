@@ -135,7 +135,6 @@ func (m Message) String() string {
 
 func (m Message) GenerateAnswerBy(result uint32) Message {
 	buf := new(bytes.Buffer)
-	SetResultCode(result).MarshalTo(buf)
 	for rdr := bytes.NewReader(m.AVPs); rdr.Len() != 0; {
 		a := AVP{}
 		if e := a.UnmarshalFrom(rdr); e != nil {
@@ -151,6 +150,7 @@ func (m Message) GenerateAnswerBy(result uint32) Message {
 			a.MarshalTo(buf)
 		}
 	}
+	SetResultCode(result).MarshalTo(buf)
 	SetOriginHost(Host).MarshalTo(buf)
 	SetOriginRealm(Realm).MarshalTo(buf)
 

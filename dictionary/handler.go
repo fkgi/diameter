@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"slices"
 
@@ -188,14 +187,8 @@ func diameterErr(avp []diameter.AVP, code uint32, err string) (bool, []diameter.
 	if NotifyHandlerError != nil {
 		NotifyHandlerError("Diameter", err)
 	}
-	log.Println(err)
 
-	ret := []diameter.AVP{
-		diameter.SetResultCode(code),
-		diameter.SetOriginHost(diameter.Host),
-		diameter.SetOriginRealm(diameter.Realm),
-		diameter.SetErrorMessage(err)}
-
+	ret := []diameter.AVP{}
 	for _, a := range avp {
 		if a.VendorID != 0 {
 			continue
@@ -207,6 +200,10 @@ func diameterErr(avp []diameter.AVP, code uint32, err string) (bool, []diameter.
 			ret = append(ret, a)
 		}
 	}
+	ret = append(ret, diameter.SetResultCode(code))
+	ret = append(ret, diameter.SetOriginHost(diameter.Host))
+	ret = append(ret, diameter.SetOriginRealm(diameter.Realm))
+	ret = append(ret, diameter.SetErrorMessage(err))
 
 	return true, ret
 }
@@ -237,30 +234,44 @@ func formatAVPs(avps []diameter.AVP) (map[string]any, error) {
 }
 
 func parseAVPs(d map[string]any) ([]diameter.AVP, error) {
-	keys := make([]string, 0, 20)
-	for k := range d {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
-
-	avps := make([]diameter.AVP, 0, 20)
-	for _, k := range keys {
-		v := d[k]
+	avps := map[uint32]diameter.AVP{}
+	codes := make([]uint32, 0, 20)
+	for k, v := range d {
 		if l, ok := v.([]any); ok {
 			for _, v := range l {
 				a, e := EncodeAVP(k, v)
 				if e != nil {
 					return nil, fmt.Errorf("%s is invalid: %v", k, e)
 				}
-				avps = append(avps, a)
+				avps[a.Code] = a
+				codes = append(codes, a.Code)
 			}
 		} else {
 			a, e := EncodeAVP(k, v)
 			if e != nil {
 				return nil, fmt.Errorf("%s is invalid: %v", k, e)
 			}
-			avps = append(avps, a)
+			avps[a.Code] = a
+			codes = append(codes, a.Code)
 		}
 	}
-	return avps, nil
+	slices.Sort(codes)
+
+	res := make([]diameter.AVP, 0, 20)
+	for _, k := range order {
+		if a, ok := avps[k]; ok {
+			res = append(res, a)
+			delete(avps, k)
+		}
+	}
+	for _, k := range codes {
+		if a, ok := avps[k]; ok {
+			res = append(res, a)
+			delete(avps, k)
+		}
+	}
+
+	return res, nil
 }
+
+var order = []uint32{263, 301, 260, 268, 298, 277, 264, 296, 293, 283}

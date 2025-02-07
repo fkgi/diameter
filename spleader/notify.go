@@ -43,8 +43,12 @@ func init() {
 	}
 	diameter.TraceMessage = func(msg diameter.Message, dct diameter.Direction, err error) {
 		if msg.AppID != 0 {
-			log.Printf("%s diameter message handling: peer=%s, error=%v\n",
-				dct, msg.PeerName, err)
+			t := "answer"
+			if msg.FlgR {
+				t = "request"
+			}
+			log.Printf("%s diameter %s message handling: peer=%s, error=%v\n",
+				dct, t, msg.PeerName, err)
 		}
 	}
 }

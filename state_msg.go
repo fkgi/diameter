@@ -50,8 +50,8 @@ func (v eventRcvReq) exec(c *Connection) error {
 	if result != Success {
 		ans := v.m.GenerateAnswerBy(result)
 		if e := ans.MarshalTo(c.conn); e != nil {
-			c.conn.Close()
 			err = e
+			c.notify <- eventPeerDisc{reason: err}
 		}
 		if TraceMessage != nil {
 			TraceMessage(ans, Tx, err)
