@@ -147,8 +147,8 @@ func (v eventRcvDWR) exec(c *Connection) error {
 		AVPs: buf.Bytes()}
 
 	if e := dwa.MarshalTo(c.conn); e != nil {
-		c.conn.Close()
 		err = TransportTxError{err: e}
+		c.notify <- eventPeerDisc{reason: err}
 	} else if err == nil && c.wdCount == 0 {
 		c.wdTimer.Stop()
 		c.wdTimer.Reset(WDInterval)

@@ -42,7 +42,7 @@ func TraceMessageVarbose(prefix string, msg diameter.Message) string {
 	fmt.Fprintln(buf, ")")
 
 	fmt.Fprintf(buf,
-		"%sHop-by-Hop ID=%#x, End-to-End ID=%#x",
+		"%sHop-by-Hop-ID=%#x, End-to-End-ID=%#x",
 		prefix, msg.HbHID, msg.EtEID)
 	fmt.Fprintln(buf)
 

@@ -140,13 +140,13 @@ func (v eventRcvDPR) exec(c *Connection) error {
 		AVPs: buf.Bytes()}
 
 	if e := dpa.MarshalTo(c.conn); e != nil {
-		c.conn.Close()
 		err = TransportTxError{err: e}
+		c.notify <- eventPeerDisc{reason: err}
 	} else if err == nil {
 		c.state = closing
 		c.wdTimer.Stop()
 		c.wdTimer = time.AfterFunc(WDInterval, func() {
-			c.conn.Close()
+			c.notify <- eventPeerDisc{}
 		})
 	}
 
@@ -270,7 +270,7 @@ func (v eventRcvDPA) exec(c *Connection) error {
 	} else {
 		delete(c.sndQueue, v.m.HbHID)
 		c.wdTimer.Stop()
-		err = c.conn.Close()
+		c.notify <- eventPeerDisc{}
 	}
 
 	if TraceMessage != nil {

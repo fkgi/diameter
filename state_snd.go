@@ -123,8 +123,8 @@ func (v eventConnect) exec(c *Connection) error {
 
 	err := cer.MarshalTo(c.conn)
 	if err != nil {
-		c.conn.Close()
 		err = TransportTxError{err: err}
+		c.notify <- eventPeerDisc{reason: err}
 	}
 
 	if TraceMessage != nil {
@@ -147,8 +147,9 @@ func (v eventWatchdog) exec(c *Connection) error {
 
 	c.wdCount++
 	if c.wdCount > WDMaxSend {
-		c.conn.Close()
-		return fmt.Errorf("watchdog is expired")
+		err := fmt.Errorf("watchdog is expired")
+		c.notify <- eventPeerDisc{reason: err}
+		return err
 	}
 	c.wdTimer.Stop()
 
@@ -174,8 +175,8 @@ func (v eventWatchdog) exec(c *Connection) error {
 
 	err := dwr.MarshalTo(c.conn)
 	if err != nil {
-		c.conn.Close()
 		err = TransportTxError{err: err}
+		c.notify <- eventPeerDisc{reason: err}
 	}
 
 	if TraceMessage != nil {
@@ -210,8 +211,9 @@ func (eventStop) String() string {
 
 func (v eventStop) exec(c *Connection) error {
 	if c.state != open && c.state != locked {
-		c.conn.Close()
-		return notAcceptableEvent{e: v, s: c.state}
+		err := notAcceptableEvent{e: v, s: c.state}
+		c.notify <- eventPeerDisc{reason: err}
+		return err
 	}
 	c.state = closing
 	c.wdTimer.Stop()
@@ -235,8 +237,8 @@ func (v eventStop) exec(c *Connection) error {
 
 	err := dpr.MarshalTo(c.conn)
 	if err != nil {
-		c.conn.Close()
 		err = TransportTxError{err: err}
+		c.notify <- eventPeerDisc{reason: err}
 	}
 
 	if TraceMessage != nil {
@@ -255,6 +257,13 @@ func (eventPeerDisc) String() string {
 }
 
 func (v eventPeerDisc) exec(c *Connection) error {
+	if c.state == closed {
+		return v.reason
+	}
+	if c.state == closing {
+		v.reason = nil
+	}
+
 	c.conn.Close()
 	c.state = closed
 
@@ -285,8 +294,8 @@ func (v eventSndMsg) exec(c *Connection) error {
 
 	err := v.m.MarshalTo(c.conn)
 	if err != nil {
-		c.conn.Close()
 		err = TransportTxError{err: err}
+		c.notify <- eventPeerDisc{reason: err}
 	}
 
 	if TraceMessage != nil {

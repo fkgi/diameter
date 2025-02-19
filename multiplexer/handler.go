@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"log"
 	"math/rand"
 	"net"
 	"os"
@@ -130,8 +131,12 @@ func rxhandler(m diameter.Message) diameter.Message {
 					}
 				}
 			}
+			log.Println("diameter message is routed from up-link to down-link by loadshare")
+		} else {
+			log.Println("diameter message is routed from up-link to down-link by Destination-Host")
 		}
 	} else {
+		log.Println("diameter message is routed from down-link to up-link")
 		for _, con := range cons {
 			if con.Host == upLink {
 				dcon = append(dcon, con)
@@ -140,6 +145,7 @@ func rxhandler(m diameter.Message) diameter.Message {
 	}
 
 	if len(dcon) == 0 {
+		log.Println("no destination peer for diameter message is selected")
 		return m.GenerateAnswerBy(diameter.UnableToDeliver)
 	}
 

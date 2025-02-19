@@ -14,26 +14,26 @@ import (
 func init() {
 	connector.TransportInfoNotify = func(src, dst net.Addr) {
 		buf := new(strings.Builder)
-		fmt.Fprintln(buf, "Detected transport address")
+		fmt.Fprintln(buf, "detected transport address")
 		if src != nil {
 			fmt.Fprintf(buf, "| local: %s://%s\n", src.Network(), src.String())
 		}
 		if dst != nil {
 			fmt.Fprintf(buf, "| peer : %s://%s\n", dst.Network(), dst.String())
 		}
-		log.Print(buf)
+		log.Print("[INFO] ", buf)
 	}
 	connector.TransportUpNotify = func(src, dst net.Addr) {
 		buf := new(strings.Builder)
-		fmt.Fprintln(buf, "Transport connection up")
+		fmt.Fprintln(buf, "transport connection up")
 		fmt.Fprintf(buf, "| local: %s://%s\n", src.Network(), src.String())
 		fmt.Fprintf(buf, "| peer : %s://%s\n", dst.Network(), dst.String())
-		log.Print(buf)
+		log.Print("[INFO] ", buf)
 	}
 
 	diameter.ConnectionUpNotify = func(c *diameter.Connection) {
 		buf := new(strings.Builder)
-		fmt.Fprintln(buf, "Diameter connection up")
+		fmt.Fprintln(buf, "diameter connection up")
 		fmt.Fprintln(buf, "| local host/realm:", diameter.Host, "/", diameter.Realm)
 		fmt.Fprintln(buf, "| peer  host/realm:", c.Host, "/", c.Realm)
 		fmt.Fprint(buf, "| available application: ")
@@ -46,18 +46,22 @@ func init() {
 				}
 			}
 		}
-		log.Print(buf)
+		log.Print("[INFO] ", buf)
 	}
+	dictionary.NotifyHandlerError = func(proto, msg string) {
+		log.Println("[ERROR]", "error in", proto, "with reason", msg)
+	}
+
 	diameter.TraceEvent = func(old, new, event string, err error) {
-		log.Println("Diameter state update:",
-			old, "->", new, "by event", event, "with error", err)
+		log.Printf("[INFO] diameter state update: %s->%s by event %s: error=%v",
+			old, new, event, err)
 	}
 	diameter.TraceMessage = func(msg diameter.Message, dct diameter.Direction, err error) {
 		buf := new(strings.Builder)
 		fmt.Fprintf(buf, "%s diameter message handling: error=%v", dct, err)
 		fmt.Fprintln(buf)
 		fmt.Fprint(buf, dictionary.TraceMessageVarbose("| ", msg))
-		log.Print(buf)
+		log.Print("[INFO] ", buf)
 
 		if msg.FlgR {
 			if dct == diameter.Rx {
@@ -120,9 +124,6 @@ func init() {
 				}
 			}
 		}
-	}
-	dictionary.NotifyHandlerError = func(proto, msg string) {
-		log.Println("error in", proto, "with reason", msg)
 	}
 
 }

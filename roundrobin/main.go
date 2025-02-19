@@ -38,51 +38,52 @@ func main() {
 		"Disconnect cause in sending DPR. `rebooting|busy|do_not_want_to_talk_to_you`")
 	server := flag.Bool("s", false, "Run as server")
 	to := flag.Int("t", int(diameter.WDInterval/time.Second),
-		"message timeout timer [s]")
+		"Message timeout timer [s]")
+	verbose := flag.Bool("v", false, "Verbose log output")
 	help := flag.Bool("h", false, "Print usage")
 	flag.Parse()
 
 	dpeer := flag.Arg(0)
 	if *help || dpeer == "" {
-		fmt.Printf("Usage: %s [OPTION]... DIAMETER_PEER\n", os.Args[0])
+		fmt.Printf("usage: %s [OPTION]... DIAMETER_PEER\n", os.Args[0])
 		fmt.Println("DIAMETER_PEER format is [(tcp|sctp)://][realm/]hostname[:port]")
 		fmt.Println()
 		flag.PrintDefaults()
 		return
 	}
 
-	log.Printf("booting Round-Robin debugger for Diameter <%s REV.%d>...",
+	log.Printf("[INFO] booting Round-Robin debugger for Diameter <%s REV.%d>...",
 		diameter.ProductName, diameter.FirmwareRev)
 
 	diameter.WDInterval = time.Duration(*to) * time.Second
 
-	log.Println("loading dictionary file", *dict)
+	if !(*verbose) {
+		diameter.TraceEvent = nil
+		diameter.TraceMessage = nil
+	}
+
+	log.Println("[INFO]", "loading dictionary file", *dict)
 	if data, err := os.ReadFile(*dict); err != nil {
-		log.Fatalln("failed to open dictionary file:", err)
+		log.Fatalln("[ERROR]", "failed to open dictionary file:", err)
 	} else if dicData, err = dictionary.LoadDictionary(data); err != nil {
-		log.Fatalln("failed to read dictionary file:", err)
+		log.Fatalln("[ERROR]", "failed to read dictionary file:", err)
 	} else {
-		buf := new(strings.Builder)
-		fmt.Fprintln(buf, "supported data")
 		for _, vnd := range dicData.V {
-			fmt.Fprintf(buf, "| vendor: %s(%d)", vnd.N, vnd.I)
-			fmt.Fprintln(buf)
+			buf := new(strings.Builder)
+			fmt.Fprintf(buf, "supported vendor: %s(%d)", vnd.N, vnd.I)
 			for _, app := range vnd.P {
-				fmt.Fprintf(buf, "| | application: %s(%d)", app.N, app.I)
-				fmt.Fprintln(buf)
-				fmt.Fprint(buf, "| | | command:")
+				fmt.Fprintf(buf, "\n | application: %s(%d)\n | | command:",
+					app.N, app.I)
 				for _, cmd := range app.C {
-					fmt.Fprintf(buf, " %s(%d)", cmd.N, cmd.I)
+					fmt.Fprintf(buf, " %s(%d),", cmd.N, cmd.I)
 				}
-				fmt.Fprintln(buf)
 			}
-			fmt.Fprint(buf, "| | AVP:")
+			fmt.Fprint(buf, "\n | AVP:")
 			for _, avp := range vnd.V {
-				fmt.Fprintf(buf, " %s(%d,%s)", avp.N, avp.I, avp.T)
+				fmt.Fprintf(buf, " %s(%d/%s),", avp.N, avp.I, avp.T)
 			}
-			fmt.Fprintln(buf)
+			log.Println("[INFO]", buf)
 		}
-		log.Print(buf)
 	}
 
 	http.HandleFunc("/diastate/v1/connection", conStateHandler)
@@ -91,18 +92,18 @@ func main() {
 	rxPath = "http://" + *hpeer
 	_, err = url.Parse(rxPath)
 	if err != nil {
-		log.Println("invalid HTTP backend host, Rx request will be rejected")
+		log.Println("[WARN]", "invalid HTTP backend host, Rx request will be rejected")
 		rxPath = ""
 	} else {
-		log.Println("HTTP backend:", rxPath)
+		log.Println("[INFO]", "HTTP backend:", rxPath)
 	}
 	dicData.RegisterHandler(rxPath, apiPath, connector.DefaultRouter)
 
-	log.Println("listening HTTP local port:", *hlocal)
+	log.Println("[INFO]", "listening HTTP...\n | local port:", *hlocal)
 	go func() {
 		err := http.ListenAndServe(*hlocal, nil)
 		if err != nil {
-			log.Println("failed to listen HTTP, Tx request is not available:", err)
+			log.Println("[WARN]", "failed to listen HTTP, Tx request is not available:", err)
 		}
 	}()
 
@@ -119,10 +120,10 @@ func main() {
 	}
 
 	if *server {
-		log.Println("listening Diameter...")
-		log.Println("closed, error=", connector.ListenAndServe(*dlocal, dpeer))
+		log.Println("[INFO]", "listening Diameter...")
+		log.Println("[INFO]", "closed, error=", connector.ListenAndServe(*dlocal, dpeer))
 	} else {
-		log.Println("connecting Diameter...")
-		log.Println("closed, error=", connector.DialAndServe(*dlocal, dpeer))
+		log.Println("[INFO]", "connecting Diameter...")
+		log.Println("[INFO]", "closed, error=", connector.DialAndServe(*dlocal, dpeer))
 	}
 }

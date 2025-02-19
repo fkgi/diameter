@@ -41,22 +41,22 @@ func main() {
 		return
 	}
 
-	log.Printf("uplink peer hostname is %s", upLink)
-
-	log.Printf("booting spleader for Round-Robin <%s REV.%d>...",
+	log.Printf("[INFO] booting spleader for Round-Robin <%s REV.%d>...",
 		diameter.ProductName, diameter.FirmwareRev)
+	log.Printf("[INFO] uplink peer hostname is %s", upLink)
 
 	http.HandleFunc("/diastate/v1/connection", conStateHandler)
-	log.Println("listening HTTP local port:", *hlocal)
+	log.Println("[INFO] listening HTTP local port:", *hlocal)
 	go func() {
 		err := http.ListenAndServe(*hlocal, nil)
 		if err != nil {
-			log.Println("failed to listen HTTP, API is not available:", err)
+			log.Println("[ERROR]", "failed to listen HTTP, API is not available:",
+				err)
 		}
 	}()
 
 	diameter.DefaultRxHandler = rxhandler
 
-	log.Println("listening Diameter...")
-	log.Println("closed, error=", ListenAndServe(*dlocal))
+	log.Println("[INFO]", "listening Diameter...")
+	log.Println("[INFO]", "closed, error=", ListenAndServe(*dlocal))
 }
