@@ -115,12 +115,12 @@ func (m *Message) GetAVP() ([]AVP, error) {
 func (m Message) String() string {
 	w := new(bytes.Buffer)
 
-	fmt.Fprintf(w, "Flags        R=%t, P=%t, E=%t, T=%t\n",
+	fmt.Fprintf(w, "Flags        R=%t, P=%t, E=%t, T=%t",
 		m.FlgR, m.FlgP, m.FlgE, m.FlgT)
-	fmt.Fprintf(w, "Command-Code  =%d\n", m.Code)
-	fmt.Fprintf(w, "Application-ID=%d\n", m.AppID)
-	fmt.Fprintf(w, "Hop-by-Hop ID =%d\n", m.HbHID)
-	fmt.Fprintf(w, "End-to-End ID =%d", m.EtEID)
+	fmt.Fprintf(w, "\nCommand-Code  =%d", m.Code)
+	fmt.Fprintf(w, "\nApplication-ID=%d", m.AppID)
+	fmt.Fprintf(w, "\nHop-by-Hop-ID =%d", m.HbHID)
+	fmt.Fprintf(w, "\nEnd-to-End-ID =%d", m.EtEID)
 
 	for rdr := bytes.NewReader(m.AVPs); rdr.Len() != 0; {
 		a := AVP{}
