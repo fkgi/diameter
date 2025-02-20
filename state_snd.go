@@ -277,7 +277,8 @@ func (v eventPeerDisc) exec(c *Connection) error {
 
 // Snd MSG
 type eventSndMsg struct {
-	m Message
+	m  Message
+	ch chan Message
 }
 
 func (eventSndMsg) String() string {
@@ -292,6 +293,9 @@ func (v eventSndMsg) exec(c *Connection) error {
 	v.m.PeerName = c.Host
 	v.m.PeerRealm = c.Realm
 
+	if v.ch != nil {
+		c.sndQueue[v.m.HbHID] = v.ch
+	}
 	err := v.m.MarshalTo(c.conn)
 	if err != nil {
 		err = TransportTxError{err: err}

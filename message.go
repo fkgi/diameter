@@ -12,9 +12,9 @@ import (
 const (
 	VendorID    uint32 = 41102         // VendorID of this code
 	ProductName        = "round-robin" // ProductName of this code
-	FirmwareRev uint32 = 250204001     // FirmwareRev of this code
+	FirmwareRev uint32 = 250220001     // FirmwareRev of this code
 
-	avpBufferSize = 10
+	avpBufferSize = 20
 )
 
 var (
@@ -29,11 +29,6 @@ func init() {
 	eteID <- (uint32(ut^0xFFF) << 20) | (rand.Uint32() ^ 0xFFFFF)
 	sessionID <- rand.Uint32()
 	stateID = uint32(ut)
-}
-
-type application struct {
-	venID    uint32
-	handlers map[uint32]Handler
 }
 
 func nextHbH() uint32 {

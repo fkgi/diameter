@@ -100,7 +100,7 @@ func (c *Connection) serve() error {
 				ans.EtEID = req.EtEID
 			}
 			if ans.AVPs != nil {
-				c.notify <- eventSndMsg{ans}
+				c.notify <- eventSndMsg{ans, nil}
 			}
 		}
 	}()

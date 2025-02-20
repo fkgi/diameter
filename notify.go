@@ -67,8 +67,10 @@ func (c *Connection) State() string {
 // AvailableApplications returns supported application list
 func (c *Connection) AvailableApplications() []uint32 {
 	ret := []uint32{}
-	for k := range c.commonApp {
-		ret = append(ret, k)
+	if c.state == open {
+		for k := range c.commonApp {
+			ret = append(ret, k)
+		}
 	}
 	return ret
 }

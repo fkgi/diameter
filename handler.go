@@ -10,6 +10,11 @@ import (
 // Empty map indicate that accept any application.
 var applications = make(map[uint32]application)
 
+type application struct {
+	venID    uint32
+	handlers map[uint32]Handler
+}
+
 // Handler handles Diameter message.
 // Inputs are Retry flag and AVPs of Request. Outputs are Error flag and AVPs of Answer.
 type Handler func(bool, []AVP) (bool, []AVP)
@@ -110,6 +115,9 @@ func rxHandlerHelper(req Message) (ans Message, err error) {
 
 // DefaultTxHandler for sending Diameter request message without Handler or relay application.
 func (c *Connection) DefaultTxHandler(m Message) Message {
+	if c.state != open {
+		return m.GenerateAnswerBy(UnableToDeliver)
+	}
 	if _, ok := c.commonApp[m.AppID]; !ok && len(c.commonApp) != 0 {
 		return m.GenerateAnswerBy(UnableToDeliver)
 	}
@@ -127,8 +135,7 @@ func (c *Connection) send(m Message) Message {
 	}
 
 	ch := make(chan Message)
-	c.sndQueue[m.HbHID] = ch
-	c.notify <- eventSndMsg{m}
+	c.notify <- eventSndMsg{m, ch}
 
 	t := time.AfterFunc(WDInterval, func() {
 		c.notify <- eventRcvAns{m.GenerateAnswerBy(TooBusy)}
