@@ -499,8 +499,8 @@
         <avp name="Confidentiality-Key" id="625" type="OctetString" mandatory="true" />
         <avp name="Integrity-Key" id="626" type="OctetString" mandatory="true" />
         <avp name="Supported-Features" id="628" type="Grouped" mandatory="true" />
-        <avp name="Feature-List-ID" id="629" type="Unsigned32" />
-        <avp name="Feature-List" id="630" type="Unsigned32" />
+        <avp name="Feature-List-ID" id="629" type="Unsigned32" mandatory="true" />
+        <avp name="Feature-List" id="630" type="Unsigned32" mandatory="true" />
         <!-- TS 29.329 AVP -->
         <avp name="MSISDN" id="701" type="OctetString" mandatory="true" />
         <!-- TS 32.299 AVP -->

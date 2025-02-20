@@ -76,29 +76,39 @@ func encGrouped(v any, avp *diameter.AVP) (e error) {
 		return errors.New("not Grouped")
 	}
 
-	keys := make([]string, 0, 20)
-	for k := range a {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
-
-	buf := new(bytes.Buffer)
-	for _, k := range keys {
-		v := a[k]
+	avps := map[uint32][]diameter.AVP{}
+	codes := make([]uint32, 0, 20)
+	for k, v := range a {
 		if l, ok := v.([]any); ok {
 			for _, v := range l {
-				avp, e := EncodeAVP(k, v)
+				a, e := EncodeAVP(k, v)
 				if e != nil {
 					return fmt.Errorf("%s is invalid: %v", k, e)
 				}
-				avp.MarshalTo(buf)
+				if _, ok := avps[a.Code]; ok {
+					avps[a.Code] = append(avps[a.Code], a)
+				} else {
+					avps[a.Code] = []diameter.AVP{a}
+					codes = append(codes, a.Code)
+				}
 			}
 		} else {
-			avp, e := EncodeAVP(k, v)
+			a, e := EncodeAVP(k, v)
 			if e != nil {
 				return fmt.Errorf("%s is invalid: %v", k, e)
 			}
-			avp.MarshalTo(buf)
+			avps[a.Code] = []diameter.AVP{a}
+			codes = append(codes, a.Code)
+		}
+	}
+	slices.Sort(codes)
+
+	buf := new(bytes.Buffer)
+	for _, k := range codes {
+		if l, ok := avps[k]; ok {
+			for _, a := range l {
+				a.MarshalTo(buf)
+			}
 		}
 	}
 	avp.Data = buf.Bytes()

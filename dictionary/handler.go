@@ -5,20 +5,45 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/fkgi/diameter"
 )
 
 func (d XDictionary) RegisterHandler(backend, path string, rt diameter.Router) {
+	var dt *http.Transport
+	if t, ok := http.DefaultTransport.(*http.Transport); ok {
+		dt = t.Clone()
+	} else {
+		dt = &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+				DualStack: true,
+			}).DialContext,
+			ForceAttemptHTTP2:     false,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		}
+	}
+	dt.MaxIdleConns = 0
+	dt.MaxIdleConnsPerHost = 1000
+	c := http.Client{
+		Transport: dt,
+		Timeout:   time.Second * 90}
+
 	for _, vnd := range d.V {
 		if vnd.I == 0 {
 			continue
 		}
 		for _, app := range vnd.P {
 			for _, cmd := range app.C {
-				registerHandler(backend, path+vnd.N+"/"+app.N+"/"+cmd.N,
+				registerHandler(&c, backend, path+vnd.N+"/"+app.N+"/"+cmd.N,
 					cmd.I, app.I, vnd.I, rt)
 			}
 		}
@@ -28,7 +53,7 @@ func (d XDictionary) RegisterHandler(backend, path string, rt diameter.Router) {
 	})
 }
 
-func registerHandler(backend, path string, cid, aid, vid uint32, rt diameter.Router) {
+func registerHandler(client *http.Client, backend, path string, cid, aid, vid uint32, rt diameter.Router) {
 	serveDiameter := func(_ bool, avps []diameter.AVP) (bool, []diameter.AVP) {
 		if backend == "" {
 			return diameterErr(avps, diameter.UnableToDeliver,
@@ -53,7 +78,7 @@ func registerHandler(backend, path string, cid, aid, vid uint32, rt diameter.Rou
 			return diameterErr(avps, diameter.InvalidAvpValue,
 				"unable to marshal AVPs to JSON: "+e.Error())
 		}
-		r, e := http.Post(backend+path, "application/json", bytes.NewBuffer(jsondata))
+		r, e := client.Post(backend+path, "application/json", bytes.NewBuffer(jsondata))
 		if e != nil {
 			return diameterErr(avps, diameter.UnableToDeliver,
 				"unable to send HTTP request to backend: "+e.Error())
@@ -234,7 +259,7 @@ func formatAVPs(avps []diameter.AVP) (map[string]any, error) {
 }
 
 func parseAVPs(d map[string]any) ([]diameter.AVP, error) {
-	avps := map[uint32]diameter.AVP{}
+	avps := map[uint32][]diameter.AVP{}
 	codes := make([]uint32, 0, 20)
 	for k, v := range d {
 		if l, ok := v.([]any); ok {
@@ -243,15 +268,19 @@ func parseAVPs(d map[string]any) ([]diameter.AVP, error) {
 				if e != nil {
 					return nil, fmt.Errorf("%s is invalid: %v", k, e)
 				}
-				avps[a.Code] = a
-				codes = append(codes, a.Code)
+				if _, ok := avps[a.Code]; ok {
+					avps[a.Code] = append(avps[a.Code], a)
+				} else {
+					avps[a.Code] = []diameter.AVP{a}
+					codes = append(codes, a.Code)
+				}
 			}
 		} else {
 			a, e := EncodeAVP(k, v)
 			if e != nil {
 				return nil, fmt.Errorf("%s is invalid: %v", k, e)
 			}
-			avps[a.Code] = a
+			avps[a.Code] = []diameter.AVP{a}
 			codes = append(codes, a.Code)
 		}
 	}
@@ -259,15 +288,14 @@ func parseAVPs(d map[string]any) ([]diameter.AVP, error) {
 
 	res := make([]diameter.AVP, 0, 20)
 	for _, k := range order {
-		if a, ok := avps[k]; ok {
-			res = append(res, a)
+		if l, ok := avps[k]; ok {
+			res = append(res, l...)
 			delete(avps, k)
 		}
 	}
 	for _, k := range codes {
-		if a, ok := avps[k]; ok {
-			res = append(res, a)
-			delete(avps, k)
+		if l, ok := avps[k]; ok {
+			res = append(res, l...)
 		}
 	}
 
