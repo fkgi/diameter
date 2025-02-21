@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -18,7 +20,6 @@ import (
 
 const apiPath = "/diamsg/v1/"
 
-var rxPath string
 var dicData dictionary.XDictionary
 
 func main() {
@@ -55,8 +56,6 @@ func main() {
 	log.Printf("[INFO] booting Round-Robin debugger for Diameter <%s REV.%d>...",
 		diameter.ProductName, diameter.FirmwareRev)
 
-	diameter.WDInterval = time.Duration(*to) * time.Second
-
 	if !(*verbose) {
 		diameter.TraceEvent = nil
 		diameter.TraceMessage = nil
@@ -86,10 +85,7 @@ func main() {
 		}
 	}
 
-	http.HandleFunc("/diastate/v1/connection", conStateHandler)
-	http.HandleFunc("/diastate/v1/statistics", statsHandler)
-
-	rxPath = "http://" + *hpeer
+	rxPath := "http://" + *hpeer
 	_, err = url.Parse(rxPath)
 	if err != nil {
 		log.Println("[WARN]", "invalid HTTP backend host, Rx request will be rejected")
@@ -97,8 +93,39 @@ func main() {
 	} else {
 		log.Println("[INFO]", "HTTP backend:", rxPath)
 	}
-	dicData.RegisterHandler(rxPath, apiPath, connector.DefaultRouter)
 
+	var dt *http.Transport
+	if t, ok := http.DefaultTransport.(*http.Transport); ok {
+		dt = t.Clone()
+	} else {
+		dt = &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+				DualStack: true,
+			}).DialContext,
+			ForceAttemptHTTP2:     false,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		}
+	}
+	dt.MaxIdleConns = 0
+	dt.MaxIdleConnsPerHost = 1000
+	client := http.Client{
+		Transport: dt,
+		Timeout:   diameter.WDInterval}
+
+	dicData.RegisterHandler(func(path string, body io.Reader) (*http.Response, error) {
+		if rxPath == "" {
+			return nil, fmt.Errorf("no HTTP backend is defined")
+		}
+		return client.Post(rxPath+path, "application/json", body)
+	}, apiPath, connector.DefaultRouter)
+
+	http.HandleFunc("/diastate/v1/connection", conStateHandler)
+	http.HandleFunc("/diastate/v1/statistics", statsHandler)
 	log.Println("[INFO]", "listening HTTP...\n | local port:", *hlocal)
 	go func() {
 		err := http.ListenAndServe(*hlocal, nil)
@@ -118,12 +145,16 @@ func main() {
 	default:
 		connector.TermCause = diameter.Rebooting
 	}
+	diameter.WDInterval = time.Duration(*to) * time.Second
 
 	if *server {
 		log.Println("[INFO]", "listening Diameter...")
-		log.Println("[INFO]", "closed, error=", connector.ListenAndServe(*dlocal, dpeer))
+		log.Println("[INFO]", "closed, error=",
+			connector.ListenAndServe(*dlocal, dpeer))
 	} else {
 		log.Println("[INFO]", "connecting Diameter...")
-		log.Println("[INFO]", "closed, error=", connector.DialAndServe(*dlocal, dpeer))
+		log.Println("[INFO]", "closed, error=",
+			connector.DialAndServe(*dlocal, dpeer))
 	}
+	client.CloseIdleConnections()
 }

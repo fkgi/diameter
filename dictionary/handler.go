@@ -5,45 +5,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"slices"
-	"time"
 
 	"github.com/fkgi/diameter"
 )
 
-func (d XDictionary) RegisterHandler(backend, path string, rt diameter.Router) {
-	var dt *http.Transport
-	if t, ok := http.DefaultTransport.(*http.Transport); ok {
-		dt = t.Clone()
-	} else {
-		dt = &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-				DualStack: true,
-			}).DialContext,
-			ForceAttemptHTTP2:     false,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		}
-	}
-	dt.MaxIdleConns = 0
-	dt.MaxIdleConnsPerHost = 1000
-	c := http.Client{
-		Transport: dt,
-		Timeout:   time.Second * 90}
+type Post func(path string, body io.Reader) (resp *http.Response, err error)
 
+func (d XDictionary) RegisterHandler(p Post, path string, rt diameter.Router) {
 	for _, vnd := range d.V {
 		if vnd.I == 0 {
 			continue
 		}
 		for _, app := range vnd.P {
 			for _, cmd := range app.C {
-				registerHandler(&c, backend, path+vnd.N+"/"+app.N+"/"+cmd.N,
+				registerHandler(p, path+vnd.N+"/"+app.N+"/"+cmd.N,
 					cmd.I, app.I, vnd.I, rt)
 			}
 		}
@@ -53,13 +30,8 @@ func (d XDictionary) RegisterHandler(backend, path string, rt diameter.Router) {
 	})
 }
 
-func registerHandler(client *http.Client, backend, path string, cid, aid, vid uint32, rt diameter.Router) {
+func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Router) {
 	serveDiameter := func(_ bool, avps []diameter.AVP) (bool, []diameter.AVP) {
-		if backend == "" {
-			return diameterErr(avps, diameter.UnableToDeliver,
-				"no HTTP backend is defined")
-		}
-
 		sid := ""
 		for _, a := range avps {
 			if a.Code == 263 {
@@ -78,7 +50,7 @@ func registerHandler(client *http.Client, backend, path string, cid, aid, vid ui
 			return diameterErr(avps, diameter.InvalidAvpValue,
 				"unable to marshal AVPs to JSON: "+e.Error())
 		}
-		r, e := client.Post(backend+path, "application/json", bytes.NewBuffer(jsondata))
+		r, e := p(path, bytes.NewBuffer(jsondata))
 		if e != nil {
 			return diameterErr(avps, diameter.UnableToDeliver,
 				"unable to send HTTP request to backend: "+e.Error())
@@ -173,7 +145,11 @@ func registerHandler(client *http.Client, backend, path string, cid, aid, vid ui
 			avps = append(avps, diameter.SetRouteRecord(diameter.Host))
 		}
 
-		_, avps = handleTx(true, avps)
+		retry := false
+		if r.Header.Get("X-Retry") == "true" {
+			retry = true
+		}
+		_, avps = handleTx(retry, avps)
 
 		if data, e = formatAVPs(avps); e != nil {
 			httpErr("unable to decode Diameter AVP by dictionary", e.Error(),
