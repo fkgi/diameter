@@ -117,11 +117,20 @@ func main() {
 		Transport: dt,
 		Timeout:   diameter.WDInterval}
 
-	dicData.RegisterHandler(func(path string, body io.Reader) (*http.Response, error) {
+	dicData.RegisterHandler(func(path string, hdr http.Header, body io.Reader) (*http.Response, error) {
 		if rxPath == "" {
 			return nil, fmt.Errorf("no HTTP backend is defined")
 		}
-		return client.Post(rxPath+path, "application/json", body)
+
+		req, _ := http.NewRequest("POST", rxPath+path, body)
+		for k, l := range hdr {
+			for _, v := range l {
+				req.Header.Add(k, v)
+			}
+		}
+		req.Header.Set("Content-Type", "application/json")
+		return client.Do(req)
+		// return client.Post(rxPath+path, "application/json", body)
 	}, apiPath, connector.DefaultRouter)
 
 	http.HandleFunc("/diastate/v1/connection", conStateHandler)

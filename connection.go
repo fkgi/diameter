@@ -56,7 +56,7 @@ func (c *Connection) ListenAndServe(con net.Conn) (e error) {
 func (c *Connection) serve() error {
 	c.notify = make(chan stateEvent, 16)
 	c.sndQueue = make(map[uint32]chan Message, 65535)
-	c.rcvQueue = make(chan Message, 65535)
+	c.rcvQueue = make(chan Message, 1024)
 	c.commonApp = make(map[uint32]application)
 
 	go func() {
@@ -92,22 +92,12 @@ func (c *Connection) serve() error {
 	go func() {
 		// handle Rx Diameter message
 		for req, ok := <-c.rcvQueue; ok; req, ok = <-c.rcvQueue {
-			ans, err := rxHandlerHelper(req)
-			if err != nil {
-				ans = DefaultRxHandler(req)
-				ans.FlgR = false
-				ans.HbHID = req.HbHID
-				ans.EtEID = req.EtEID
-			}
-			if ans.AVPs != nil {
-				c.notify <- eventSndMsg{ans, nil}
-			}
+			handleMsg(req)
 		}
 	}()
 
 	if TraceEvent != nil {
-		TraceEvent(
-			shutdown.String(), c.state.String(), eventInit{}.String(), nil)
+		TraceEvent(shutdown.String(), c.state.String(), eventInit{}.String(), nil)
 	}
 
 	if c.state != waitCER {

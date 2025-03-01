@@ -11,7 +11,7 @@ import (
 	"github.com/fkgi/diameter"
 )
 
-type Post func(path string, body io.Reader) (resp *http.Response, err error)
+type Post func(path string, hdr http.Header, body io.Reader) (resp *http.Response, err error)
 
 func (d XDictionary) RegisterHandler(p Post, path string, rt diameter.Router) {
 	for _, vnd := range d.V {
@@ -31,7 +31,7 @@ func (d XDictionary) RegisterHandler(p Post, path string, rt diameter.Router) {
 }
 
 func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Router) {
-	serveDiameter := func(_ bool, avps []diameter.AVP) (bool, []diameter.AVP) {
+	serveDiameter := func(retry bool, avps []diameter.AVP) (bool, []diameter.AVP) {
 		sid := ""
 		for _, a := range avps {
 			if a.Code == 263 {
@@ -50,7 +50,12 @@ func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Rout
 			return diameterErr(avps, diameter.InvalidAvpValue,
 				"unable to marshal AVPs to JSON: "+e.Error())
 		}
-		r, e := p(path, bytes.NewBuffer(jsondata))
+
+		hdr := http.Header{}
+		if retry {
+			hdr.Add("X-Retry", "true")
+		}
+		r, e := p(path, hdr, bytes.NewBuffer(jsondata))
 		if e != nil {
 			return diameterErr(avps, diameter.UnableToDeliver,
 				"unable to send HTTP request to backend: "+e.Error())

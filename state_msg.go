@@ -1,6 +1,7 @@
 package diameter
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 )
@@ -26,16 +27,26 @@ func (v eventRcvReq) exec(c *Connection) error {
 		return err
 	}
 
+	var ch chan Message
+	// Auth-Session-State AVP=STATE_MAINTAINED
+	if bytes.Contains(v.m.AVPs, []byte{
+		0x00, 0x00, 0x01, 0x15, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00}) {
+		ch = c.rcvQueue
+	} else {
+		ch = sharedQ
+	}
+	v.m.notify = c.notify
+
 	result := Success
 	if c.state == locked {
 		result = UnableToDeliver
-	} else if len(c.rcvQueue) == cap(c.rcvQueue) {
+	} else if len(ch) == cap(ch) {
 		result = TooBusy
 		err = errors.New("too busy, receive queue is full")
 	} else if len(c.commonApp) == 0 {
-		c.rcvQueue <- v.m
+		ch <- v.m
 	} else if _, ok := c.commonApp[v.m.AppID]; ok {
-		c.rcvQueue <- v.m
+		ch <- v.m
 	} else {
 		result = ApplicationUnsupported
 		err = InvalidMessage{

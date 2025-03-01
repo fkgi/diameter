@@ -12,7 +12,7 @@ import (
 const (
 	VendorID    uint32 = 41102         // VendorID of this code
 	ProductName        = "round-robin" // ProductName of this code
-	FirmwareRev uint32 = 250220001     // FirmwareRev of this code
+	FirmwareRev uint32 = 250301001     // FirmwareRev of this code
 
 	avpBufferSize = 20
 )
@@ -85,6 +85,8 @@ type Message struct {
 
 	PeerName  Identity // peer node that send this message
 	PeerRealm Identity
+
+	notify chan stateEvent // channel for sending answer of this message
 }
 
 func (m *Message) SetAVP(avp []AVP) {
