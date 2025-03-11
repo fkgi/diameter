@@ -85,6 +85,8 @@ func main() {
 		}
 	}
 
+	diameter.WDInterval = time.Duration(*to) * time.Second
+
 	rxPath := "http://" + *hpeer
 	_, err = url.Parse(rxPath)
 	if err != nil {
@@ -154,7 +156,6 @@ func main() {
 	default:
 		connector.TermCause = diameter.Rebooting
 	}
-	diameter.WDInterval = time.Duration(*to) * time.Second
 
 	if *server {
 		log.Println("[INFO]", "listening Diameter...")

@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/fkgi/diameter"
 )
@@ -21,8 +22,12 @@ func main() {
 		"Diameter local host. `[(tcp|sctp)://][realm/]hostname[:port]`")
 	hlocal := flag.String("i", ":12001",
 		"HTTP local interface address. `[host]:port`")
+	to := flag.Int("t", int(diameter.WDInterval/time.Second),
+		"Message timeout timer [s]")
 	help := flag.Bool("h", false, "Print usage")
 	flag.Parse()
+
+	diameter.WDInterval = time.Duration(*to) * time.Second
 
 	upLink, err = diameter.ParseIdentity(flag.Arg(0))
 	if *help || err != nil || upLink == "" {
