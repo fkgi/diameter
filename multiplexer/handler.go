@@ -95,6 +95,10 @@ func rxhandler(m diameter.Message) diameter.Message {
 		}
 	}
 
+	if dHost == diameter.Host {
+		return m.GenerateAnswerBy(diameter.CommandUnspported)
+	}
+
 	dcon := []*diameter.Connection{}
 	if m.PeerName == upLink {
 		if dHost == upLink {
