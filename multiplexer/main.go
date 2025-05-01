@@ -46,7 +46,7 @@ func main() {
 		return
 	}
 
-	log.Printf("[INFO] booting spleader for Round-Robin <%s REV.%d>...",
+	log.Printf("[INFO] booting multiplexer for Round-Robin <%s REV.%d>...",
 		diameter.ProductName, diameter.FirmwareRev)
 	log.Printf("[INFO] uplink peer hostname is %s", upLink)
 

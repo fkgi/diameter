@@ -182,7 +182,6 @@ func (v eventRcvCER) exec(c *Connection) error {
 			for laid, lapp := range applications {
 				if pvid, ok := authApps[laid]; ok && pvid == lapp.venID {
 					c.commonApp[laid] = lapp
-					break
 				}
 			}
 			if len(c.commonApp) == 0 {
@@ -480,7 +479,6 @@ func (v eventRcvCEA) exec(c *Connection) error {
 			for laid, lapp := range applications {
 				if pvid, ok := authApps[laid]; ok && pvid == lapp.venID {
 					c.commonApp[laid] = lapp
-					break
 				}
 			}
 			if len(c.commonApp) == 0 {
