@@ -2,82 +2,10 @@ package main
 
 import (
 	"bytes"
-	"log"
 	"math/rand"
-	"net"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"github.com/fkgi/diameter"
-	"github.com/fkgi/diameter/connector"
-	"github.com/fkgi/diameter/sctp"
 )
-
-var cons = make(map[net.Conn]*diameter.Connection)
-
-func ListenAndServe(la string) (err error) {
-	scheme, host, realm, ips, port, err := connector.ResolveIdentity(la)
-	if err != nil {
-		return
-	}
-	diameter.Host = host
-	diameter.Realm = realm
-
-	var l net.Listener
-	switch scheme {
-	case "sctp":
-		src := &sctp.SCTPAddr{IP: ips, Port: port}
-		if connector.TransportInfoNotify != nil {
-			connector.TransportInfoNotify(src, nil)
-		}
-		l, err = sctp.ListenSCTP(src)
-	default:
-		src := &net.TCPAddr{IP: ips[0], Port: port}
-		if connector.TransportInfoNotify != nil {
-			connector.TransportInfoNotify(src, nil)
-		}
-		l, err = net.ListenTCP("tcp", src)
-	}
-	if err != nil {
-		return
-	}
-
-	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-	go func() {
-		<-sigc
-		l.Close()
-	}()
-
-	for {
-		var c net.Conn
-		if c, err = l.Accept(); err != nil {
-			break
-		}
-		if connector.TransportUpNotify != nil {
-			connector.TransportUpNotify(c.LocalAddr(), c.RemoteAddr())
-		}
-
-		con := diameter.Connection{}
-		cons[c] = &con
-		go func() {
-			con.ListenAndServe(c)
-			delete(cons, c)
-		}()
-	}
-	l.Close()
-
-	for _, con := range cons {
-		con.Close(diameter.Rebooting)
-	}
-	for len(cons) != 0 {
-		time.Sleep(time.Millisecond * 100)
-	}
-
-	return
-}
 
 func rxhandler(m diameter.Message) diameter.Message {
 	var dHost diameter.Identity
@@ -104,7 +32,7 @@ func rxhandler(m diameter.Message) diameter.Message {
 		if dHost == upLink {
 			return m.GenerateAnswerBy(diameter.UnableToDeliver)
 		}
-		for _, con := range cons {
+		for _, con := range refConnection() {
 			if con.Host != dHost {
 				continue
 			}
@@ -120,7 +48,7 @@ func rxhandler(m diameter.Message) diameter.Message {
 			}
 		}
 		if len(dcon) == 0 {
-			for _, con := range cons {
+			for _, con := range refConnection() {
 				if con.Host == upLink {
 					continue
 				}
@@ -135,13 +63,9 @@ func rxhandler(m diameter.Message) diameter.Message {
 					}
 				}
 			}
-			//log.Println("diameter message is routed from up-link to down-link by loadshare")
-		} else {
-			//log.Println("diameter message is routed from up-link to down-link by Destination-Host")
 		}
 	} else {
-		//log.Println("diameter message is routed from down-link to up-link")
-		for _, con := range cons {
+		for _, con := range refConnection() {
 			if con.Host == upLink {
 				dcon = append(dcon, con)
 			}
@@ -149,7 +73,6 @@ func rxhandler(m diameter.Message) diameter.Message {
 	}
 
 	if len(dcon) == 0 {
-		log.Println("no destination peer for diameter message is selected")
 		return m.GenerateAnswerBy(diameter.UnableToDeliver)
 	}
 

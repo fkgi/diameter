@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/fkgi/diameter"
 )
@@ -42,12 +43,83 @@ var (
 	decCommand = make(map[uint64]string)
 )
 
+func EncodeAVPs(d map[string]any) ([]diameter.AVP, error) {
+	avps := map[uint32][]diameter.AVP{}
+	codes := make([]uint32, 0, 20)
+	for k, v := range d {
+		if l, ok := v.([]any); ok {
+			for _, v := range l {
+				a, e := EncodeAVP(k, v)
+				if e != nil {
+					return nil, fmt.Errorf("%s is invalid: %v", k, e)
+				}
+				if _, ok := avps[a.Code]; ok {
+					avps[a.Code] = append(avps[a.Code], a)
+				} else {
+					avps[a.Code] = []diameter.AVP{a}
+					codes = append(codes, a.Code)
+				}
+			}
+		} else {
+			a, e := EncodeAVP(k, v)
+			if e != nil {
+				return nil, fmt.Errorf("%s is invalid: %v", k, e)
+			}
+			avps[a.Code] = []diameter.AVP{a}
+			codes = append(codes, a.Code)
+		}
+	}
+	slices.Sort(codes)
+
+	res := make([]diameter.AVP, 0, 20)
+	for _, k := range order {
+		if l, ok := avps[k]; ok {
+			res = append(res, l...)
+			delete(avps, k)
+		}
+	}
+	for _, k := range codes {
+		if l, ok := avps[k]; ok {
+			res = append(res, l...)
+		}
+	}
+
+	return res, nil
+}
+
+var order = []uint32{263, 301, 260, 268, 298, 277, 264, 296, 293, 283}
+
 func EncodeAVP(name string, value any) (diameter.AVP, error) {
 	f, ok := encAVPs[name]
 	if !ok {
 		return diameter.AVP{}, errors.New("unknown AVP name")
 	}
 	return f(value)
+}
+
+func DecodeAVPs(avps []diameter.AVP) (map[string]any, error) {
+	result := make(map[string][]any)
+	for _, a := range avps {
+		n, v, e := DecodeAVP(a)
+		if e != nil {
+			return nil, e
+		}
+		if l, ok := result[n]; ok {
+			result[n] = append(l, v)
+		} else {
+			result[n] = []any{v}
+		}
+	}
+
+	compat := make(map[string]any, len(result))
+	for k, v := range result {
+		if len(v) == 1 {
+			compat[k] = v[0]
+		} else {
+			compat[k] = v
+		}
+	}
+	return compat, nil
 }
 
 func DecodeAVP(a diameter.AVP) (string, any, error) {

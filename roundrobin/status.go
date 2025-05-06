@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/fkgi/diameter"
-	"github.com/fkgi/diameter/connector"
 )
 
 const constatFmt = `{
@@ -31,13 +30,13 @@ func conStateHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(fmt.Sprintf(constatFmt,
-		connector.State(),
+		con.State(),
 		diameter.Host,
 		diameter.Realm,
-		connector.LocalAddr(),
-		connector.PeerName(),
-		connector.PeerRealm(),
-		connector.PeerAddr())))
+		con.LocalAddr(),
+		con.Host,
+		con.Realm,
+		con.PeerAddr())))
 }
 
 var (

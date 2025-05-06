@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"strings"
 	"syscall"
 	"time"
@@ -20,26 +21,21 @@ import (
 
 const apiPath = "/diamsg/v1/"
 
-var dicData dictionary.XDictionary
+var (
+	dicData dictionary.XDictionary
+	con     diameter.Connection
+)
 
 func main() {
 	host, err := os.Hostname()
 	if err != nil {
 		host = "roundrobin.internal"
 	}
-	dlocal := flag.String("l", host,
-		"Diameter local host. `[realm/]hostname[:port]`")
-	hlocal := flag.String("i", ":8080",
-		"HTTP local interface address. `[host]:port`")
-	hpeer := flag.String("b", "localhost",
-		"HTTP backend host address. `host[:port]`")
-	dict := flag.String("d", "dictionary.xml",
-		"Diameter dictionary file `path`.")
-	cause := flag.String("c", "rebooting",
-		"Disconnect cause in sending DPR. `rebooting|busy|do_not_want_to_talk_to_you`")
-	server := flag.Bool("s", false, "Run as server")
-	to := flag.Int("t", int(diameter.WDInterval/time.Second),
-		"Message timeout timer [s]")
+	dlocal := flag.String("l", host, "Diameter local host. `[realm/]hostname[:port]`")
+	hlocal := flag.String("i", ":8080", "HTTP local interface address. `[host]:port`")
+	hpeer := flag.String("b", "localhost", "HTTP backend host address. `host[:port]`")
+	dict := flag.String("d", "dictionary.xml", "Diameter dictionary file `path`.")
+	to := flag.Int("t", int(diameter.WDInterval/time.Second), "Message timeout timer [s]")
 	verbose := flag.Bool("v", false, "Verbose log output")
 	help := flag.Bool("h", false, "Print usage")
 	flag.Parse()
@@ -118,22 +114,27 @@ func main() {
 	client := http.Client{
 		Transport: dt,
 		Timeout:   diameter.WDInterval}
+	defer client.CloseIdleConnections()
 
-	dicData.RegisterHandler(func(path string, hdr http.Header, body io.Reader) (*http.Response, error) {
-		if rxPath == "" {
-			return nil, fmt.Errorf("no HTTP backend is defined")
-		}
-
-		req, _ := http.NewRequest("POST", rxPath+path, body)
-		for k, l := range hdr {
-			for _, v := range l {
-				req.Header.Add(k, v)
+	dicData.RegisterHandler(
+		func(path string, hdr http.Header, body io.Reader) (*http.Response, error) {
+			if rxPath == "" {
+				return nil, fmt.Errorf("no HTTP backend is defined")
 			}
-		}
-		req.Header.Set("Content-Type", "application/json")
-		return client.Do(req)
-		// return client.Post(rxPath+path, "application/json", body)
-	}, apiPath, connector.DefaultRouter)
+
+			req, _ := http.NewRequest("POST", rxPath+path, body)
+			for k, l := range hdr {
+				for _, v := range l {
+					req.Header.Add(k, v)
+				}
+			}
+			req.Header.Set("Content-Type", "application/json")
+			return client.Do(req)
+		},
+		apiPath,
+		func(diameter.Message) *diameter.Connection {
+			return &con
+		})
 
 	http.HandleFunc("/diastate/v1/connection", conStateHandler)
 	http.HandleFunc("/diastate/v1/statistics", statsHandler)
@@ -145,26 +146,27 @@ func main() {
 		}
 	}()
 
-	connector.TermSignals = []os.Signal{syscall.SIGINT, syscall.SIGTERM, os.Interrupt}
-	switch *cause {
-	case "rebooting":
-		connector.TermCause = diameter.Rebooting
-	case "busy":
-		connector.TermCause = diameter.Busy
-	case "do_not_want_to_talk_to_you":
-		connector.TermCause = diameter.DoNotWantToTalkToYou
-	default:
-		connector.TermCause = diameter.Rebooting
+	log.Println("[INFO]", "connecting Diameter...")
+	var c net.Conn
+	con = diameter.Connection{}
+	c, con.Host, con.Realm, err = connector.Dial(*dlocal, dpeer)
+	if err != nil {
+		log.Fatalln("[ERROR]", err)
 	}
 
-	if *server {
-		log.Println("[INFO]", "listening Diameter...")
-		log.Println("[INFO]", "closed, error=",
-			connector.ListenAndServe(*dlocal, dpeer))
-	} else {
-		log.Println("[INFO]", "connecting Diameter...")
-		log.Println("[INFO]", "closed, error=",
-			connector.DialAndServe(*dlocal, dpeer))
-	}
-	client.CloseIdleConnections()
+	buf := new(strings.Builder)
+	fmt.Fprint(buf, "transport connection up")
+	fmt.Fprintf(buf, "\n| local: %s://%s", c.LocalAddr().Network(), c.LocalAddr().String())
+	fmt.Fprintf(buf, "\n| peer : %s://%s", c.RemoteAddr().Network(), c.RemoteAddr().String())
+	log.Println("[INFO]", buf)
+
+	go func() {
+		sigc := make(chan os.Signal, 1)
+		signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+		<-sigc
+
+		con.Close(diameter.Rebooting)
+	}()
+
+	log.Println("[INFO]", "closed, error=", con.DialAndServe(c))
 }

@@ -21,7 +21,7 @@ func conStateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	stats := []constat{}
-	for _, c := range cons {
+	for _, c := range refConnection() {
 		stats = append(stats, constat{
 			Host:  c.Host.String(),
 			Realm: c.Realm.String(),

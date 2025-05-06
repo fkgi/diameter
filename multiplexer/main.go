@@ -4,11 +4,16 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/fkgi/diameter"
+	"github.com/fkgi/diameter/connector"
 )
 
 var upLink diameter.Identity
@@ -16,14 +21,11 @@ var upLink diameter.Identity
 func main() {
 	hostname, err := os.Hostname()
 	if err != nil {
-		hostname = "spleader.internal"
+		hostname = "multiplexer.internal"
 	}
-	dlocal := flag.String("l", hostname,
-		"Diameter local host. `[(tcp|sctp)://][realm/]hostname[:port]`")
-	hlocal := flag.String("i", ":12001",
-		"HTTP local interface address. `[host]:port`")
-	to := flag.Int("t", int(diameter.WDInterval/time.Second),
-		"Message timeout timer [s]")
+	dlocal := flag.String("l", hostname, "Diameter local host. `[(tcp|sctp)://][realm/]hostname[:port]`")
+	hlocal := flag.String("i", ":12001", "HTTP local interface address. `[host]:port`")
+	to := flag.Int("t", int(diameter.WDInterval/time.Second), "Message timeout timer [s]")
 	help := flag.Bool("h", false, "Print usage")
 	flag.Parse()
 
@@ -63,5 +65,47 @@ func main() {
 	diameter.DefaultRxHandler = rxhandler
 
 	log.Println("[INFO]", "listening Diameter...")
-	log.Println("[INFO]", "closed, error=", ListenAndServe(*dlocal))
+	var l net.Listener
+	l, err = connector.Listen(*dlocal)
+	if err != nil {
+		log.Fatalln("[ERROR]", err)
+	}
+	log.Println("[INFO]", "local host/realm:", diameter.Host, "/", diameter.Realm)
+
+	go func() {
+		sigc := make(chan os.Signal, 1)
+		signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+		<-sigc
+
+		l.Close()
+	}()
+
+	for {
+		var c net.Conn
+		if c, err = l.Accept(); err != nil {
+			l.Close()
+			break
+		}
+		buf := new(strings.Builder)
+		fmt.Fprint(buf, "transport connection up")
+		fmt.Fprintf(buf, "\n| local: %s://%s", c.LocalAddr().Network(), c.LocalAddr().String())
+		fmt.Fprintf(buf, "\n| peer : %s://%s", c.RemoteAddr().Network(), c.RemoteAddr().String())
+		log.Println("[INFO]", buf)
+
+		con := newConnection(c)
+		go func() {
+			buf := new(strings.Builder)
+			fmt.Fprintln(buf, "diameter connection down")
+			fmt.Fprintln(buf, "| peer host/realm:", con.Host, "/", con.Realm)
+			fmt.Fprintf(buf, "| reason:          %s\n", con.ListenAndServe(c))
+			log.Print("[INFO] ", buf)
+			delConnection(c)
+		}()
+	}
+
+	for _, con := range refConnection() {
+		con.Close(diameter.Rebooting)
+	}
+	wait()
+	log.Println("[INFO]", "closed")
 }

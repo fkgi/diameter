@@ -3,10 +3,8 @@ package dictionary
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
-	"slices"
 
 	"github.com/fkgi/diameter"
 )
@@ -40,7 +38,7 @@ func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Rout
 			}
 		}
 
-		data, e := formatAVPs(avps)
+		data, e := DecodeAVPs(avps)
 		if e != nil {
 			return diameterErr(avps, diameter.InvalidAvpValue,
 				"unable to decode Diameter AVP by dictionary: "+e.Error())
@@ -80,7 +78,7 @@ func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Rout
 			return diameterErr(avps, diameter.UnableToComply,
 				"invalid JSON data of AVP: "+e.Error())
 		}
-		avps, e = parseAVPs(data)
+		avps, e = EncodeAVPs(data)
 		if e != nil {
 			return diameterErr(avps, diameter.UnableToComply,
 				"unable to encode Diameter AVP by dictionary: "+e.Error())
@@ -124,7 +122,7 @@ func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Rout
 				http.StatusBadRequest, w)
 			return
 		}
-		avps, e := parseAVPs(data)
+		avps, e := EncodeAVPs(data)
 		if e != nil {
 			httpErr("unable to encode Diameter AVP by dictionary", e.Error(),
 				http.StatusBadRequest, w)
@@ -156,7 +154,7 @@ func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Rout
 		}
 		_, avps = handleTx(retry, avps)
 
-		if data, e = formatAVPs(avps); e != nil {
+		if data, e = DecodeAVPs(avps); e != nil {
 			httpErr("unable to decode Diameter AVP by dictionary", e.Error(),
 				http.StatusBadRequest, w)
 			return
@@ -213,74 +211,3 @@ func diameterErr(avp []diameter.AVP, code uint32, err string) (bool, []diameter.
 
 	return true, ret
 }
-
-func formatAVPs(avps []diameter.AVP) (map[string]any, error) {
-	result := make(map[string][]any)
-	for _, a := range avps {
-		n, v, e := DecodeAVP(a)
-		if e != nil {
-			return nil, e
-		}
-		if l, ok := result[n]; ok {
-			result[n] = append(l, v)
-		} else {
-			result[n] = []any{v}
-		}
-	}
-
-	compat := make(map[string]any, len(result))
-	for k, v := range result {
-		if len(v) == 1 {
-			compat[k] = v[0]
-		} else {
-			compat[k] = v
-		}
-	}
-	return compat, nil
-}
-
-func parseAVPs(d map[string]any) ([]diameter.AVP, error) {
-	avps := map[uint32][]diameter.AVP{}
-	codes := make([]uint32, 0, 20)
-	for k, v := range d {
-		if l, ok := v.([]any); ok {
-			for _, v := range l {
-				a, e := EncodeAVP(k, v)
-				if e != nil {
-					return nil, fmt.Errorf("%s is invalid: %v", k, e)
-				}
-				if _, ok := avps[a.Code]; ok {
-					avps[a.Code] = append(avps[a.Code], a)
-				} else {
-					avps[a.Code] = []diameter.AVP{a}
-					codes = append(codes, a.Code)
-				}
-			}
-		} else {
-			a, e := EncodeAVP(k, v)
-			if e != nil {
-				return nil, fmt.Errorf("%s is invalid: %v", k, e)
-			}
-			avps[a.Code] = []diameter.AVP{a}
-			codes = append(codes, a.Code)
-		}
-	}
-	slices.Sort(codes)
-
-	res := make([]diameter.AVP, 0, 20)
-	for _, k := range order {
-		if l, ok := avps[k]; ok {
-			res = append(res, l...)
-			delete(avps, k)
-		}
-	}
-	for _, k := range codes {
-		if l, ok := avps[k]; ok {
-			res = append(res, l...)
-		}
-	}
-
-	return res, nil
-}
-
-var order = []uint32{263, 301, 260, 268, 298, 277, 264, 296, 293, 283}

@@ -3,34 +3,13 @@ package main
 import (
 	"fmt"
 	"log"
-	"net"
 	"strings"
 
 	"github.com/fkgi/diameter"
-	"github.com/fkgi/diameter/connector"
 	"github.com/fkgi/diameter/dictionary"
 )
 
 func init() {
-	connector.TransportInfoNotify = func(src, dst net.Addr) {
-		buf := new(strings.Builder)
-		fmt.Fprintln(buf, "detected transport address")
-		if src != nil {
-			fmt.Fprintf(buf, "| local: %s://%s\n", src.Network(), src.String())
-		}
-		if dst != nil {
-			fmt.Fprintf(buf, "| peer : %s://%s\n", dst.Network(), dst.String())
-		}
-		log.Print("[INFO] ", buf)
-	}
-	connector.TransportUpNotify = func(src, dst net.Addr) {
-		buf := new(strings.Builder)
-		fmt.Fprintln(buf, "transport connection up")
-		fmt.Fprintf(buf, "| local: %s://%s\n", src.Network(), src.String())
-		fmt.Fprintf(buf, "| peer : %s://%s\n", dst.Network(), dst.String())
-		log.Print("[INFO] ", buf)
-	}
-
 	diameter.ConnectionUpNotify = func(c *diameter.Connection) {
 		buf := new(strings.Builder)
 		fmt.Fprintln(buf, "diameter connection up")

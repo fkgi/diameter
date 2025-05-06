@@ -1,0 +1,12 @@
+<router>
+    <group name="peer.group">
+        <peer>peer1.localdomain</peer>
+        <peer>peer2.localdomain</peer>
+        <peer>peer3.localdomain</peer>
+    </group>
+    <route destination="peer.group">
+        <condition param="Destination-Host">^desthost\.localdomain$</condition>
+    </route>
+    <route destination="default.dest">
+    </route>
+</router>

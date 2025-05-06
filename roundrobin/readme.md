@@ -1,11 +1,11 @@
 # Round-Robin Diameter debugger
 Round-Robin can accept or connect to specific Diameter peer node and connect Diameter connection.
 
-Round-Robin can send any Diameter request to peer node as client.
+Round-Robin can send any Diameter request to peer node.
 It make Diameter request message from received HTTP REST request, then send the message to peer node.
 It receive Diameter answer message, then make HTTP REST answer from received Diameter answer message.
 
-Round-Robin can receive any Diameter request from peer node as server.
+Round-Robin can receive any Diameter request from peer.
 It make HTTP REST request from received Diameter request message, then send the request to pre-configured HTTP server.
 It receive HTTP REST answer, then make Diameter answer message from received HTTP REST answer.
 
@@ -22,14 +22,13 @@ DIAMETER_PEER = [(tcp|sctp)://][realm/]hostname[:port]
 Commandline example
 
 ```
-roundrobin -l mme.epc.mcc99.mnc999.3gppnetwork.org -i :8080 -b mockserver:8080 -c rebooting -d ./s6a.xml sctp://hss.ecp.mcc99.mnc999.3gppnetwork.org
+roundrobin -l mme.epc.mcc99.mnc999.3gppnetwork.org -i :8080 -b mockserver:8080 -d ./s6a.xml sctp://hss.ecp.mcc99.mnc999.3gppnetwork.org
 ```
 
 ## Args
 - `DIAMETER_PEER`  
-Diameter peer host definition.  
-If Round-Robin run as client, Round-Robin connect to specified Diameter peer.
-If Round-Robin run as server, Round-Robin check source of incoming connection by compareing specified Diameter peer.
+Diameter peer host definition.
+Round-Robin connect to specified Diameter peer.
 
 ## Options
 - `-l`  
@@ -56,13 +55,6 @@ IP address is resolved from hostname if hostname is specified.
 Path for dictionary XML file.
 `dictionary.xml` file in current directory is used as default.
 
-- `-c`  
-Diameter connection disconnecting cause. Available value is `rebooting` or `busy` or `do_not_want_to_talk_to_you`.
-Default value is `rebooting` if Round-Robin run as client, or `do_not_want_to_talk_to_you` if Round-Robin run server.
-
-- `-s`  
-If this parameter is enabled, Round-Robin run as client and try to connect to specified peer node.
-
 - `-t`  
 Duration of Diameter request timeout in second.
 Not only service message but also control message like DWR follow this duration.
@@ -88,8 +80,7 @@ It must available port number digit.
 `3868` is used as default if this item is omitted.
 
 Port `0` is used as any for source port.
-If local port is 0 and Round-Robin run as client, local port is automaticaly selected by system.
-If peer port is 0 and Round-Robin run as server, connection from any peer port is accepted.
+If local port is 0, local port is automaticaly selected by system.
 
 # Format of Dictionary file
 Dictionary file is XML document.
