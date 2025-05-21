@@ -118,17 +118,15 @@ func (c *Connection) serve() error {
 		}
 	}
 
+	var e error
 	if old != closing {
-		if ConnectionAbortNotify != nil {
-			ConnectionAbortNotify(c)
-		}
-		return errors.New("connection aborted")
+		e = errors.New("connection aborted")
 	}
 
 	if ConnectionDownNotify != nil {
-		ConnectionDownNotify(c)
+		ConnectionDownNotify(c, e)
 	}
-	return nil
+	return e
 }
 
 // Close Diameter connection and stop state machine.

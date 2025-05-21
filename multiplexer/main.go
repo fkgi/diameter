@@ -94,11 +94,7 @@ func main() {
 
 		con := newConnection(c)
 		go func() {
-			buf := new(strings.Builder)
-			fmt.Fprintln(buf, "diameter connection down")
-			fmt.Fprintln(buf, "| peer host/realm:", con.Host, "/", con.Realm)
-			fmt.Fprintf(buf, "| reason:          %s\n", con.ListenAndServe(c))
-			log.Print("[INFO] ", buf)
+			con.ListenAndServe(c)
 			delConnection(c)
 		}()
 	}
