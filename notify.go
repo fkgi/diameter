@@ -74,3 +74,13 @@ func (c *Connection) AvailableApplications() []uint32 {
 	}
 	return ret
 }
+
+// SharedMessagegQueue return lengh of shared queue for recieved stateless message handling.
+func SharedMessagegQueue() int {
+	return len(sharedQ)
+}
+
+// ActiveSharedWorkers return count of active worker for recieved stateless message handling.
+func ActiveSharedWorkers() int {
+	return activeWorkers
+}

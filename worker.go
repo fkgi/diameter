@@ -2,18 +2,55 @@ package diameter
 
 import (
 	"bytes"
+	"time"
 )
 
-var sharedQ = make(chan Message, 65535)
+const (
+	minWorkers = 128
+	maxWorkers = 65535 - minWorkers
+)
+
+var sharedQ = make(chan Message, maxWorkers)
+var activeWorkers int
 
 func init() {
-	for i := 0; i < 10; i++ {
-		go func() {
-			for req, ok := <-sharedQ; ok; req, ok = <-sharedQ {
-				handleMsg(req)
+	subworker := func() {
+		activeWorkers++
+		for c := 0; c < 500; {
+			if len(sharedQ) < minWorkers {
+				time.Sleep(time.Millisecond * 10)
+				c++
+				continue
 			}
-		}()
+			if req, ok := <-sharedQ; !ok {
+				break
+			} else {
+				handleMsg(req)
+				c = 0
+			}
+		}
+		activeWorkers--
 	}
+	mainworker := func() {
+		for req, ok := <-sharedQ; ok; req, ok = <-sharedQ {
+			if len(sharedQ) > minWorkers && activeWorkers < maxWorkers {
+				go subworker()
+			}
+			handleMsg(req)
+		}
+	}
+	for i := 0; i < minWorkers; i++ {
+		go mainworker()
+	}
+	/*
+		for i := 0; i < 10; i++ {
+			go func() {
+				for req, ok := <-sharedQ; ok; req, ok = <-sharedQ {
+					handleMsg(req)
+				}
+			}()
+		}
+	*/
 }
 
 func handleMsg(req Message) {
