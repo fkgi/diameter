@@ -79,5 +79,7 @@ func SharedMessagegQueue() int {
 
 // ActiveSharedWorkers return count of active worker for recieved stateless message handling.
 func ActiveSharedWorkers() int {
-	return activeWorkers
+	a := <-activeWorkers
+	activeWorkers <- a
+	return a
 }

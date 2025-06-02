@@ -11,11 +11,10 @@ const (
 )
 
 var sharedQ = make(chan Message, maxWorkers)
-var activeWorkers int
+var activeWorkers = make(chan int, 1)
 
 func init() {
-	subworker := func() {
-		activeWorkers++
+	worker := func() {
 		for c := 0; c < 500; {
 			if len(sharedQ) < minWorkers {
 				time.Sleep(time.Millisecond * 10)
@@ -29,18 +28,20 @@ func init() {
 				c = 0
 			}
 		}
-		activeWorkers--
-	}
-	mainworker := func() {
-		for req, ok := <-sharedQ; ok; req, ok = <-sharedQ {
-			if len(sharedQ) > minWorkers && activeWorkers < maxWorkers {
-				go subworker()
-			}
-			handleMsg(req)
-		}
+		activeWorkers <- (<-activeWorkers - 1)
 	}
 	for i := 0; i < minWorkers; i++ {
-		go mainworker()
+		go func() {
+			for req, ok := <-sharedQ; ok; req, ok = <-sharedQ {
+				a := <-activeWorkers
+				activeWorkers <- a
+				if len(sharedQ) > minWorkers && a < maxWorkers {
+					activeWorkers <- (<-activeWorkers + 1)
+					go worker()
+				}
+				handleMsg(req)
+			}
+		}()
 	}
 	/*
 		for i := 0; i < 10; i++ {

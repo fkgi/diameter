@@ -12,7 +12,7 @@ import (
 const (
 	VendorID    uint32 = 41102         // VendorID of this code
 	ProductName        = "round-robin" // ProductName of this code
-	FirmwareRev uint32 = 250301001     // FirmwareRev of this code
+	FirmwareRev uint32 = 250601001     // FirmwareRev of this code
 
 	avpBufferSize = 20
 )
