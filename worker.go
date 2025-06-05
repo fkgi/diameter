@@ -14,6 +14,7 @@ var sharedQ = make(chan Message, maxWorkers)
 var activeWorkers = make(chan int, 1)
 
 func init() {
+	activeWorkers <- 0
 	worker := func() {
 		for c := 0; c < 500; {
 			if len(sharedQ) < minWorkers {
