@@ -55,10 +55,10 @@
         <avp name="Destination-SIP-URI" id="3327" type="UTF8String" />
 
         <!-- TS29.229 AVP -->
-        <avp name="Supported-Features" id="628" type="Grouped" mandatory="true" />
-        <avp name="Feature-List-ID" id="629" type="Unsigned32" mandatory="true" />
-        <avp name="Feature-List" id="630" type="Unsigned32" mandatory="true" />
-        <!-- TS23.329 AVP -->
+        <avp name="Supported-Features" id="628" type="Grouped" />
+        <avp name="Feature-List-ID" id="629" type="Unsigned32" />
+        <avp name="Feature-List" id="630" type="Unsigned32" />
+        <!-- TS29.329 AVP -->
         <avp name="MSISDN" id="701" type="OctetString" mandatory="true" />
         <!-- TS29.272 AVP -->
         <avp name="SGSN-Number" id="1489" type="OctetString" mandatory="true" />

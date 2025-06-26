@@ -28,6 +28,8 @@ type XDictionary struct {
 			I uint32 `xml:"id,attr"`
 			T string `xml:"type,attr"`
 			M bool   `xml:"mandatory,attr"`
+			P bool   `xml:"protected,attr"`
+			R bool   `xml:"reserved,attr"`
 			E []struct {
 				I int32  `xml:"value,attr"`
 				V string `xml:",chardata"`
@@ -146,7 +148,6 @@ func EncodeMessage(name string) (m diameter.Message, e error) {
 func DecodeMessage(m diameter.Message) (string, error) {
 	name, ok := decCommand[(uint64(m.AppID)<<32)|uint64(m.Code)]
 	if !ok {
-		// return "", errors.New("unknown command")
 		return fmt.Sprintf("UNKNOWN(%d)", m.Code), nil
 
 	}
@@ -245,12 +246,16 @@ func LoadDictionary(data []byte) (XDictionary, error) {
 
 			code := uint32(avp.I)
 			vid := uint32(vnd.I)
-			flg := avp.M
+			mflg := avp.M
+			pflg := avp.P
+			rflg := avp.R
 			encAVPs[avp.N] = func(v any) (diameter.AVP, error) {
 				a := diameter.AVP{
 					Code:      code,
 					VendorID:  vid,
-					Mandatory: flg}
+					Mandatory: mflg,
+					Protected: pflg,
+					Reserved:  [5]bool{rflg, rflg, rflg, rflg, rflg}}
 				e := encf(v, &a)
 				return a, e
 			}

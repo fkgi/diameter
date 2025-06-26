@@ -43,11 +43,11 @@
         <avp name="External-Identifier" id="3111" type="UTF8String" />
         <!-- TS29.272 AVP -->
         <avp name="SGSN-Number" id="1489" type="OctetString" />
-        <avp name="MME-Number-for-MT-SMS" id="1645" type="OctetString" mandatory="true" />
+        <avp name="MME-Number-for-MT-SMS" id="1645" type="OctetString" />
         <!-- TS29.229 AVP -->
-        <avp name="Supported-Features" id="628" type="Grouped" mandatory="true" />
-        <avp name="Feature-List-ID" id="629" type="Unsigned32" mandatory="true" />
-        <avp name="Feature-List" id="630" type="Unsigned32" mandatory="true" />
+        <avp name="Supported-Features" id="628" type="Grouped" />
+        <avp name="Feature-List-ID" id="629" type="Unsigned32" />
+        <avp name="Feature-List" id="630" type="Unsigned32" />
     </vendor>
     <vendor name="IETF" id="0">
         <application name="base" id="0">

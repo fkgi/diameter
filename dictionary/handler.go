@@ -129,23 +129,27 @@ func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Rout
 			return
 		}
 
-		proxy := true
+		var route diameter.Identity
 		for i := range avps {
-			if len(avps[i].Data) != 0 {
-				continue
-			}
 			switch avps[i].Code {
 			case 263: // Session-ID
-				avps[i].Encode(diameter.NextSession(diameter.Host.String()))
+				if len(avps[i].Data) == 0 {
+					avps[i].Encode(diameter.NextSession(diameter.Host.String()))
+				}
 			case 264: // Origin-Host
-				avps[i].Encode(diameter.Host)
-				proxy = false
+				if len(avps[i].Data) == 0 {
+					avps[i].Encode(diameter.Host)
+				} else if e = avps[i].Decode(&route); e != nil {
+					route = ""
+				}
 			case 296: // Origin-Realm
-				avps[i].Encode(diameter.Realm)
+				if len(avps[i].Data) == 0 {
+					avps[i].Encode(diameter.Realm)
+				}
 			}
 		}
-		if proxy {
-			avps = append(avps, diameter.SetRouteRecord(diameter.Host))
+		if route != "" {
+			avps = append(avps, diameter.SetRouteRecord(route))
 		}
 
 		retry := false

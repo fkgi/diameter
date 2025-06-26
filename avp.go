@@ -31,18 +31,19 @@ AVP data and header
 	+-+-+-+-+-+-+-+-+
 */
 type AVP struct {
-	Code      uint32 // AVP Code
-	VendorID  uint32 // Vendor-ID
-	Mandatory bool   // Mandatory AVP Flag
-	// Protected bool // Protected AVP Flag
-	Data []byte // AVP Data
+	Code      uint32  // AVP Code
+	VendorID  uint32  // Vendor-ID
+	Mandatory bool    // Mandatory AVP Flag
+	Protected bool    // Protected AVP Flag
+	Reserved  [5]bool // Reserved AVP Flag
+	Data      []byte  // AVP Data
 }
 
 func (a AVP) String() string {
 	w := new(bytes.Buffer)
 	fmt.Fprintf(w, "AVP Code      =%d\n", a.Code)
-	fmt.Fprintf(w, "Flags        V=%t, M=%t, P=%t\n",
-		a.VendorID != 0, a.Mandatory, false)
+	fmt.Fprintf(w, "Flags        V=%t, M=%t, P=%t, R[0]=%t, R[1]=%t, R[2]=%t, R[3]=%t, R[4]=%t\n",
+		a.VendorID != 0, a.Mandatory, a.Protected, a.Reserved[0], a.Reserved[1], a.Reserved[2], a.Reserved[3], a.Reserved[4])
 	if a.VendorID != 0 {
 		fmt.Fprintf(w, "Vendor-ID     =%d\n", a.VendorID)
 	}
@@ -62,6 +63,24 @@ func (a AVP) MarshalTo(w io.Writer) error {
 	}
 	if a.Mandatory {
 		flags |= 64
+	}
+	if a.Protected {
+		flags |= 32
+	}
+	if a.Reserved[0] {
+		flags |= 16
+	}
+	if a.Reserved[1] {
+		flags |= 8
+	}
+	if a.Reserved[2] {
+		flags |= 4
+	}
+	if a.Reserved[3] {
+		flags |= 2
+	}
+	if a.Reserved[4] {
+		flags |= 1
 	}
 	b.WriteByte(flags)
 
@@ -105,7 +124,12 @@ func (a *AVP) UnmarshalFrom(r io.Reader) error {
 
 	vid := buf[4]&128 == 128
 	a.Mandatory = buf[4]&64 == 64
-	pbit := buf[4]&32 == 32
+	a.Protected = buf[4]&32 == 32
+	a.Reserved[0] = buf[4]&16 == 16
+	a.Reserved[1] = buf[4]&8 == 8
+	a.Reserved[2] = buf[4]&4 == 4
+	a.Reserved[3] = buf[4]&2 == 2
+	a.Reserved[4] = buf[4]&1 == 1
 
 	buf[4] = 0x00
 	var lng uint32
@@ -126,11 +150,13 @@ func (a *AVP) UnmarshalFrom(r io.Reader) error {
 	if _, err = readUntil(r, (4-int(lng%4))%4); err != nil {
 		return err
 	}
-	if pbit {
-		return InvalidAVP{
-			Code: InvalidAvpBits, AVP: *a,
-			E: fmt.Errorf("p bit is not supported")}
-	}
+	/*
+		if pbit {
+			return InvalidAVP{
+				Code: InvalidAvpBits, AVP: *a,
+				E: fmt.Errorf("p bit is not supported")}
+		}
+	*/
 	return nil
 }
 
@@ -279,8 +305,8 @@ func (a AVP) Decode(d interface{}) (e error) {
 	return
 }
 
-func SetGenericAVP(c, v uint32, m bool, b interface{}) AVP {
-	a := AVP{Code: c, VendorID: v, Mandatory: m}
+func SetGenericAVP(c, v uint32, b interface{}) AVP {
+	a := AVP{Code: c, VendorID: v}
 	a.Encode(b)
 	return a
 }
