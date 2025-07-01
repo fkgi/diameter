@@ -157,8 +157,7 @@ func DecodeMessage(m diameter.Message) (string, error) {
 func LoadDictionary(data []byte) (XDictionary, error) {
 	var xd XDictionary
 	if e := xml.Unmarshal(data, &xd); e != nil {
-		return xd, errors.Join(
-			errors.New("failed to unmarshal dictionary file"), e)
+		return xd, e
 	}
 
 	for _, vnd := range xd.V {

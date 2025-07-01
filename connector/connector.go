@@ -2,6 +2,7 @@ package connector
 
 import (
 	"errors"
+	"fmt"
 	"net"
 	"strings"
 
@@ -18,12 +19,12 @@ func Dial(la, pa string) (con net.Conn, host, realm diameter.Identity, err error
 
 	scheme, host, realm, pips, pport, err = ResolveIdentity(pa)
 	if err != nil {
-		err = errors.Join(errors.New("invalid peer identity"), err)
+		err = fmt.Errorf("invalid peer identity: %s", err)
 		return
 	}
 	_, diameter.Host, diameter.Realm, lips, lport, err = ResolveIdentity(la)
 	if err != nil {
-		err = errors.Join(errors.New("invalid local identity"), err)
+		err = fmt.Errorf("invalid local identity: %s", err)
 		return
 	}
 
@@ -36,10 +37,6 @@ func Dial(la, pa string) (con net.Conn, host, realm diameter.Identity, err error
 			&net.TCPAddr{IP: lips[0], Port: lport}, &net.TCPAddr{IP: pips[0], Port: pport})
 	default:
 		err = errors.New("invalid transport scheme: " + scheme)
-		return
-	}
-	if err != nil {
-		err = errors.Join(errors.New("failed to dial transport connection"), err)
 	}
 	return
 }
@@ -53,7 +50,7 @@ func Listen(la string) (l net.Listener, err error) {
 
 	scheme, diameter.Host, diameter.Realm, ips, port, err = ResolveIdentity(la)
 	if err != nil {
-		err = errors.Join(errors.New("invalid local identity"), err)
+		err = fmt.Errorf("invalid local identity: %s", err)
 		return
 	}
 
@@ -64,10 +61,6 @@ func Listen(la string) (l net.Listener, err error) {
 		l, err = net.ListenTCP("tcp", &net.TCPAddr{IP: ips[0], Port: port})
 	default:
 		err = errors.New("invalid transport scheme: " + scheme)
-		return
-	}
-	if err != nil {
-		err = errors.Join(errors.New("failed to listen transport connection"), err)
 	}
 	return
 }
@@ -81,12 +74,12 @@ func Accept(la, pa string) (con net.Conn, host, realm diameter.Identity, err err
 
 	scheme, host, realm, pips, pport, err = ResolveIdentity(pa)
 	if err != nil {
-		err = errors.Join(errors.New("invalid peer identity"), err)
+		err = fmt.Errorf("invalid peer identity: %s", err)
 		return
 	}
 	_, diameter.Host, diameter.Realm, lips, lport, err = ResolveIdentity(la)
 	if err != nil {
-		err = errors.Join(errors.New("invalid local identity"), err)
+		err = fmt.Errorf("invalid local identity: %s", err)
 		return
 	}
 
@@ -103,7 +96,6 @@ func Accept(la, pa string) (con net.Conn, host, realm diameter.Identity, err err
 		err = errors.New("invalid transport scheme: " + scheme)
 	}
 	if err != nil {
-		err = errors.Join(errors.New("failed to listen transport connection"), err)
 		return
 	}
 
