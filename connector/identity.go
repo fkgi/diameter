@@ -63,7 +63,7 @@ func ResolveIdentity(uri string) (
 	}
 	if realm == "" {
 		if i := strings.Index(h, "."); i < 0 {
-			err = errors.New("domain part not found in local hostname")
+			err = errors.New("domain part not found in hostname")
 			return
 		} else if realm, err = diameter.ParseIdentity(h[i+1:]); err != nil {
 			return
