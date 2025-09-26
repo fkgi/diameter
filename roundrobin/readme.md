@@ -11,6 +11,8 @@ It receive HTTP REST answer, then make Diameter answer message from received HTT
 
 HTTP REST request/answer must have specific format JSON document. Dictionary file for converting Diameter message and JSON document must pre-configured.
 
+<img width="500" alt="overview" src="https://github.com/user-attachments/assets/96ab1303-c168-4f45-aad2-a478e3c7006f" />
+
 # How to run Round-Robin
 Commandline options.
 
