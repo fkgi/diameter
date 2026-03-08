@@ -7,10 +7,6 @@ import (
 	"time"
 )
 
-const (
-	ProtocolID uint32 = 46 // Diameter
-)
-
 // SCTPConn is an implementation of the Conn interface for SCTP network connections.
 type SCTPConn struct {
 	sock int
