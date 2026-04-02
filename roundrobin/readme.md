@@ -61,6 +61,12 @@ Path for dictionary XML file.
 Duration of Diameter request timeout in second.
 Not only service message but also control message like DWR follow this duration.
 
+- `-v`  
+Verbose log mode. Message trace log is logged.
+
+- `-h`  
+Print usage.
+
 ## Format of Diameter node identity
 
 ```
@@ -127,10 +133,11 @@ It has `name` and `id` attributes.
 - `id` in Command layer is command code digit that is assigned in IANA
 
 AVP layer data defines Diameter AVP for specified vendor.
-It has `name`, `id`, `mandatory`, `type` attributes, `enum` element data.
+It has `name`, `id`, `mandatory`, `protected`, `type` attributes, `enum` element data.
 - `name` in AVP layer is name of the avp
 - `id` in AVP layer is AVP ID digit that is assigned in IANA
 - `mandatory` is boolean data that indicate the AVP is flagged as mandatory
+- `protected` is boolean data that indicate the AVP is flagged as protected
 - `type` is string data that indicate format of the AVP  
 Available format are below
   - OctetString
@@ -218,6 +225,10 @@ Each elements of array are value of independent AVP that has same AVP ID.
     ]
 }
 ```
+
+## HTTP header for specific usage
+`X-Retry` HTTP header is mapped to T flag (Potentially re-transmitted message) of Diameter header.
+If HTTP request contains `X-Retry: true` header, T flag in Diameter request will be 1.
 
 # Behavior for specific AVP
 ## Session-ID
