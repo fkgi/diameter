@@ -36,73 +36,74 @@ func init() {
 			old, new, event, err)
 	}
 	diameter.TraceMessage = func(msg diameter.Message, dct diameter.Direction, err error) {
+		count(msg, dct, err)
 		buf := new(strings.Builder)
 		fmt.Fprintf(buf, "%s diameter message handling: error=%v", dct, err)
 		fmt.Fprintln(buf)
 		fmt.Fprint(buf, dictionary.TraceMessageVarbose("| ", msg))
 		log.Print("[INFO] ", buf)
-
-		if msg.FlgR {
-			if dct == diameter.Rx {
-				rxReq++
-				if _, ok := err.(diameter.RejectRxMessage); ok {
-					txDisc++
-				}
-			} else {
-				txReq++
+	}
+}
+func count(msg diameter.Message, dct diameter.Direction, err error) {
+	if msg.FlgR {
+		if dct == diameter.Rx {
+			rxReq++
+			if _, ok := err.(diameter.RejectRxMessage); ok {
+				txDisc++
 			}
 		} else {
-			var code uint32
-			if avps, e := msg.GetAVP(); e == nil {
-				for _, a := range avps {
-					switch a.Code {
-					case 268:
-						code, _ = diameter.GetResultCode(a)
-					case 297:
-						code, _ = diameter.GetResultCode(a)
-						code %= 10000
-					}
-					if code != 0 {
-						break
-					}
+			txReq++
+		}
+	} else {
+		var code uint32
+		if avps, e := msg.GetAVP(); e == nil {
+			for _, a := range avps {
+				switch a.Code {
+				case 268:
+					code, _ = diameter.GetResultCode(a)
+				case 297:
+					code, _ = diameter.GetResultCode(a)
+					code %= 10000
 				}
-			}
-			if dct == diameter.Rx {
-				if _, ok := err.(diameter.FailureAnswer); err != nil && !ok {
-					rxIvld++
-				} else if code < 1000 {
-					rxAns[0]++
-				} else if code < 2000 {
-					rxAns[1]++
-				} else if code < 3000 {
-					rxAns[2]++
-				} else if code < 4000 {
-					rxAns[3]++
-				} else if code < 5000 {
-					rxAns[4]++
-				} else if code < 6000 {
-					rxAns[5]++
-				} else {
-					rxAns[0]++
-				}
-			} else {
-				if code < 1000 {
-					txAns[0]++
-				} else if code < 2000 {
-					txAns[1]++
-				} else if code < 3000 {
-					txAns[2]++
-				} else if code < 4000 {
-					txAns[3]++
-				} else if code < 5000 {
-					txAns[4]++
-				} else if code < 6000 {
-					txAns[5]++
-				} else {
-					txAns[0]++
+				if code != 0 {
+					break
 				}
 			}
 		}
+		if dct == diameter.Rx {
+			if _, ok := err.(diameter.FailureAnswer); err != nil && !ok {
+				rxIvld++
+			} else if code < 1000 {
+				rxAns[0]++
+			} else if code < 2000 {
+				rxAns[1]++
+			} else if code < 3000 {
+				rxAns[2]++
+			} else if code < 4000 {
+				rxAns[3]++
+			} else if code < 5000 {
+				rxAns[4]++
+			} else if code < 6000 {
+				rxAns[5]++
+			} else {
+				rxAns[0]++
+			}
+		} else {
+			if code < 1000 {
+				txAns[0]++
+			} else if code < 2000 {
+				txAns[1]++
+			} else if code < 3000 {
+				txAns[2]++
+			} else if code < 4000 {
+				txAns[3]++
+			} else if code < 5000 {
+				txAns[4]++
+			} else if code < 6000 {
+				txAns[5]++
+			} else {
+				txAns[0]++
+			}
+		}
 	}
-
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -10,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -17,48 +17,39 @@ import (
 	"github.com/fkgi/diameter"
 	"github.com/fkgi/diameter/connector"
 	"github.com/fkgi/diameter/dictionary"
+	"github.com/fkgi/diameter/sctp"
 )
 
 const apiPath = "/diamsg/v1/"
 
 var (
 	dicData dictionary.XDictionary
-	con     diameter.Connection
 )
 
 func main() {
-	host, err := os.Hostname()
-	if err != nil {
-		host = "roundrobin.internal"
-	}
-	dlocal := flag.String("l", host, "Diameter local host. `[realm/]hostname[:port]`")
-	hlocal := flag.String("i", ":8080", "HTTP local interface address. `[host]:port`")
-	hpeer := flag.String("b", "localhost", "HTTP backend host address. `host[:port]`")
-	dict := flag.String("d", "dictionary.xml", "Diameter dictionary file `path`.")
-	to := flag.Int("t", int(diameter.WDInterval/time.Second), "Message timeout timer [s]")
-	verbose := flag.Bool("v", false, "Verbose log output")
-	help := flag.Bool("h", false, "Print usage")
-	flag.Parse()
-
-	dpeer := flag.Arg(0)
-	if *help || dpeer == "" {
-		fmt.Printf("usage: %s [OPTION]... DIAMETER_PEER\n", os.Args[0])
-		fmt.Println("DIAMETER_PEER format is [(tcp|sctp)://][realm/]hostname[:port]")
-		fmt.Println()
-		flag.PrintDefaults()
-		return
-	}
-
 	log.Printf("[INFO] booting Round-Robin debugger for Diameter <%s REV.%d>...",
 		diameter.ProductName, diameter.FirmwareRev)
 
-	if !(*verbose) {
-		diameter.TraceEvent = nil
-		diameter.TraceMessage = nil
+	if v := os.Getenv("VERBOSE"); v != "yes" {
+		if v != "no" {
+			log.Println("[INFO]", "parameter VERBOSE is empty or invalid, set to default")
+		}
+		diameter.TraceEvent = func(old, new, event string, err error) {
+			if err != nil {
+				log.Printf("[INFO] event %s handling failed: %v", event, err)
+			}
+		}
+		diameter.TraceMessage = func(msg diameter.Message, dct diameter.Direction, err error) {
+			count(msg, dct, err)
+		}
 	}
 
-	log.Println("[INFO]", "loading dictionary file", *dict)
-	if data, err := os.ReadFile(*dict); err != nil {
+	dict := os.Getenv("DICTIONARY")
+	if dict == "" {
+		dict = "dictionary.xml"
+	}
+	log.Println("[INFO]", "loading dictionary file", dict)
+	if data, err := os.ReadFile(dict); err != nil {
 		log.Fatalln("[ERROR]", "failed to open dictionary file:", err)
 	} else if dicData, err = dictionary.LoadDictionary(data); err != nil {
 		log.Fatalln("[ERROR]", "failed to read dictionary file:", err)
@@ -81,92 +72,182 @@ func main() {
 		}
 	}
 
-	diameter.WDInterval = time.Duration(*to) * time.Second
+	if to := os.Getenv("TIMEOUT"); to == "" {
+	} else if t, e := strconv.Atoi(to); e != nil {
+		log.Printf("[INFO] parameter TIMEOUT is invalid, set to default %fs",
+			diameter.WDInterval.Seconds())
+	} else {
+		diameter.WDInterval = time.Second * time.Duration(t)
+	}
 
-	rxPath := "http://" + *hpeer
-	_, err = url.Parse(rxPath)
-	if err != nil {
+	backend := "http://" + os.Getenv("BACKENDAPI_ADDR")
+	if u, e := url.Parse(backend); e != nil || u.Host == "" {
 		log.Println("[WARN]", "invalid HTTP backend host, Rx request will be rejected")
-		rxPath = ""
-	} else {
-		log.Println("[INFO]", "HTTP backend:", rxPath)
-	}
-
-	var dt *http.Transport
-	if t, ok := http.DefaultTransport.(*http.Transport); ok {
-		dt = t.Clone()
-	} else {
-		dt = &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-				DualStack: true,
-			}).DialContext,
-			ForceAttemptHTTP2:     false,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		}
-	}
-	dt.MaxIdleConns = 0
-	dt.MaxIdleConnsPerHost = 1000
-	client := http.Client{
-		Transport: dt,
-		Timeout:   diameter.WDInterval}
-	defer client.CloseIdleConnections()
-
-	dicData.RegisterHandler(
-		func(path string, hdr http.Header, body io.Reader) (*http.Response, error) {
-			if rxPath == "" {
+		dicData.RegisterHandler(
+			func(path string, hdr http.Header, body io.Reader) (*http.Response, error) {
 				return nil, fmt.Errorf("no HTTP backend is defined")
-			}
+			},
+			apiPath, selectCon)
+	} else {
+		log.Println("[INFO]", "HTTP backend:", backend)
+		t, _ := http.DefaultTransport.(*http.Transport)
+		dt := t.Clone()
+		dt.MaxIdleConns = 0
+		dt.MaxIdleConnsPerHost = 1000
+		client := http.Client{Transport: dt, Timeout: diameter.WDInterval}
+		defer client.CloseIdleConnections()
 
-			req, _ := http.NewRequest("POST", rxPath+path, body)
-			for k, l := range hdr {
-				for _, v := range l {
-					req.Header.Add(k, v)
+		dicData.RegisterHandler(
+			func(path string, hdr http.Header, body io.Reader) (*http.Response, error) {
+				req, _ := http.NewRequest("POST", backend+path, body)
+				for k, l := range hdr {
+					for _, v := range l {
+						req.Header.Add(k, v)
+					}
 				}
-			}
-			req.Header.Set("Content-Type", "application/json")
-			return client.Do(req)
-		},
-		apiPath,
-		func(diameter.Message) *diameter.Connection {
-			return &con
-		})
+				req.Header.Set("Content-Type", "application/json")
+				return client.Do(req)
+			},
+			apiPath, selectCon)
+	}
 
 	http.HandleFunc("/diastate/v1/connection", conStateHandler)
 	http.HandleFunc("/diastate/v1/statistics", statsHandler)
-	log.Println("[INFO]", "listening HTTP...\n | local port:", *hlocal)
+
+	frontend := os.Getenv("LOCALAPI_ADDR")
+	log.Println("[INFO]", "listening HTTP...\n | local port:", frontend)
 	go func() {
-		err := http.ListenAndServe(*hlocal, nil)
+		err := http.ListenAndServe(frontend, nil)
 		if err != nil {
 			log.Println("[WARN]", "failed to listen HTTP, Tx request is not available:", err)
 		}
 	}()
 
 	log.Println("[INFO]", "connecting Diameter...")
-	var c net.Conn
-	con = diameter.Connection{}
-	c, con.Host, con.Realm, err = connector.Dial(*dlocal, dpeer)
-	if err != nil {
-		log.Fatalln("[ERROR]", err)
+	var e error
+	dlocal := os.Getenv("LOCAL_HOSTPORT")
+	if dlocal != "" {
+	} else if dlocal, e = os.Hostname(); e != nil {
+		log.Fatalln("[ERROR]", "failed to detect localhost name:", e)
 	}
 
-	buf := new(strings.Builder)
-	fmt.Fprint(buf, "transport connection up")
-	fmt.Fprintf(buf, "\n| local: %s://%s", c.LocalAddr().Network(), c.LocalAddr().String())
-	fmt.Fprintf(buf, "\n| peer : %s://%s", c.RemoteAddr().Network(), c.RemoteAddr().String())
-	log.Println("[INFO]", buf)
+	var lips []net.IP
+	var lport int
+	var scheme string
+	if scheme, diameter.Host, diameter.Realm, lips, lport, e =
+		connector.ResolveIdentity(dlocal); e != nil {
+		log.Fatalln("[ERROR]", "invalid local identity:", e)
+	}
+	log.Printf("[INFO] Diameter local information"+
+		"\n | address:    %s://%v:%d"+
+		"\n | realm/host: %s/%s",
+		scheme, lips, lport, diameter.Realm, diameter.Host)
 
-	go func() {
-		sigc := make(chan os.Signal, 1)
-		signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	dpeer := []string{}
+	for i := range 10 {
+		if a := os.Getenv(fmt.Sprintf("PEER_HOSTPORT%d", i)); a == "" {
+			continue
+		} else if _, _, _, _, _, e = connector.ResolveIdentity(a); e != nil {
+			log.Fatalln("[ERROR]", "invalid peer identity of", a, ":", e)
+		} else {
+			dpeer = append(dpeer, a)
+		}
+	}
+
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+
+	if len(dpeer) == 0 {
+		log.Println("[INFO]", "accepting transport connection")
+		if l, e := connector.Listen(dlocal); e != nil {
+			log.Fatalln("[ERROR]", "failed to listen transport interface", e)
+		} else {
+			go func() {
+				<-sigc
+				log.Println("[INFO]", "interrupted, closing connections")
+				l.Close()
+			}()
+
+			c, e := l.Accept()
+			for ; e == nil; c, e = l.Accept() {
+				log.Printf("[INFO] transport connection up\n| peer : %s://%s",
+					c.RemoteAddr().Network(), c.RemoteAddr().String())
+				go func(c net.Conn) {
+					con := &diameter.Connection{}
+					appendCon(c, con, con.ListenAndServe)
+				}(c)
+			}
+			log.Println("[WARN]", "transport listener closed:", e)
+		}
+	} else {
+		switch scheme {
+		case "sctp":
+			d, e := sctp.NewDaler(&sctp.SCTPAddr{IP: lips, Port: lport})
+			if e != nil {
+				log.Fatalln("[ERROR]", "failed to bind local SCTP port:", e)
+			}
+			for _, p := range dpeer {
+				_, host, realm, pips, pport, _ := connector.ResolveIdentity(p)
+				a := sctp.SCTPAddr{IP: pips, Port: pport}
+				go dial(func() (net.Conn, error) {
+					log.Printf("[INFO] connecting transport connection to %s//%s", a.Network(), a.String())
+					c, e := d.Dial(&a)
+					printTransportResult(c, &a, e)
+					return c, e
+				}, host, realm)
+			}
+		case "tcp":
+			if len(dpeer) != 1 && lport != 0 {
+				log.Fatalln("[ERROR]", "local port must 0 for multiple TCP connection")
+			}
+			l := net.TCPAddr{IP: lips[0], Port: lport}
+			for _, p := range dpeer {
+				_, host, realm, pips, pport, _ := connector.ResolveIdentity(p)
+				a := net.TCPAddr{IP: pips[0], Port: pport}
+				go dial(func() (net.Conn, error) {
+					log.Printf("[INFO] connecting transport connection to %s//%s", a.Network(), a.String())
+					c, e := net.DialTCP("tcp", &l, &a)
+					printTransportResult(c, &a, e)
+					return c, e
+				}, host, realm)
+			}
+		}
 		<-sigc
+		log.Println("[INFO]", "interrupted, closing connections")
+	}
 
-		con.Close(diameter.Rebooting)
-	}()
+	time.AfterFunc(time.Second*30, func() {
+		log.Fatalln("[ERROR]", "closing timeout, forcefully stopped")
+	})
+	closeCon()
+	log.Println("[INFO]", "server stopped")
+}
 
-	log.Println("[INFO]", "closed, error=", con.DialAndServe(c))
+func dial(f func() (net.Conn, error), host, realm diameter.Identity) {
+	for {
+		if c, e := f(); e == nil {
+			con := &diameter.Connection{Host: host, Realm: realm}
+			appendCon(c, con, con.DialAndServe)
+		}
+
+		select {
+		case <-block:
+			return
+		case <-time.After(time.Second * 30):
+		}
+	}
+}
+
+func printTransportResult(c net.Conn, a net.Addr, e error) {
+	if e == nil {
+		buf := new(strings.Builder)
+		fmt.Fprint(buf, "transport connection up")
+		fmt.Fprintf(buf, "\n| local: %s://%s",
+			c.LocalAddr().Network(), c.LocalAddr().String())
+		fmt.Fprintf(buf, "\n| peer : %s://%s",
+			c.RemoteAddr().Network(), c.RemoteAddr().String())
+		log.Println("[INFO]", buf)
+	} else {
+		log.Printf("[WARN] failed to connect transport connection to %s//%s", a.Network(), a.String())
+	}
 }

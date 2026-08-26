@@ -30,14 +30,16 @@ func ResolveIdentity(uri string) (
 
 	if c := t.Child(idSCHEME); c != nil {
 		scheme = string(c.V)
+		switch scheme {
+		case "tcp", "sctp":
+		case "":
+			scheme = "tcp"
+		default:
+			err = errors.New("invalid transport protocol")
+			return
+		}
 	} else {
-		scheme = ""
-	}
-	switch scheme {
-	case "tcp", "sctp", "":
-	default:
-		err = errors.New("invalid transport protocol")
-		return
+		scheme = "tcp"
 	}
 
 	h := ""

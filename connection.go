@@ -54,7 +54,7 @@ func (c *Connection) ListenAndServe(con net.Conn) (e error) {
 }
 
 func (c *Connection) serve() error {
-	c.notify = make(chan stateEvent, 16)
+	c.notify = make(chan stateEvent, 128)
 	c.sndQueue = make(map[uint32]chan Message, 65535)
 	c.rcvQueue = make(chan Message, 1024)
 	c.commonApp = make(map[uint32]application)

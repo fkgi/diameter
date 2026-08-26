@@ -19,13 +19,11 @@ func ListenSCTP(laddr *SCTPAddr) (l *SCTPListener, e error) {
 	if laddr == nil {
 		e = fmt.Errorf("no local address")
 	} else if laddr.IP[0].To4() != nil {
-		l.sock, e = sockOpenV4()
+		l.sock, e = sockOpenV4(false)
 	} else if laddr.IP[0].To16() != nil {
-		l.sock, e = sockOpenV6()
+		l.sock, e = sockOpenV6(false)
 	} else {
-		e = &net.AddrError{
-			Err:  "unknown address format",
-			Addr: laddr.String()}
+		e = &net.AddrError{Err: "unknown address format", Addr: laddr.String()}
 	}
 
 	/*
@@ -53,21 +51,16 @@ func ListenSCTP(laddr *SCTPAddr) (l *SCTPListener, e error) {
 	*/
 
 	// bind SCTP connection
-	if e == nil {
-		// ptr, n := laddr.rawAddr()
-		if e = sctpBindx(l.sock, laddr.rawBytes()); e != nil {
-			_ = sockClose(l.sock)
-		}
-	}
-	if e == nil {
+	if e != nil {
+	} else if e = sctpBindx(l.sock, laddr.rawBytes()); e != nil {
+		_ = sockClose(l.sock)
+	} else {
 		e = sockListen(l.sock)
 	}
-	if e != nil {
-		return nil, &net.OpError{
-			Op: "listen", Net: "sctp",
-			Addr: laddr, Err: e}
-	}
 
+	if e != nil {
+		e = &net.OpError{Op: "listen", Net: "sctp", Addr: laddr, Err: e}
+	}
 	return
 }
 
@@ -81,24 +74,20 @@ func (l *SCTPListener) Accept() (net.Conn, error) {
 func (l *SCTPListener) AcceptSCTP() (c *SCTPConn, e error) {
 	c = &SCTPConn{}
 	for c.sock, e = sockAccept(l.sock); e != nil; c.sock, e = sockAccept(l.sock) {
-		v, ok := e.(syscall.Errno)
-		if !ok {
-			break
-		}
-		switch v {
-		case syscall.EAGAIN:
-			time.Sleep(time.Millisecond * 100)
-			continue
-		case syscall.EINTR:
-			continue
+		if v, ok := e.(syscall.Errno); ok {
+			switch v {
+			case syscall.EAGAIN:
+				time.Sleep(time.Millisecond * 100)
+				continue
+			case syscall.EINTR:
+				continue
+			}
 		}
 		break
 	}
 
 	if e != nil {
-		e = &net.OpError{
-			Op: "accept", Net: "sctp",
-			Addr: l.Addr(), Err: e}
+		e = &net.OpError{Op: "accept", Net: "sctp", Addr: l.Addr(), Err: e}
 	}
 	return
 }

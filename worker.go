@@ -44,15 +44,6 @@ func init() {
 			}
 		}()
 	}
-	/*
-		for i := 0; i < 10; i++ {
-			go func() {
-				for req, ok := <-sharedQ; ok; req, ok = <-sharedQ {
-					handleMsg(req)
-				}
-			}()
-		}
-	*/
 }
 
 func handleMsg(req Message) {

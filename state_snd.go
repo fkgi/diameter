@@ -298,8 +298,12 @@ func (v eventSndMsg) exec(c *Connection) error {
 	}
 	err := v.m.MarshalTo(c.conn)
 	if err != nil {
+		if v.ch != nil {
+			delete(c.sndQueue, v.m.HbHID)
+			v.ch <- v.m.GenerateAnswerBy(UnableToDeliver)
+		}
 		err = TransportTxError{err: err}
-		c.notify <- eventPeerDisc{reason: err}
+		//c.notify <- eventPeerDisc{reason: err}
 	}
 
 	if TraceMessage != nil {

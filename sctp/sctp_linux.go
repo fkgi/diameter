@@ -47,31 +47,34 @@ import (
 		uintptr(l),
 		0)
 	}
-
-	n, e := C.setsockopt(
-			C.int(fd),
-			C.SOL_SCTP,
-			C.int(opt),
-			p,
-			C.socklen_t(l))
-		if int(n) < 0 {
-			return e
-		}
-		return nil
 */
 
-func sockOpenV4() (int, error) {
-	return syscall.Socket(
-		syscall.AF_INET,
-		syscall.SOCK_STREAM, //syscall.SOCK_SEQPACKET,
-		syscall.IPPROTO_SCTP)
+func sockOpenV4(seq bool) (int, error) {
+	if seq {
+		return syscall.Socket(
+			syscall.AF_INET,
+			syscall.SOCK_SEQPACKET,
+			syscall.IPPROTO_SCTP)
+	} else {
+		return syscall.Socket(
+			syscall.AF_INET,
+			syscall.SOCK_STREAM,
+			syscall.IPPROTO_SCTP)
+	}
 }
 
-func sockOpenV6() (int, error) {
-	return syscall.Socket(
-		syscall.AF_INET6,
-		syscall.SOCK_STREAM, //syscall.SOCK_SEQPACKET,
-		syscall.IPPROTO_SCTP)
+func sockOpenV6(seq bool) (int, error) {
+	if seq {
+		return syscall.Socket(
+			syscall.AF_INET6,
+			syscall.SOCK_SEQPACKET,
+			syscall.IPPROTO_SCTP)
+	} else {
+		return syscall.Socket(
+			syscall.AF_INET6,
+			syscall.SOCK_STREAM,
+			syscall.IPPROTO_SCTP)
+	}
 }
 
 func sockListen(fd int) error {
@@ -104,17 +107,51 @@ func sctpBindx(fd int, addr []byte) error {
 	return nil
 }
 
-func sctpConnectx(fd int, addr []byte) error {
-	if _, _, e := syscall.Syscall6(syscall.SYS_SETSOCKOPT,
+func sctpConnectx(fd int, addr []byte) (int, error) {
+	t, _, e := syscall.Syscall6(syscall.SYS_SETSOCKOPT,
 		uintptr(fd),
 		syscall.IPPROTO_SCTP,
 		110, // SCTP_SOCKOPT_CONNECTX
 		uintptr(unsafe.Pointer(&addr[0])),
 		uintptr(len(addr)),
-		0); e != 0 {
-		return e
+		0)
+	/*
+		if e == syscall.EINPROGRESS {
+			fdset := &syscall.FdSet{}
+			fdset.Bits[fd/64] |= 1 << (uint(fd) % 64)
+			to := &syscall.Timeval{Sec: 5, Usec: 0}
+
+			n, e := syscall.Select(fd+1, nil, fdset, nil, to)
+			if e != nil {
+				return 0, e
+			} else if n == 0 {
+				return 0, errors.New("timeout")
+			} else if n, e = syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_ERROR); e != nil {
+				return 0, e
+			} else if n != 0 {
+				return 0, syscall.Errno(n)
+			}
+		} else if e != 0 {
+	*/
+	if e != 0 {
+		return 0, e
 	}
-	return nil
+
+	peel := struct {
+		aid int32
+		sd  int32
+	}{aid: int32(t)}
+	l := unsafe.Sizeof(peel)
+	if _, _, e := syscall.Syscall6(syscall.SYS_GETSOCKOPT,
+		uintptr(fd),
+		syscall.IPPROTO_SCTP,
+		102, // SCTP_SOCKOPT_PEELOFF
+		uintptr(unsafe.Pointer(&peel)),
+		uintptr(unsafe.Pointer(&l)),
+		0); e != 0 {
+		return 0, e
+	}
+	return int(peel.sd), nil
 }
 
 func sctpSend(fd int, b []byte) (int, error) {
@@ -128,11 +165,11 @@ func sctpSend(fd int, b []byte) (int, error) {
 	binary.Write(buf, binary.LittleEndian, hdr)
 	binary.Write(buf, binary.LittleEndian, uint16(0))      // stream ID(2 byte)=0
 	binary.Write(buf, binary.LittleEndian, uint16(0x0001)) // flag(2 byte)=SCTP_UNORDERED
-	binary.Write(buf, binary.BigEndian, uint32(46))        // PPID(4 byte)=diameter(42)
+	binary.Write(buf, binary.BigEndian, uint32(46))        // PPID(4 byte)=diameter(46)
 	binary.Write(buf, binary.LittleEndian, uint32(0))      // context(4 byte) = empty
 	binary.Write(buf, binary.LittleEndian, uint32(0))      // assoc ID(4 byte)
 
-	return syscall.SendmsgN(fd, b, buf.Bytes(), nil, 0)
+	return syscall.SendmsgN(fd, b, buf.Bytes(), nil, syscall.MSG_DONTWAIT|syscall.MSG_EOR)
 }
 
 func sctpRecvmsg(fd int, b []byte) (int, error) {

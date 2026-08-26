@@ -14,58 +14,58 @@ HTTP REST request/answer must have specific format JSON document. Dictionary fil
 <img width="500" alt="overview" src="https://github.com/user-attachments/assets/96ab1303-c168-4f45-aad2-a478e3c7006f" />
 
 # How to run Round-Robin
-Commandline options.
+No commandline options. Configuration parameters are indicated by environment variable.
 
 ```
-roundrobin [OPTION]... DIAMETER_PEER
-DIAMETER_PEER = [(tcp|sctp)://][realm/]hostname[:port]
+roundrobin
 ```
 
 Commandline example
 
 ```
-roundrobin -l mme.epc.mcc99.mnc999.3gppnetwork.org -i :8080 -b mockserver:8080 -d ./s6a.xml sctp://hss.ecp.mcc99.mnc999.3gppnetwork.org
+export LOCAL_HOSTPORT=sctp://mme.epc.mcc99.mnc999.3gppnetwork.org:3868
+export PEER_HOSTPORT0=dra1.epc.mcc99.mnc999.3gppnetwork.org
+export PEER_HOSTPORT1=dra2.epc.mcc99.mnc999.3gppnetwork.org
+export DICTIONARY=/usr/local/etc/dictionary/s6a.xml
+export LOCALAPI_ADDR=localhost:8080
+export BACKENDAPI_ADDR=localhost:8081
+roundrobin
 ```
 
-## Args
-- `DIAMETER_PEER`  
-Diameter peer host definition.
-Round-Robin connect to specified Diameter peer.
-
-## Options
-- `-l`  
-Diameter local host definition.
-Value must have format `[realm/]host[:port]`.
+## Environment Variables
+- `LOCAL_ADDR`  
+Diameter local host definition. Refer to "Format of Diameter node identity" section.
 Hostname of operating system is used as default of `host`.
-Refer following section about other parameters.
 
-- `-i`  
+- `PEER_ADDR0` - `PEER_ADDR9`  
+Multiple (max 10) Diameter peer hosts definition. Refer to "Format of Diameter node identity" section.
+Round-Robin connect to specified Diameter peers.
+Transport protocol parameter will be ignored.
+
+- `LOCALAPI_ADDR`  
 Local listening address and port for receiving HTTP REST request.
 Value must have format `host[:port]`.
 `host` is hostname or IP address.
 IP address is resolved from hostname if hostname is specified.
 `port` is port number.
 
-- `-b`  
+- `BACKENDAPI_ADDR`  
 Peer address and port for sending HTTP REST request.
 Value must have format `host[:port]`.
 `host` is hostname or IP address.
 IP address is resolved from hostname if hostname is specified.
 `port` is port number.
 
-- `-d`  
+- `DICTIONARY`  
 Path for dictionary XML file.
 `dictionary.xml` file in current directory is used as default.
 
-- `-t`  
+- `TIMEOUT`  
 Duration of Diameter request timeout in second.
 Not only service message but also control message like DWR follow this duration.
 
-- `-v`  
+- `VERBOSE`  
 Verbose log mode. Message trace log is logged.
-
-- `-h`  
-Print usage.
 
 ## Format of Diameter node identity
 
@@ -89,6 +89,14 @@ It must available port number digit.
 
 Port `0` is used as any for source port.
 If local port is 0, local port is automaticaly selected by system.
+It must `0` if transport layer protocol is `tcp` and Round-Robin connect to multiple peers as initiator.
+
+## Initiator or Responder
+Round-Robin act as initiator if `PEER_ADDR[0-9]` variable is configured.
+Round-Robin act as responder if the variable is not configured.
+
+Max 10 peer can be configured to connect as initiator.
+There is no limit peer to accept as responder. Round-Robin does not verify peer's Diameter-Host and Diameter-Realm when act as responder.
 
 # Format of Dictionary file
 Dictionary file is XML document.

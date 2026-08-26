@@ -12,41 +12,68 @@ type SCTPConn struct {
 	sock int
 }
 
+type Dialer struct {
+	sock int
+}
+
+func NewDaler(laddr *SCTPAddr) (d *Dialer, e error) {
+	d = &Dialer{}
+	if laddr == nil {
+		e = fmt.Errorf("no local address")
+	} else if laddr.IP[0].To4() != nil {
+		d.sock, e = sockOpenV4(true)
+	} else if laddr.IP[0].To16() != nil {
+		d.sock, e = sockOpenV6(true)
+	} else {
+		e = &net.AddrError{Err: "unknown address format", Addr: laddr.String()}
+	}
+
+	// bind SCTP connection
+	if e != nil {
+	} else if e = sctpBindx(d.sock, laddr.rawBytes()); e != nil {
+		_ = sockClose(d.sock)
+	}
+
+	if e != nil {
+		e = &net.OpError{Op: "listen", Net: "sctp", Addr: laddr, Err: e}
+	}
+	return
+}
+
+func (d *Dialer) Addr() net.Addr {
+	ptr, n, e := sctpGetladdrs(d.sock)
+	if e != nil {
+		return nil
+	}
+	defer sctpFreeladdrs(ptr)
+
+	return resolveFromRawAddr(ptr, n)
+}
+
+func (d *Dialer) Dial(raddr *SCTPAddr) (c *SCTPConn, e error) {
+	if raddr == nil {
+		e = fmt.Errorf("nil peer address")
+	} else {
+		c = &SCTPConn{}
+		c.sock, e = sctpConnectx(d.sock, raddr.rawBytes())
+	}
+
+	if e != nil {
+		e = &net.OpError{Op: "dial", Net: "sctp", Source: d.Addr(), Addr: raddr, Err: e}
+	}
+	return
+}
+
+func (d *Dialer) Close() (e error) {
+	return sockClose(d.sock)
+}
+
 // DialSCTP connects from the local address laddr
 // to the remote address raddr.
 func DialSCTP(laddr, raddr *SCTPAddr) (c *SCTPConn, e error) {
-	c = &SCTPConn{}
-
-	if laddr == nil {
-		e = fmt.Errorf("nil local address")
-	} else if laddr.IP[0].To4() != nil {
-		c.sock, e = sockOpenV4()
-	} else if laddr.IP[0].To16() != nil {
-		c.sock, e = sockOpenV6()
-	} else {
-		e = &net.AddrError{
-			Err:  "unknown address format",
-			Addr: laddr.String()}
-	}
-	if e == nil {
-		if e = sctpBindx(c.sock, laddr.rawBytes()); e != nil {
-			_ = sockClose(c.sock)
-		}
-	}
-
-	if e != nil {
-	} else if raddr == nil {
-		e = fmt.Errorf("nil peer address")
-	} else {
-		if e = sctpConnectx(c.sock, raddr.rawBytes()); e != nil {
-			_ = sockClose(c.sock)
-		}
-	}
-
-	if e != nil {
-		e = &net.OpError{
-			Op: "dial", Net: "sctp",
-			Source: laddr, Addr: raddr, Err: e}
+	var d *Dialer
+	if d, e = NewDaler(laddr); e == nil {
+		c, e = d.Dial(raddr)
 	}
 	return
 }

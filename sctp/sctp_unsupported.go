@@ -30,8 +30,8 @@ func sctpBindx(int, []byte) error {
 	return nil
 }
 
-func sctpConnectx(int, []byte) error {
-	return nil
+func sctpConnectx(int, []byte) (int, error) {
+	return 0, nil
 }
 
 func sctpSend(int, []byte) (int, error) {
