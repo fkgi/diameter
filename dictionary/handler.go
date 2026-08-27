@@ -173,7 +173,7 @@ func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Rout
 		w.WriteHeader(http.StatusOK)
 		w.Write(jsondata)
 	}
-	http.HandleFunc(path, serveHttp)
+	http.HandleFunc("POST "+path, serveHttp)
 }
 
 func httpErr(title, detail string, code int, w http.ResponseWriter) {

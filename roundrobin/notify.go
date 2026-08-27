@@ -47,12 +47,12 @@ func init() {
 func count(msg diameter.Message, dct diameter.Direction, err error) {
 	if msg.FlgR {
 		if dct == diameter.Rx {
-			rxReq++
+			statistics.rxReq++
 			if _, ok := err.(diameter.RejectRxMessage); ok {
-				txDisc++
+				statistics.txDisc++
 			}
 		} else {
-			txReq++
+			statistics.txReq++
 		}
 	} else {
 		var code uint32
@@ -72,37 +72,37 @@ func count(msg diameter.Message, dct diameter.Direction, err error) {
 		}
 		if dct == diameter.Rx {
 			if _, ok := err.(diameter.FailureAnswer); err != nil && !ok {
-				rxIvld++
+				statistics.rxIvld++
 			} else if code < 1000 {
-				rxAns[0]++
+				statistics.rxAnsEtc++
 			} else if code < 2000 {
-				rxAns[1]++
+				statistics.rxAns1xxx++
 			} else if code < 3000 {
-				rxAns[2]++
+				statistics.rxAns2xxx++
 			} else if code < 4000 {
-				rxAns[3]++
+				statistics.rxAns3xxx++
 			} else if code < 5000 {
-				rxAns[4]++
+				statistics.rxAns4xxx++
 			} else if code < 6000 {
-				rxAns[5]++
+				statistics.rxAns5xxx++
 			} else {
-				rxAns[0]++
+				statistics.rxAnsEtc++
 			}
 		} else {
 			if code < 1000 {
-				txAns[0]++
+				statistics.txAnsEtc++
 			} else if code < 2000 {
-				txAns[1]++
+				statistics.txAns1xxx++
 			} else if code < 3000 {
-				txAns[2]++
+				statistics.txAns2xxx++
 			} else if code < 4000 {
-				txAns[3]++
+				statistics.txAns3xxx++
 			} else if code < 5000 {
-				txAns[4]++
+				statistics.txAns4xxx++
 			} else if code < 6000 {
-				txAns[5]++
+				statistics.txAns5xxx++
 			} else {
-				txAns[0]++
+				statistics.txAnsEtc++
 			}
 		}
 	}
