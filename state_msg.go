@@ -80,7 +80,7 @@ func (eventRcvAns) String() string {
 	return "Rcv-ANS"
 }
 
-func (v eventRcvAns) exec(c *Connection) (e error) {
+func (v eventRcvAns) exec(c *Connection) error {
 	var err error
 
 	if c.state != open && c.state != locked {

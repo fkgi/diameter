@@ -6,11 +6,11 @@ import (
 	"unsafe"
 )
 
-func sockOpenV4() (int, error) {
+func sockOpenV4(bool) (int, error) {
 	return 0, nil
 }
 
-func sockOpenV6() (int, error) {
+func sockOpenV6(bool) (int, error) {
 	return 0, nil
 }
 

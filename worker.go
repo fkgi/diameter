@@ -31,7 +31,7 @@ func init() {
 		}
 		activeWorkers <- (<-activeWorkers - 1)
 	}
-	for i := 0; i < minWorkers; i++ {
+	for range minWorkers {
 		go func() {
 			for req, ok := <-sharedQ; ok; req, ok = <-sharedQ {
 				a := <-activeWorkers

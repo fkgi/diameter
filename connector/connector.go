@@ -32,17 +32,15 @@ func Dial(la, pa string) (con net.Conn, host, realm diameter.Identity, err error
 	case "sctp":
 		con, err = sctp.DialSCTP(
 			&sctp.SCTPAddr{IP: lips, Port: lport}, &sctp.SCTPAddr{IP: pips, Port: pport})
-	case "tcp", "":
+	case "tcp":
 		con, err = net.DialTCP("tcp",
 			&net.TCPAddr{IP: lips[0], Port: lport}, &net.TCPAddr{IP: pips[0], Port: pport})
-	default:
-		err = errors.New("invalid transport scheme: " + scheme)
 	}
 	return
 }
 
 // Listen parse inputs and listen transport listener.
-// Inputs are string of local(la) and peer(pa) host information with format for ResolveIdentity.
+// Inputs are string of local(la) host information with format for ResolveIdentity.
 func Listen(la string) (l net.Listener, err error) {
 	var ips []net.IP
 	var port int
@@ -57,10 +55,8 @@ func Listen(la string) (l net.Listener, err error) {
 	switch scheme {
 	case "sctp":
 		l, err = sctp.ListenSCTP(&sctp.SCTPAddr{IP: ips, Port: port})
-	case "tcp", "":
+	case "tcp":
 		l, err = net.ListenTCP("tcp", &net.TCPAddr{IP: ips[0], Port: port})
-	default:
-		err = errors.New("invalid transport scheme: " + scheme)
 	}
 	return
 }
@@ -89,11 +85,9 @@ func Accept(la, pa string) (con net.Conn, host, realm diameter.Identity, err err
 	case "sctp":
 		l, err = sctp.ListenSCTP(&sctp.SCTPAddr{IP: lips, Port: lport})
 		dst = &sctp.SCTPAddr{IP: pips, Port: pport}
-	case "tcp", "":
+	case "tcp":
 		l, err = net.ListenTCP("tcp", &net.TCPAddr{IP: lips[0], Port: lport})
 		dst = &net.TCPAddr{IP: pips[0], Port: pport}
-	default:
-		err = errors.New("invalid transport scheme: " + scheme)
 	}
 	if err != nil {
 		return

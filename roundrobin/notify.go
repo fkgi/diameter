@@ -30,7 +30,6 @@ func init() {
 	dictionary.NotifyHandlerError = func(proto, msg string) {
 		log.Println("[ERROR]", "error in", proto, "with reason", msg)
 	}
-
 	diameter.TraceEvent = func(old, new, event string, err error) {
 		log.Printf("[INFO] diameter state update: %s->%s by event %s: error=%v",
 			old, new, event, err)
@@ -44,15 +43,16 @@ func init() {
 		log.Print("[INFO] ", buf)
 	}
 }
+
 func count(msg diameter.Message, dct diameter.Direction, err error) {
 	if msg.FlgR {
 		if dct == diameter.Rx {
-			statistics.rxReq++
+			statistics.RxReq++
 			if _, ok := err.(diameter.RejectRxMessage); ok {
-				statistics.txDisc++
+				statistics.TxDisc++
 			}
 		} else {
-			statistics.txReq++
+			statistics.TxReq++
 		}
 	} else {
 		var code uint32
@@ -72,37 +72,37 @@ func count(msg diameter.Message, dct diameter.Direction, err error) {
 		}
 		if dct == diameter.Rx {
 			if _, ok := err.(diameter.FailureAnswer); err != nil && !ok {
-				statistics.rxIvld++
+				statistics.RxIvld++
 			} else if code < 1000 {
-				statistics.rxAnsEtc++
+				statistics.RxAnsEtc++
 			} else if code < 2000 {
-				statistics.rxAns1xxx++
+				statistics.RxAns1xxx++
 			} else if code < 3000 {
-				statistics.rxAns2xxx++
+				statistics.RxAns2xxx++
 			} else if code < 4000 {
-				statistics.rxAns3xxx++
+				statistics.RxAns3xxx++
 			} else if code < 5000 {
-				statistics.rxAns4xxx++
+				statistics.RxAns4xxx++
 			} else if code < 6000 {
-				statistics.rxAns5xxx++
+				statistics.RxAns5xxx++
 			} else {
-				statistics.rxAnsEtc++
+				statistics.RxAnsEtc++
 			}
 		} else {
 			if code < 1000 {
-				statistics.txAnsEtc++
+				statistics.TxAnsEtc++
 			} else if code < 2000 {
-				statistics.txAns1xxx++
+				statistics.TxAns1xxx++
 			} else if code < 3000 {
-				statistics.txAns2xxx++
+				statistics.TxAns2xxx++
 			} else if code < 4000 {
-				statistics.txAns3xxx++
+				statistics.TxAns3xxx++
 			} else if code < 5000 {
-				statistics.txAns4xxx++
+				statistics.TxAns4xxx++
 			} else if code < 6000 {
-				statistics.txAns5xxx++
+				statistics.TxAns5xxx++
 			} else {
-				statistics.txAnsEtc++
+				statistics.TxAnsEtc++
 			}
 		}
 	}

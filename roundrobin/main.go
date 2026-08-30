@@ -154,31 +154,34 @@ func main() {
 		}
 	}
 
-	sigc := make(chan os.Signal, 1)
-	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-
 	if len(dpeer) == 0 {
 		log.Println("[INFO]", "accepting transport connection")
-		if l, e := connector.Listen(dlocal); e != nil {
-			log.Fatalln("[ERROR]", "failed to listen transport interface", e)
-		} else {
-			go func() {
-				<-sigc
-				log.Println("[INFO]", "interrupted, closing connections")
-				l.Close()
-			}()
-
-			c, e := l.Accept()
-			for ; e == nil; c, e = l.Accept() {
-				log.Printf("[INFO] transport connection up\n| peer : %s://%s",
-					c.RemoteAddr().Network(), c.RemoteAddr().String())
-				go func(c net.Conn) {
-					con := &diameter.Connection{}
-					appendCon(c, con, con.ListenAndServe)
-				}(c)
-			}
-			log.Println("[WARN]", "transport listener closed:", e)
+		var l net.Listener
+		var e error
+		switch scheme {
+		case "sctp":
+			l, e = sctp.ListenSCTP(&sctp.SCTPAddr{IP: lips, Port: lport})
+		case "tcp":
+			l, e = net.ListenTCP("tcp", &net.TCPAddr{IP: lips[0], Port: lport})
 		}
+		if e != nil {
+			log.Fatalln("[ERROR]", "failed to listen transport interface", e)
+		}
+		go func() {
+			wait()
+			l.Close()
+		}()
+
+		c, e := l.Accept()
+		for ; e == nil; c, e = l.Accept() {
+			log.Printf("[INFO] transport connection up\n| peer : %s://%s",
+				c.RemoteAddr().Network(), c.RemoteAddr().String())
+			go func(c net.Conn) {
+				con := &diameter.Connection{}
+				appendCon(c, con, con.ListenAndServe)
+			}(c)
+		}
+		log.Println("[WARN]", "transport listener closed:", e)
 	} else {
 		switch scheme {
 		case "sctp":
@@ -190,7 +193,8 @@ func main() {
 				_, host, realm, pips, pport, _ := connector.ResolveIdentity(p)
 				a := sctp.SCTPAddr{IP: pips, Port: pport}
 				go dial(func() (net.Conn, error) {
-					log.Printf("[INFO] connecting transport connection to %s//%s", a.Network(), a.String())
+					log.Printf("[INFO] connecting transport connection to %s//%s",
+						a.Network(), a.String())
 					c, e := d.Dial(&a)
 					printTransportResult(c, &a, e)
 					return c, e
@@ -205,15 +209,15 @@ func main() {
 				_, host, realm, pips, pport, _ := connector.ResolveIdentity(p)
 				a := net.TCPAddr{IP: pips[0], Port: pport}
 				go dial(func() (net.Conn, error) {
-					log.Printf("[INFO] connecting transport connection to %s//%s", a.Network(), a.String())
+					log.Printf("[INFO] connecting transport connection to %s//%s",
+						a.Network(), a.String())
 					c, e := net.DialTCP("tcp", &l, &a)
 					printTransportResult(c, &a, e)
 					return c, e
 				}, host, realm)
 			}
 		}
-		<-sigc
-		log.Println("[INFO]", "interrupted, closing connections")
+		wait()
 	}
 
 	time.AfterFunc(time.Second*30, func() {
@@ -221,6 +225,13 @@ func main() {
 	})
 	closeCon()
 	log.Println("[INFO]", "server stopped")
+}
+
+func wait() {
+	sigc := make(chan os.Signal, 1)
+	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	<-sigc
+	log.Println("[INFO]", "interrupted, closing connections")
 }
 
 func dial(f func() (net.Conn, error), host, realm diameter.Identity) {

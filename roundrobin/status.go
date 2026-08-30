@@ -48,22 +48,22 @@ func conStateHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 var statistics = struct {
-	rxReq     uint64 `json:"rx_request"`
-	txDisc    uint64 `json:"tx_discard"`
-	txAnsEtc  uint64 `json:"tx_etc"`
-	txAns1xxx uint64 `json:"tx_1xxx"`
-	txAns2xxx uint64 `json:"tx_2xxx"`
-	txAns3xxx uint64 `json:"tx_3xxx"`
-	txAns4xxx uint64 `json:"tx_4xxx"`
-	txAns5xxx uint64 `json:"tx_5xxx"`
-	txReq     uint64 `json:"tx_request"`
-	rxIvld    uint64 `json:"rx_invalid"`
-	rxAnsEtc  uint64 `json:"rx_etc"`
-	rxAns1xxx uint64 `json:"rx_1xxx"`
-	rxAns2xxx uint64 `json:"rx_2xxx"`
-	rxAns3xxx uint64 `json:"rx_3xxx"`
-	rxAns4xxx uint64 `json:"rx_4xxx"`
-	rxAns5xxx uint64 `json:"rx_5xxx"`
+	RxReq     uint64 `json:"rx_request"`
+	TxDisc    uint64 `json:"tx_discard"`
+	TxAnsEtc  uint64 `json:"tx_etc"`
+	TxAns1xxx uint64 `json:"tx_1xxx"`
+	TxAns2xxx uint64 `json:"tx_2xxx"`
+	TxAns3xxx uint64 `json:"tx_3xxx"`
+	TxAns4xxx uint64 `json:"tx_4xxx"`
+	TxAns5xxx uint64 `json:"tx_5xxx"`
+	TxReq     uint64 `json:"tx_request"`
+	RxIvld    uint64 `json:"rx_invalid"`
+	RxAnsEtc  uint64 `json:"rx_etc"`
+	RxAns1xxx uint64 `json:"rx_1xxx"`
+	RxAns2xxx uint64 `json:"rx_2xxx"`
+	RxAns3xxx uint64 `json:"rx_3xxx"`
+	RxAns4xxx uint64 `json:"rx_4xxx"`
+	RxAns5xxx uint64 `json:"rx_5xxx"`
 }{}
 
 func statsHandler(w http.ResponseWriter, r *http.Request) {
