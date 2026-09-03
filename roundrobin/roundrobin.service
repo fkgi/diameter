@@ -1,0 +1,16 @@
+[Unit]
+Description=roundrobin MAP debugger
+After=network-online.target
+
+[Service]
+WorkingDirectory=/usr/local/etc/roundrobin
+ExecStart=/usr/local/bin/roundrobin
+ExecStop=/bin/kill ${MAINPID}
+Restart=always
+Type=simple
+
+StandardOutput=append:/var/log/roundrobin.log
+StandardError=append:/var/log/roundrobin.log
+
+[Install]
+WantedBy=multi-user.target

@@ -192,13 +192,9 @@ func main() {
 			for _, p := range dpeer {
 				_, host, realm, pips, pport, _ := connector.ResolveIdentity(p)
 				a := sctp.SCTPAddr{IP: pips, Port: pport}
-				go dial(func() (net.Conn, error) {
-					log.Printf("[INFO] connecting transport connection to %s//%s",
-						a.Network(), a.String())
-					c, e := d.Dial(&a)
-					printTransportResult(c, &a, e)
-					return c, e
-				}, host, realm)
+				go dial(
+					func() (net.Conn, error) { return d.Dial(&a) },
+					&a, host, realm)
 			}
 		case "tcp":
 			if len(dpeer) != 1 && lport != 0 {
@@ -208,13 +204,9 @@ func main() {
 			for _, p := range dpeer {
 				_, host, realm, pips, pport, _ := connector.ResolveIdentity(p)
 				a := net.TCPAddr{IP: pips[0], Port: pport}
-				go dial(func() (net.Conn, error) {
-					log.Printf("[INFO] connecting transport connection to %s//%s",
-						a.Network(), a.String())
-					c, e := net.DialTCP("tcp", &l, &a)
-					printTransportResult(c, &a, e)
-					return c, e
-				}, host, realm)
+				go dial(
+					func() (net.Conn, error) { return net.DialTCP("tcp", &l, &a) },
+					&a, host, realm)
 			}
 		}
 		wait()
@@ -234,9 +226,23 @@ func wait() {
 	log.Println("[INFO]", "interrupted, closing connections")
 }
 
-func dial(f func() (net.Conn, error), host, realm diameter.Identity) {
+func dial(f func() (net.Conn, error), a net.Addr, host, realm diameter.Identity) {
 	for {
-		if c, e := f(); e == nil {
+		log.Printf("[INFO] connecting transport connection to %s//%s",
+			a.Network(), a.String())
+		if c, e := f(); e != nil {
+			log.Printf(
+				"[WARN] failed to connect transport connection to %s//%s",
+				a.Network(), a.String())
+		} else {
+			buf := new(strings.Builder)
+			fmt.Fprint(buf, "transport connection up")
+			fmt.Fprintf(buf, "\n| local: %s://%s",
+				c.LocalAddr().Network(), c.LocalAddr().String())
+			fmt.Fprintf(buf, "\n| peer : %s://%s",
+				c.RemoteAddr().Network(), c.RemoteAddr().String())
+			log.Println("[INFO]", buf)
+
 			con := &diameter.Connection{Host: host, Realm: realm}
 			appendCon(c, con, con.DialAndServe)
 		}
@@ -246,19 +252,5 @@ func dial(f func() (net.Conn, error), host, realm diameter.Identity) {
 			return
 		case <-time.After(time.Second * 30):
 		}
-	}
-}
-
-func printTransportResult(c net.Conn, a net.Addr, e error) {
-	if e == nil {
-		buf := new(strings.Builder)
-		fmt.Fprint(buf, "transport connection up")
-		fmt.Fprintf(buf, "\n| local: %s://%s",
-			c.LocalAddr().Network(), c.LocalAddr().String())
-		fmt.Fprintf(buf, "\n| peer : %s://%s",
-			c.RemoteAddr().Network(), c.RemoteAddr().String())
-		log.Println("[INFO]", buf)
-	} else {
-		log.Printf("[WARN] failed to connect transport connection to %s//%s", a.Network(), a.String())
 	}
 }
