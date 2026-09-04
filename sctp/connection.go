@@ -91,10 +91,15 @@ func (c *SCTPConn) Write(b []byte) (n int, e error) {
 	buf := make([]byte, len(b))
 	copy(buf, b)
 
-	if n, e = sctpSend(c.sock, b); e != nil {
+	for n, e = sctpSend(c.sock, b); e != nil; n, e = sctpSend(c.sock, b) {
+		if e == syscall.EAGAIN {
+			time.Sleep(time.Millisecond * 100)
+			continue
+		}
 		e = &net.OpError{
 			Op: "write", Net: "sctp",
 			Source: c.LocalAddr(), Addr: c.RemoteAddr(), Err: e}
+		break
 	}
 	return
 }

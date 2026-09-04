@@ -60,6 +60,8 @@ func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Rout
 			return diameterErr(avps, diameter.UnableToDeliver,
 				"unable to send HTTP request to backend: "+e.Error())
 		}
+		defer r.Body.Close()
+
 		switch r.StatusCode {
 		case http.StatusOK:
 		case http.StatusServiceUnavailable:
@@ -70,7 +72,6 @@ func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Rout
 		}
 
 		jsondata, e = io.ReadAll(r.Body)
-		defer r.Body.Close()
 		if e != nil {
 			return diameterErr(avps, diameter.UnableToDeliver,
 				"unable to receive HTTP response: "+e.Error())
@@ -105,12 +106,6 @@ func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Rout
 	handleTx := diameter.Handle(cid, aid, vid, serveDiameter, rt)
 
 	serveHttp := func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			w.Header().Add("Allow", "POST")
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-
 		jsondata, e := io.ReadAll(r.Body)
 		defer r.Body.Close()
 		if e != nil {

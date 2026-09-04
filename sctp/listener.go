@@ -74,14 +74,12 @@ func (l *SCTPListener) Accept() (net.Conn, error) {
 func (l *SCTPListener) AcceptSCTP() (c *SCTPConn, e error) {
 	c = &SCTPConn{}
 	for c.sock, e = sockAccept(l.sock); e != nil; c.sock, e = sockAccept(l.sock) {
-		if v, ok := e.(syscall.Errno); ok {
-			switch v {
-			case syscall.EAGAIN:
-				time.Sleep(time.Millisecond * 100)
-				continue
-			case syscall.EINTR:
-				continue
-			}
+		switch e {
+		case syscall.EAGAIN:
+			time.Sleep(time.Millisecond * 100)
+			continue
+		case syscall.EINTR:
+			continue
 		}
 		break
 	}
