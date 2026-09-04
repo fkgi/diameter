@@ -26,18 +26,18 @@ Commandline example
 export LOCAL_HOSTPORT=sctp://mme.epc.mcc99.mnc999.3gppnetwork.org:3868
 export PEER_HOSTPORT0=dra1.epc.mcc99.mnc999.3gppnetwork.org
 export PEER_HOSTPORT1=dra2.epc.mcc99.mnc999.3gppnetwork.org
-export DICTIONARY=/usr/local/etc/dictionary/s6a.xml
+export DICTIONARY=/usr/local/etc/dictionary/s6a.xml:/usr/local/etc/dictionary/s6c.xml
 export LOCALAPI_ADDR=localhost:8080
 export BACKENDAPI_ADDR=localhost:8081
 roundrobin
 ```
 
 ## Environment Variables
-- `LOCAL_ADDR`  
+- `LOCAL_HOSTPORT`  
 Diameter local host definition. Refer to "Format of Diameter node identity" section.
 Hostname of operating system is used as default of `host`.
 
-- `PEER_ADDR0` - `PEER_ADDR9`  
+- `PEER_HOSTPORT0` - `PEER_HOSTPORT9`  
 Multiple (max 10) Diameter peer hosts definition. Refer to "Format of Diameter node identity" section.
 Round-Robin connect to specified Diameter peers.
 Transport protocol parameter will be ignored.
@@ -58,7 +58,9 @@ IP address is resolved from hostname if hostname is specified.
 
 - `DICTIONARY`  
 Path for dictionary XML file.
-`dictionary.xml` file in current directory is used as default.
+Multiple file path can be configured by separating by `:`.
+Diameter base protocol messages and AVPs are pre-defined.
+If defined items are overlapped, last definition is available.
 
 - `TIMEOUT`  
 Duration of Diameter request timeout in second.

@@ -22,7 +22,7 @@ func main() {
 	}
 	if data, err := os.ReadFile("../dictionary/s6a.xml"); err != nil {
 		log.Fatalln("[ERROR]", "failed to open dictionary file:", err)
-	} else if _, err = dictionary.LoadDictionary(data); err != nil {
+	} else if err = dictionary.AppendDictionary(data); err != nil {
 		log.Fatalln("[ERROR]", "failed to read route file:", err)
 	}
 

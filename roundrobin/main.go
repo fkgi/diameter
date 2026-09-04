@@ -22,9 +22,7 @@ import (
 
 const apiPath = "/diamsg/v1/"
 
-var (
-	dicData dictionary.XDictionary
-)
+var ct = time.Second * 30
 
 func main() {
 	log.Printf("[INFO] booting Round-Robin debugger for Diameter <%s REV.%d>...",
@@ -44,46 +42,50 @@ func main() {
 		}
 	}
 
-	dict := os.Getenv("DICTIONARY")
-	if dict == "" {
-		dict = "dictionary.xml"
-	}
-	log.Println("[INFO]", "loading dictionary file", dict)
-	if data, err := os.ReadFile(dict); err != nil {
-		log.Fatalln("[ERROR]", "failed to open dictionary file:", err)
-	} else if dicData, err = dictionary.LoadDictionary(data); err != nil {
-		log.Fatalln("[ERROR]", "failed to read dictionary file:", err)
-	} else {
-		for _, vnd := range dicData.V {
-			buf := new(strings.Builder)
-			fmt.Fprintf(buf, "supported vendor: %s(%d)", vnd.N, vnd.I)
-			for _, app := range vnd.P {
-				fmt.Fprintf(buf, "\n | application: %s(%d)\n | | command:",
-					app.N, app.I)
-				for _, cmd := range app.C {
-					fmt.Fprintf(buf, " %s(%d),", cmd.N, cmd.I)
-				}
-			}
-			fmt.Fprint(buf, "\n | AVP:")
-			for _, avp := range vnd.V {
-				fmt.Fprintf(buf, " %s(%d/%s),", avp.N, avp.I, avp.T)
-			}
-			log.Println("[INFO]", buf)
+	for _, path := range strings.Split(os.Getenv("DICTIONARY"), ":") {
+		if path == "" {
+			continue
 		}
+		log.Println("[INFO]", "loading dictionary file", path)
+		if data, e := os.ReadFile(path); e != nil {
+			log.Fatalln("[ERROR]", "failed to open dictionary file:", e)
+		} else if e = dictionary.AppendDictionary(data); e != nil {
+			log.Fatalln("[ERROR]", "failed to open dictionary file:", e)
+		}
+	}
+	if e := dictionary.LoadDictionary(); e != nil {
+		log.Fatalln("[ERROR]", "failed to read dictionary data:", e)
+	}
+
+	for vid, vnd := range dictionary.Data {
+		buf := new(strings.Builder)
+		fmt.Fprintf(buf, "supported vendor: %s(%d)", vnd.Name, vid)
+		for aid, app := range vnd.Application {
+			fmt.Fprintf(buf, "\n | application: %s(%d)\n | | command:",
+				app.Name, aid)
+			for cid, cmd := range app.Command {
+				fmt.Fprintf(buf, " %s(%d),", cmd, cid)
+			}
+		}
+		fmt.Fprint(buf, "\n | AVP:")
+		for aid, avp := range vnd.AVP {
+			fmt.Fprintf(buf, " %s(%d/%s),", avp.Name, aid, avp.Type)
+		}
+		log.Println("[INFO]", buf)
 	}
 
 	if to := os.Getenv("TIMEOUT"); to == "" {
 	} else if t, e := strconv.Atoi(to); e != nil {
 		log.Printf("[INFO] parameter TIMEOUT is invalid, set to default %fs",
-			diameter.WDInterval.Seconds())
+			diameter.TransactionWait.Seconds())
 	} else {
-		diameter.WDInterval = time.Second * time.Duration(t)
+		diameter.TransactionWait = time.Second * time.Duration(t)
 	}
 
 	backend := "http://" + os.Getenv("BACKENDAPI_ADDR")
 	if u, e := url.Parse(backend); e != nil || u.Host == "" {
 		log.Println("[WARN]", "invalid HTTP backend host, Rx request will be rejected")
-		dicData.RegisterHandler(
+		dictionary.RegisterHandler(
 			func(path string, hdr http.Header, body io.Reader) (*http.Response, error) {
 				return nil, fmt.Errorf("no HTTP backend is defined")
 			},
@@ -94,10 +96,10 @@ func main() {
 		dt := t.Clone()
 		dt.MaxIdleConns = 0
 		dt.MaxIdleConnsPerHost = 1000
-		client := http.Client{Transport: dt, Timeout: diameter.WDInterval}
+		client := http.Client{Transport: dt, Timeout: diameter.TransactionWait}
 		defer client.CloseIdleConnections()
 
-		dicData.RegisterHandler(
+		dictionary.RegisterHandler(
 			func(path string, hdr http.Header, body io.Reader) (*http.Response, error) {
 				req, _ := http.NewRequest("POST", backend+path, body)
 				for k, l := range hdr {
@@ -250,7 +252,7 @@ func dial(f func() (net.Conn, error), a net.Addr, host, realm diameter.Identity)
 		select {
 		case <-block:
 			return
-		case <-time.After(time.Second * 30):
+		case <-time.After(ct):
 		}
 	}
 }

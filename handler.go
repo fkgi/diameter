@@ -88,7 +88,7 @@ func (c *Connection) send(m Message) Message {
 	ch := make(chan Message)
 	c.notify <- eventSndMsg{m, ch}
 
-	t := time.AfterFunc(WDInterval, func() {
+	t := time.AfterFunc(TransactionWait, func() {
 		c.notify <- eventRcvAns{m.GenerateAnswerBy(TooBusy)}
 	})
 	r, ok := <-ch

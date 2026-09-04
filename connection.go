@@ -10,11 +10,11 @@ var (
 	WDInterval = time.Second * 30 // WDInterval is watchdog send interval time
 	WDMaxSend  = 3                // WDMaxSend is watchdog expired count
 
+	TransactionWait = time.Second * 30 // TransactionWait is wait time for answer message
+
 	Host    Identity // Local diameter hostname
 	Realm   Identity // Local diameter realm
 	stateID uint32   // Local diameter state ID
-
-	OverwriteAddr []net.IP // Overwrite IP addresses of local host in CER
 )
 
 // Connection of Diameter
@@ -34,6 +34,8 @@ type Connection struct {
 	rcvQueue chan Message            // Receiving Request message queue
 
 	commonApp map[uint32]application
+
+	OverwriteAddr []net.IP // Overwrite IP addresses of local host in CER
 }
 
 func (c *Connection) DialAndServe(con net.Conn) (e error) {

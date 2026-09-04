@@ -9,17 +9,19 @@ import (
 	"github.com/fkgi/diameter"
 )
 
+// Post function is called when recieve Diameter request
 type Post func(path string, hdr http.Header, body io.Reader) (resp *http.Response, err error)
 
-func (d XDictionary) RegisterHandler(p Post, path string, rt diameter.Router) {
-	for _, vnd := range d.V {
-		if vnd.I == 0 {
+// RegisterHandler registers HTTP endpoints for the commands in the current dictionary.
+func RegisterHandler(p Post, path string, rt diameter.Router) {
+	for vid, vnd := range Data {
+		if vid == 0 {
 			continue
 		}
-		for _, app := range vnd.P {
-			for _, cmd := range app.C {
-				registerHandler(p, path+vnd.N+"/"+app.N+"/"+cmd.N,
-					cmd.I, app.I, vnd.I, rt)
+		for aid, app := range vnd.Application {
+			for cid, cmd := range app.Command {
+				registerHandler(p, path+vnd.Name+"/"+app.Name+"/"+cmd,
+					cid, aid, vid, rt)
 			}
 		}
 	}

@@ -12,18 +12,12 @@ import (
 func init() {
 	diameter.ConnectionUpNotify = func(c *diameter.Connection) {
 		buf := new(strings.Builder)
-		fmt.Fprintln(buf, "diameter connection up")
-		fmt.Fprintln(buf, "| local host/realm:", diameter.Host, "/", diameter.Realm)
-		fmt.Fprintln(buf, "| peer  host/realm:", c.Host, "/", c.Realm)
-		fmt.Fprint(buf, "| available application: ")
+		fmt.Fprint(buf, "diameter connection up")
+		fmt.Fprintf(buf, "\n| local host/realm: %s/%s", diameter.Host, diameter.Realm)
+		fmt.Fprintf(buf, "\n| peer  host/realm: %s/%s", c.Host, c.Realm)
+		fmt.Fprint(buf, "\n| available application: ")
 		for _, ap := range c.AvailableApplications() {
-			for _, v := range dicData.V {
-				for _, app := range v.P {
-					if app.I == ap {
-						fmt.Fprintf(buf, "%s(%d), ", app.N, ap)
-					}
-				}
-			}
+			fmt.Fprintf(buf, "%s(%d), ", dictionary.GetApplicationName(ap), ap)
 		}
 		log.Print("[INFO] ", buf)
 	}

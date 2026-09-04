@@ -7,6 +7,7 @@ import (
 	"github.com/fkgi/diameter"
 )
 
+// TraceMessageVarbose returns a human-readable representation of a Diameter message.
 func TraceMessageVarbose(prefix string, msg diameter.Message) string {
 	buf := new(strings.Builder)
 
@@ -85,4 +86,5 @@ func printAVP(prefix, name string, depth int, value any, buf *strings.Builder) {
 	}
 }
 
+// NotifyHandlerError is called when handling HTTP/Diameter message is failed
 var NotifyHandlerError func(proto, msg string) = nil

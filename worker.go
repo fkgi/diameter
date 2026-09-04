@@ -10,35 +10,36 @@ const (
 	maxWorkers = 65535 - minWorkers
 )
 
-var sharedQ = make(chan Message, maxWorkers)
-var activeWorkers = make(chan int, 1)
+var (
+	sharedQ       = make(chan Message, maxWorkers+minWorkers)
+	activeWorkers = make(chan int, 1)
+)
 
 func init() {
 	activeWorkers <- 0
-	worker := func() {
-		for c := 0; c < 500; {
-			if len(sharedQ) < minWorkers {
-				time.Sleep(time.Millisecond * 10)
-				c++
-				continue
-			}
-			if req, ok := <-sharedQ; !ok {
-				break
-			} else {
-				handleMsg(req)
-				c = 0
-			}
-		}
-		activeWorkers <- (<-activeWorkers - 1)
-	}
 	for range minWorkers {
 		go func() {
 			for req, ok := <-sharedQ; ok; req, ok = <-sharedQ {
 				a := <-activeWorkers
 				activeWorkers <- a
 				if len(sharedQ) > minWorkers && a < maxWorkers {
-					activeWorkers <- (<-activeWorkers + 1)
-					go worker()
+					go func() {
+						activeWorkers <- (<-activeWorkers + 1)
+						for c := 0; c < 500; {
+							if len(sharedQ) < minWorkers {
+								time.Sleep(time.Millisecond * 10)
+								c++
+								continue
+							}
+							if req, ok := <-sharedQ; !ok {
+								break
+							} else {
+								handleMsg(req)
+								c = 0
+							}
+						}
+						activeWorkers <- (<-activeWorkers - 1)
+					}()
 				}
 				handleMsg(req)
 			}

@@ -4,6 +4,7 @@ After=network-online.target
 
 [Service]
 WorkingDirectory=/usr/local/etc/roundrobin
+EnvironmentFile=-/usr/local/etc/roundrobin/config.env
 ExecStart=/usr/local/bin/roundrobin
 ExecStop=/bin/kill ${MAINPID}
 Restart=always

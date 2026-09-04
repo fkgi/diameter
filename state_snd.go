@@ -73,8 +73,8 @@ func (v eventConnect) exec(c *Connection) error {
 	SetOriginHost(Host).MarshalTo(buf)
 	SetOriginRealm(Realm).MarshalTo(buf)
 
-	if len(OverwriteAddr) != 0 {
-		for _, h := range OverwriteAddr {
+	if len(c.OverwriteAddr) != 0 {
+		for _, h := range c.OverwriteAddr {
 			setHostIPAddress(h).MarshalTo(buf)
 		}
 	} else {
@@ -117,7 +117,7 @@ func (v eventConnect) exec(c *Connection) error {
 		PeerName: c.Host, PeerRealm: c.Realm}
 
 	c.sndQueue[cer.HbHID] = make(chan Message)
-	c.wdTimer = time.AfterFunc(WDInterval, func() {
+	c.wdTimer = time.AfterFunc(TransactionWait, func() {
 		c.notify <- eventRcvCEA{cer.GenerateAnswerBy(UnableToDeliver)}
 	})
 
@@ -168,7 +168,7 @@ func (v eventWatchdog) exec(c *Connection) error {
 		PeerName: c.Host, PeerRealm: c.Realm}
 
 	c.sndQueue[dwr.HbHID] = make(chan Message)
-	c.wdTimer = time.AfterFunc(WDInterval, func() {
+	c.wdTimer = time.AfterFunc(TransactionWait, func() {
 		c.notify <- eventRcvDWA{dwr.GenerateAnswerBy(UnableToDeliver)}
 		c.notify <- eventWatchdog{}
 	})
@@ -231,7 +231,7 @@ func (v eventStop) exec(c *Connection) error {
 		PeerName: c.Host, PeerRealm: c.Realm}
 
 	c.sndQueue[dpr.HbHID] = make(chan Message)
-	c.wdTimer = time.AfterFunc(WDInterval, func() {
+	c.wdTimer = time.AfterFunc(TransactionWait, func() {
 		c.notify <- eventRcvDPA{dpr.GenerateAnswerBy(UnableToDeliver)}
 	})
 

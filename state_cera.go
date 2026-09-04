@@ -249,8 +249,8 @@ func (v eventRcvCER) exec(c *Connection) error {
 	SetOriginHost(Host).MarshalTo(buf)
 	SetOriginRealm(Realm).MarshalTo(buf)
 
-	if len(OverwriteAddr) != 0 {
-		for _, h := range OverwriteAddr {
+	if len(c.OverwriteAddr) != 0 {
+		for _, h := range c.OverwriteAddr {
 			setHostIPAddress(h).MarshalTo(buf)
 		}
 	} else {
