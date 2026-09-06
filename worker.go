@@ -2,12 +2,13 @@ package diameter
 
 import (
 	"bytes"
+	"math/rand/v2"
 	"time"
 )
 
 const (
-	minWorkers = 128
-	maxWorkers = 65535 - minWorkers
+	minWorkers = 100
+	maxWorkers = 20000 - minWorkers
 )
 
 var (
@@ -20,31 +21,45 @@ func init() {
 	for range minWorkers {
 		go func() {
 			for req, ok := <-sharedQ; ok; req, ok = <-sharedQ {
-				a := <-activeWorkers
-				activeWorkers <- a
-				if len(sharedQ) > minWorkers && a < maxWorkers {
-					go func() {
-						activeWorkers <- (<-activeWorkers + 1)
-						for c := 0; c < 500; {
-							if len(sharedQ) < minWorkers {
-								time.Sleep(time.Millisecond * 10)
-								c++
-								continue
-							}
-							if req, ok := <-sharedQ; !ok {
-								break
-							} else {
-								handleMsg(req)
-								c = 0
-							}
-						}
-						activeWorkers <- (<-activeWorkers - 1)
-					}()
-				}
 				handleMsg(req)
 			}
 		}()
 	}
+	go func() {
+		act := true
+		for act {
+			acl := len(sharedQ)
+			if acl < minWorkers/2 {
+				time.Sleep(time.Millisecond * 10)
+				continue
+			}
+
+			a := <-activeWorkers
+			if a+acl > maxWorkers {
+				acl = maxWorkers - a
+			}
+			a += acl
+			activeWorkers <- a
+
+			for range acl {
+				go func() {
+					for c := 0; c < 500; c++ {
+						if len(sharedQ) < minWorkers/2 {
+							time.Sleep(time.Millisecond * time.Duration(8+rand.IntN(4)))
+						} else if req, ok := <-sharedQ; !ok {
+							act = false
+							break
+						} else {
+							handleMsg(req)
+							c = 0
+						}
+					}
+					activeWorkers <- (<-activeWorkers - 1)
+				}()
+			}
+			time.Sleep(time.Millisecond * 10)
+		}
+	}()
 }
 
 func handleMsg(req Message) {

@@ -47,7 +47,7 @@ func conStateHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-var statistics = struct {
+type statistics struct {
 	RxReq     uint64 `json:"rx_request"`
 	TxDisc    uint64 `json:"tx_discard"`
 	TxAnsEtc  uint64 `json:"tx_etc"`
@@ -64,14 +64,91 @@ var statistics = struct {
 	RxAns3xxx uint64 `json:"rx_3xxx"`
 	RxAns4xxx uint64 `json:"rx_4xxx"`
 	RxAns5xxx uint64 `json:"rx_5xxx"`
-}{}
+}
+
+var stats = make(chan statistics, 1)
+
+func init() {
+	stats <- statistics{}
+}
 
 func statsHandler(w http.ResponseWriter, r *http.Request) {
-	if jd, e := json.Marshal(statistics); e != nil {
+	s := <-stats
+	stats <- s
+
+	if jd, e := json.Marshal(s); e != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write(jd)
 	}
+}
+
+func count(msg diameter.Message, dct diameter.Direction, err error) {
+	s := <-stats
+
+	if msg.FlgR {
+		if dct == diameter.Rx {
+			s.RxReq++
+			if _, ok := err.(diameter.RejectRxMessage); ok {
+				s.TxDisc++
+			}
+		} else {
+			s.TxReq++
+		}
+	} else {
+		var code uint32
+		if avps, e := msg.GetAVP(); e == nil {
+			for _, a := range avps {
+				switch a.Code {
+				case 268:
+					code, _ = diameter.GetResultCode(a)
+				case 297:
+					code, _ = diameter.GetResultCode(a)
+					code %= 10000
+				}
+				if code != 0 {
+					break
+				}
+			}
+		}
+		if dct == diameter.Rx {
+			if _, ok := err.(diameter.FailureAnswer); err != nil && !ok {
+				s.RxIvld++
+			} else if code < 1000 {
+				s.RxAnsEtc++
+			} else if code < 2000 {
+				s.RxAns1xxx++
+			} else if code < 3000 {
+				s.RxAns2xxx++
+			} else if code < 4000 {
+				s.RxAns3xxx++
+			} else if code < 5000 {
+				s.RxAns4xxx++
+			} else if code < 6000 {
+				s.RxAns5xxx++
+			} else {
+				s.RxAnsEtc++
+			}
+		} else {
+			if code < 1000 {
+				s.TxAnsEtc++
+			} else if code < 2000 {
+				s.TxAns1xxx++
+			} else if code < 3000 {
+				s.TxAns2xxx++
+			} else if code < 4000 {
+				s.TxAns3xxx++
+			} else if code < 5000 {
+				s.TxAns4xxx++
+			} else if code < 6000 {
+				s.TxAns5xxx++
+			} else {
+				s.TxAnsEtc++
+			}
+		}
+	}
+
+	stats <- s
 }

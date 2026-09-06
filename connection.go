@@ -56,11 +56,30 @@ func (c *Connection) ListenAndServe(con net.Conn) (e error) {
 }
 
 func (c *Connection) serve() error {
-	c.notify = make(chan stateEvent, 128)
+	c.notify = make(chan stateEvent, 65535)
 	c.sndQueue = make(map[uint32]chan Message, 65535)
 	c.rcvQueue = make(chan Message, 1024)
 	c.commonApp = make(map[uint32]application)
 
+	/*
+		go func() {
+			t := time.Tick(time.Second)
+			fmt.Println("notify,sndQ,rcvQ,shaQ,wkr")
+			for range t {
+				a := <-activeWorkers
+				activeWorkers <- a
+
+				buf := new(bytes.Buffer)
+				fmt.Fprint(buf, time.Now().Format("01/02 15:04:05.000"), ",")
+				fmt.Fprint(buf, len(c.notify), ",")
+				fmt.Fprint(buf, len(c.sndQueue), ",")
+				fmt.Fprint(buf, len(c.rcvQueue), ",")
+				fmt.Fprint(buf, len(sharedQ), ",")
+				fmt.Fprint(buf, a)
+				fmt.Println(buf.String())
+			}
+		}()
+	*/
 	go func() {
 		// read transport socket
 		for {

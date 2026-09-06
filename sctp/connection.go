@@ -93,7 +93,7 @@ func (c *SCTPConn) Write(b []byte) (n int, e error) {
 
 	for n, e = sctpSend(c.sock, b); e != nil; n, e = sctpSend(c.sock, b) {
 		if e == syscall.EAGAIN {
-			time.Sleep(time.Millisecond * 100)
+			time.Sleep(time.Millisecond)
 			continue
 		}
 		e = &net.OpError{
