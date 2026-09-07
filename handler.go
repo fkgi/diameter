@@ -85,8 +85,8 @@ func (c *Connection) send(m Message) Message {
 		return m.GenerateAnswerBy(UnableToDeliver)
 	}
 
-	ch := make(chan Message)
-	c.notify <- eventSndMsg{m, ch}
+	ch := make(chan Message, 10)
+	c.notify <- eventSndMsg{m, ch, time.Now()}
 
 	t := time.AfterFunc(TransactionWait, func() {
 		c.notify <- eventRcvAns{m.GenerateAnswerBy(TooBusy)}

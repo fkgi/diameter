@@ -187,7 +187,7 @@ func main() {
 	} else {
 		switch scheme {
 		case "sctp":
-			d, e := sctp.NewDaler(&sctp.SCTPAddr{IP: lips, Port: lport})
+			d, e := sctp.NewDialer(&sctp.SCTPAddr{IP: lips, Port: lport})
 			if e != nil {
 				log.Fatalln("[ERROR]", "failed to bind local SCTP port:", e)
 			}

@@ -3,6 +3,7 @@
 package sctp
 
 import (
+	"time"
 	"unsafe"
 )
 
@@ -34,7 +35,7 @@ func sctpConnectx(int, []byte) (int, error) {
 	return 0, nil
 }
 
-func sctpSend(int, []byte) (int, error) {
+func sctpSend(int, []byte, time.Time) (int, error) {
 	return 0, nil
 }
 

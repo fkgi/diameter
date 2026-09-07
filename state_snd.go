@@ -2,11 +2,14 @@ package diameter
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
 	"time"
 )
+
+const busyTO = time.Millisecond * 100
 
 type conState int
 
@@ -173,7 +176,9 @@ func (v eventWatchdog) exec(c *Connection) error {
 		c.notify <- eventWatchdog{}
 	})
 
+	c.conn.SetWriteDeadline(time.Now().Add(busyTO))
 	err := dwr.MarshalTo(c.conn)
+	c.conn.SetWriteDeadline(time.Time{})
 	if err != nil {
 		err = TransportTxError{err: err}
 		c.notify <- eventPeerDisc{reason: err}
@@ -235,7 +240,9 @@ func (v eventStop) exec(c *Connection) error {
 		c.notify <- eventRcvDPA{dpr.GenerateAnswerBy(UnableToDeliver)}
 	})
 
+	c.conn.SetWriteDeadline(time.Now().Add(busyTO))
 	err := dpr.MarshalTo(c.conn)
+	c.conn.SetWriteDeadline(time.Time{})
 	if err != nil {
 		err = TransportTxError{err: err}
 		c.notify <- eventPeerDisc{reason: err}
@@ -279,6 +286,7 @@ func (v eventPeerDisc) exec(c *Connection) error {
 type eventSndMsg struct {
 	m  Message
 	ch chan Message
+	ts time.Time
 }
 
 func (eventSndMsg) String() string {
@@ -293,17 +301,33 @@ func (v eventSndMsg) exec(c *Connection) error {
 	v.m.PeerName = c.Host
 	v.m.PeerRealm = c.Realm
 
-	if v.ch != nil {
-		c.sndQueue[v.m.HbHID] = v.ch
-	}
-	err := v.m.MarshalTo(c.conn)
-	if err != nil {
-		if v.ch != nil {
-			delete(c.sndQueue, v.m.HbHID)
-			v.ch <- v.m.GenerateAnswerBy(UnableToDeliver)
+	var err error
+	if v.ch == nil {
+		// Answer message handling
+		if err = v.m.MarshalTo(c.conn); err != nil {
+			err = TransportTxError{err: err}
 		}
-		err = TransportTxError{err: err}
-		//c.notify <- eventPeerDisc{reason: err}
+	} else if time.Since(v.ts) > TransactionWait {
+		// timedout while waiting event queue
+		v.ch <- v.m.GenerateAnswerBy(TooBusy)
+		err = TransportTxError{
+			err: errors.New("timeout while waiting event queue")}
+	} else {
+		// Request message handling
+		c.sndQueue[v.m.HbHID] = v.ch
+		c.conn.SetWriteDeadline(time.Now().Add(busyTO))
+		err = v.m.MarshalTo(c.conn)
+		c.conn.SetWriteDeadline(time.Time{})
+		if err != nil {
+			delete(c.sndQueue, v.m.HbHID)
+			if e, ok := err.(*net.OpError); ok && e.Timeout() {
+				v.ch <- v.m.GenerateAnswerBy(TooBusy)
+			} else {
+				v.ch <- v.m.GenerateAnswerBy(UnableToDeliver)
+			}
+			err = TransportTxError{err: err}
+			//c.notify <- eventPeerDisc{reason: err}
+		}
 	}
 
 	if TraceMessage != nil {

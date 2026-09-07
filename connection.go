@@ -38,6 +38,7 @@ type Connection struct {
 	OverwriteAddr []net.IP // Overwrite IP addresses of local host in CER
 }
 
+// DialAndServe start handling Diameter connection as initiator
 func (c *Connection) DialAndServe(con net.Conn) (e error) {
 	if c.conn != nil || c.state != closed {
 		return errors.New("reusing connection is not acceptable")
@@ -46,6 +47,7 @@ func (c *Connection) DialAndServe(con net.Conn) (e error) {
 	return c.serve()
 }
 
+// ListenAndServe start handling Diameter connection as responder
 func (c *Connection) ListenAndServe(con net.Conn) (e error) {
 	if c.conn != nil || c.state != closed {
 		return errors.New("reusing connection is not acceptable")
@@ -61,25 +63,6 @@ func (c *Connection) serve() error {
 	c.rcvQueue = make(chan Message, 1024)
 	c.commonApp = make(map[uint32]application)
 
-	/*
-		go func() {
-			t := time.Tick(time.Second)
-			fmt.Println("notify,sndQ,rcvQ,shaQ,wkr")
-			for range t {
-				a := <-activeWorkers
-				activeWorkers <- a
-
-				buf := new(bytes.Buffer)
-				fmt.Fprint(buf, time.Now().Format("01/02 15:04:05.000"), ",")
-				fmt.Fprint(buf, len(c.notify), ",")
-				fmt.Fprint(buf, len(c.sndQueue), ",")
-				fmt.Fprint(buf, len(c.rcvQueue), ",")
-				fmt.Fprint(buf, len(sharedQ), ",")
-				fmt.Fprint(buf, a)
-				fmt.Println(buf.String())
-			}
-		}()
-	*/
 	go func() {
 		// read transport socket
 		for {

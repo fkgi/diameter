@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"io"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
@@ -85,8 +86,16 @@ func sockListen(fd int) error {
 }
 
 func sockAccept(fd int) (nfd int, e error) {
-	nfd, _, e = syscall.Accept(fd)
-	return
+	for {
+		switch nfd, _, e = syscall.Accept(fd); e {
+		case syscall.EAGAIN:
+			time.Sleep(time.Millisecond * 100)
+		case syscall.EINTR:
+		default:
+			e = syscall.SetNonblock(nfd, true)
+			return
+		}
+	}
 }
 
 func sockClose(fd int) error {
@@ -115,37 +124,20 @@ func sctpConnectx(fd int, addr []byte) (int, error) {
 		uintptr(unsafe.Pointer(&addr[0])),
 		uintptr(len(addr)),
 		0)
-	/*
-		if e == syscall.EINPROGRESS {
-			fdset := &syscall.FdSet{}
-			fdset.Bits[fd/64] |= 1 << (uint(fd) % 64)
-			to := &syscall.Timeval{Sec: 5, Usec: 0}
-
-			n, e := syscall.Select(fd+1, nil, fdset, nil, to)
-			if e != nil {
-				return 0, e
-			} else if n == 0 {
-				return 0, errors.New("timeout")
-			} else if n, e = syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_ERROR); e != nil {
-				return 0, e
-			} else if n != 0 {
-				return 0, syscall.Errno(n)
-			}
-		} else if e != 0 {
-	*/
 	if e != 0 {
 		return 0, e
 	}
 
 	peel := struct {
-		aid int32
-		sd  int32
-	}{aid: int32(t)}
+		aid  int32
+		sd   int32
+		flag int
+	}{aid: int32(t), flag: syscall.SOCK_NONBLOCK}
 	l := unsafe.Sizeof(peel)
 	if _, _, e := syscall.Syscall6(syscall.SYS_GETSOCKOPT,
 		uintptr(fd),
 		syscall.IPPROTO_SCTP,
-		102, // SCTP_SOCKOPT_PEELOFF
+		122, // SCTP_SOCKOPT_PEELOFF_FLAGS
 		uintptr(unsafe.Pointer(&peel)),
 		uintptr(unsafe.Pointer(&l)),
 		0); e != 0 {
@@ -154,7 +146,7 @@ func sctpConnectx(fd int, addr []byte) (int, error) {
 	return int(peel.sd), nil
 }
 
-func sctpSend(fd int, b []byte) (int, error) {
+func sctpSend(fd int, b []byte, t time.Time) (n int, e error) {
 	hdr := &syscall.Cmsghdr{
 		Level: syscall.IPPROTO_SCTP,
 		Type:  2, //SCTP_SNDINFO
@@ -169,15 +161,52 @@ func sctpSend(fd int, b []byte) (int, error) {
 	binary.Write(buf, binary.LittleEndian, uint32(0))      // context(4 byte) = empty
 	binary.Write(buf, binary.LittleEndian, uint32(0))      // assoc ID(4 byte)
 
-	return syscall.SendmsgN(fd, b, buf.Bytes(), nil, syscall.MSG_DONTWAIT|syscall.MSG_EOR)
+	for {
+		n, e = syscall.SendmsgN(
+			fd, b, buf.Bytes(), nil, syscall.MSG_DONTWAIT|syscall.MSG_EOR)
+		switch e {
+		case syscall.EAGAIN:
+			if !t.IsZero() && time.Now().After(t) {
+				e = busy{}
+				return
+			}
+			time.Sleep(time.Millisecond)
+		default:
+			return
+		}
+	}
 }
 
-func sctpRecvmsg(fd int, b []byte) (int, error) {
-	n, on, _, _, e := syscall.Recvmsg(fd, b, make([]byte, syscall.CmsgSpace(32)), 0)
-	if e == nil && n <= 0 && on <= 0 {
-		e = io.EOF
+type busy struct{}
+
+func (busy) Error() string {
+	return syscall.EAGAIN.Error()
+}
+func (busy) Timeout() bool {
+	return true
+}
+func (busy) Temporary() bool {
+	return true
+}
+
+func sctpRecvmsg(fd int, b []byte) (n int, e error) {
+	var on int
+	for {
+		n, on, _, _, e = syscall.Recvmsg(
+			fd, b, make([]byte, syscall.CmsgSpace(32)), 0)
+		switch e {
+		case nil:
+			if n <= 0 && on <= 0 {
+				e = io.EOF
+			}
+			return
+		case syscall.EAGAIN:
+			time.Sleep(time.Millisecond)
+		case syscall.EINTR:
+		default:
+			return
+		}
 	}
-	return n, e
 }
 
 func sctpGetladdrs(fd int) (unsafe.Pointer, int, error) {

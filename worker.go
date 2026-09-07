@@ -74,7 +74,7 @@ func handleMsg(req Message) {
 		ans.FlgR = false
 		ans.HbHID = req.HbHID
 		ans.EtEID = req.EtEID
-		req.notify <- eventSndMsg{ans, nil}
+		req.notify <- eventSndMsg{ans, nil, time.Now()}
 		return
 	}
 
@@ -91,7 +91,7 @@ func handleMsg(req Message) {
 				FlgR: false, FlgP: req.FlgP, FlgE: true, FlgT: false,
 				Code: req.Code, AppID: req.AppID,
 				HbHID: req.HbHID, EtEID: req.EtEID,
-				AVPs: buf.Bytes()}, nil}
+				AVPs: buf.Bytes()}, nil, time.Now()}
 			return
 		}
 		avp = append(avp, a)
@@ -107,6 +107,6 @@ func handleMsg(req Message) {
 			FlgR: false, FlgP: req.FlgP, FlgE: req.FlgE, FlgT: false,
 			Code: req.Code, AppID: req.AppID,
 			HbHID: req.HbHID, EtEID: req.EtEID,
-			AVPs: buf.Bytes()}, nil}
+			AVPs: buf.Bytes()}, nil, time.Now()}
 	}
 }

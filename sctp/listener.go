@@ -3,8 +3,6 @@ package sctp
 import (
 	"fmt"
 	"net"
-	"syscall"
-	"time"
 )
 
 // SCTPListener is a SCTP network listener.
@@ -73,18 +71,7 @@ func (l *SCTPListener) Accept() (net.Conn, error) {
 // AcceptSCTP accepts the next incoming call and returns the new connection.
 func (l *SCTPListener) AcceptSCTP() (c *SCTPConn, e error) {
 	c = &SCTPConn{}
-	for c.sock, e = sockAccept(l.sock); e != nil; c.sock, e = sockAccept(l.sock) {
-		switch e {
-		case syscall.EAGAIN:
-			time.Sleep(time.Millisecond * 100)
-			continue
-		case syscall.EINTR:
-			continue
-		}
-		break
-	}
-
-	if e != nil {
+	if c.sock, e = sockAccept(l.sock); e != nil {
 		e = &net.OpError{Op: "accept", Net: "sctp", Addr: l.Addr(), Err: e}
 	}
 	return

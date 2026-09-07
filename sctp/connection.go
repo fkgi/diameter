@@ -9,14 +9,17 @@ import (
 
 // SCTPConn is an implementation of the Conn interface for SCTP network connections.
 type SCTPConn struct {
-	sock int
+	sock      int
+	wDeadline time.Time
 }
 
+// Dialer make one-to-many SCTP connection
 type Dialer struct {
 	sock int
 }
 
-func NewDaler(laddr *SCTPAddr) (d *Dialer, e error) {
+// NewDialer bind local interface for SCTP connection
+func NewDialer(laddr *SCTPAddr) (d *Dialer, e error) {
 	d = &Dialer{}
 	if laddr == nil {
 		e = fmt.Errorf("no local address")
@@ -40,6 +43,7 @@ func NewDaler(laddr *SCTPAddr) (d *Dialer, e error) {
 	return
 }
 
+// Addr return local address
 func (d *Dialer) Addr() net.Addr {
 	ptr, n, e := sctpGetladdrs(d.sock)
 	if e != nil {
@@ -50,6 +54,7 @@ func (d *Dialer) Addr() net.Addr {
 	return resolveFromRawAddr(ptr, n)
 }
 
+// Dial to new peer and make new SCTP connection
 func (d *Dialer) Dial(raddr *SCTPAddr) (c *SCTPConn, e error) {
 	if raddr == nil {
 		e = fmt.Errorf("nil peer address")
@@ -64,6 +69,7 @@ func (d *Dialer) Dial(raddr *SCTPAddr) (c *SCTPConn, e error) {
 	return
 }
 
+// Close localport of this dialer
 func (d *Dialer) Close() (e error) {
 	return sockClose(d.sock)
 }
@@ -72,7 +78,7 @@ func (d *Dialer) Close() (e error) {
 // to the remote address raddr.
 func DialSCTP(laddr, raddr *SCTPAddr) (c *SCTPConn, e error) {
 	var d *Dialer
-	if d, e = NewDaler(laddr); e == nil {
+	if d, e = NewDialer(laddr); e == nil {
 		c, e = d.Dial(raddr)
 	}
 	return
@@ -90,16 +96,10 @@ func (c *SCTPConn) Read(b []byte) (n int, e error) {
 func (c *SCTPConn) Write(b []byte) (n int, e error) {
 	buf := make([]byte, len(b))
 	copy(buf, b)
-
-	for n, e = sctpSend(c.sock, b); e != nil; n, e = sctpSend(c.sock, b) {
-		if e == syscall.EAGAIN {
-			time.Sleep(time.Millisecond)
-			continue
-		}
+	if n, e = sctpSend(c.sock, b, c.wDeadline); e != nil {
 		e = &net.OpError{
 			Op: "write", Net: "sctp",
 			Source: c.LocalAddr(), Addr: c.RemoteAddr(), Err: e}
-		break
 	}
 	return
 }
@@ -146,7 +146,8 @@ func (c *SCTPConn) SetReadDeadline(t time.Time) error {
 
 // SetWriteDeadline implements the Conn SetWriteDeadline method.
 func (c *SCTPConn) SetWriteDeadline(t time.Time) error {
-	return syscall.EOPNOTSUPP
+	c.wDeadline = t
+	return nil
 }
 
 /*

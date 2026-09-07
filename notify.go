@@ -61,6 +61,11 @@ func (c *Connection) State() string {
 	return c.state.String()
 }
 
+// EventQueue returns length of event queue
+func (c *Connection) EventQueue() int {
+	return len(c.notify)
+}
+
 // AvailableApplications returns supported application list
 func (c *Connection) AvailableApplications() []uint32 {
 	ret := []uint32{}
