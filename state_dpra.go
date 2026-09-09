@@ -145,7 +145,7 @@ func (v eventRcvDPR) exec(c *Connection) error {
 	} else if err == nil {
 		c.state = closing
 		c.wdTimer.Stop()
-		c.wdTimer = time.AfterFunc(WDInterval, func() {
+		c.wdTimer = time.AfterFunc(TransactionWait, func() {
 			c.notify <- eventPeerDisc{}
 		})
 	}

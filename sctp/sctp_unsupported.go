@@ -39,7 +39,7 @@ func sctpSend(int, []byte, time.Time) (int, error) {
 	return 0, nil
 }
 
-func sctpRecvmsg(int, []byte) (int, error) {
+func sctpRecvmsg(int, []byte, time.Time) (int, error) {
 	return 0, nil
 }
 

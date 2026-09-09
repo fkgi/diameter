@@ -7,7 +7,9 @@ import (
 
 // SCTPListener is a SCTP network listener.
 type SCTPListener struct {
-	sock int
+	sock  int
+	rPoll chan any
+	cPoll chan any
 }
 
 // ListenSCTP announces on the SCTP address laddr
@@ -51,9 +53,9 @@ func ListenSCTP(laddr *SCTPAddr) (l *SCTPListener, e error) {
 	// bind SCTP connection
 	if e != nil {
 	} else if e = sctpBindx(l.sock, laddr.rawBytes()); e != nil {
-		_ = sockClose(l.sock)
-	} else {
-		e = sockListen(l.sock)
+		sockClose(l.sock)
+	} else if e = sockListen(l); e != nil {
+		sockClose(l.sock)
 	}
 
 	if e != nil {
@@ -71,7 +73,11 @@ func (l *SCTPListener) Accept() (net.Conn, error) {
 // AcceptSCTP accepts the next incoming call and returns the new connection.
 func (l *SCTPListener) AcceptSCTP() (c *SCTPConn, e error) {
 	c = &SCTPConn{}
-	if c.sock, e = sockAccept(l.sock); e != nil {
+	if c.sock, e = sockAccept(l); e != nil {
+	} else if e = registerPoll(c); e != nil {
+		sockClose(c.sock)
+	}
+	if e != nil {
 		e = &net.OpError{Op: "accept", Net: "sctp", Addr: l.Addr(), Err: e}
 	}
 	return
@@ -79,7 +85,9 @@ func (l *SCTPListener) AcceptSCTP() (c *SCTPConn, e error) {
 
 // Close stops listening on the SCTP address.
 func (l *SCTPListener) Close() (e error) {
-	return sockClose(l.sock)
+	e = sockClose(l.sock)
+	l.cPoll <- nil
+	return e
 }
 
 // Addr returns the listener's network address, a *SCTPAddr.
