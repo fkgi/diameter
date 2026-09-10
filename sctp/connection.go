@@ -92,6 +92,7 @@ func (c *SCTPConn) Read(b []byte) (n int, e error) {
 		e = &net.OpError{
 			Op: "read", Net: "sctp",
 			Source: c.LocalAddr(), Addr: c.RemoteAddr(), Err: e}
+		n = 0
 	}
 	return
 }
@@ -103,6 +104,7 @@ func (c *SCTPConn) Write(b []byte) (n int, e error) {
 		e = &net.OpError{
 			Op: "write", Net: "sctp",
 			Source: c.LocalAddr(), Addr: c.RemoteAddr(), Err: e}
+		n = 0
 	}
 	return
 }

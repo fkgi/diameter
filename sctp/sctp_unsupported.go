@@ -3,9 +3,12 @@
 package sctp
 
 import (
-	"time"
 	"unsafe"
 )
+
+func registerPoll(*SCTPConn) error {
+	return nil
+}
 
 func sockOpenV4(bool) (int, error) {
 	return 0, nil
@@ -15,11 +18,11 @@ func sockOpenV6(bool) (int, error) {
 	return 0, nil
 }
 
-func sockListen(int) error {
+func sockListen(*SCTPListener) error {
 	return nil
 }
 
-func sockAccept(int) (int, error) {
+func sockAccept(*SCTPListener) (int, error) {
 	return 0, nil
 }
 
@@ -35,11 +38,11 @@ func sctpConnectx(int, []byte) (int, error) {
 	return 0, nil
 }
 
-func sctpSend(int, []byte, time.Time) (int, error) {
+func sctpSend(*SCTPConn, []byte) (int, error) {
 	return 0, nil
 }
 
-func sctpRecvmsg(int, []byte, time.Time) (int, error) {
+func sctpRecvmsg(*SCTPConn, []byte) (int, error) {
 	return 0, nil
 }
 

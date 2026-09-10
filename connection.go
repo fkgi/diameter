@@ -1,6 +1,7 @@
 package diameter
 
 import (
+	"bufio"
 	"errors"
 	"net"
 	"time"
@@ -65,9 +66,10 @@ func (c *Connection) serve() error {
 
 	go func() {
 		// read transport socket
+		r := bufio.NewReader(c.conn)
 		for {
 			m := Message{}
-			if err := m.UnmarshalFrom(c.conn); err != nil {
+			if err := m.UnmarshalFrom(r); err != nil {
 				c.notify <- eventPeerDisc{reason: err}
 				break
 			}

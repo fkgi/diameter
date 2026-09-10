@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	minWorkers = 100
+	minWorkers = 10
 	maxWorkers = 20000 - minWorkers
 )
 

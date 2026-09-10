@@ -44,6 +44,11 @@ func Handle(code, appID, venID uint32, h Handler, rt Router) Handler {
 			err = errors.New("no route found")
 		} else if c := rt(m); c == nil {
 			err = errors.New("no route found")
+		} else if len(c.notify) > int(TransactionWait/busyTO*4/5) {
+			return true, []AVP{
+				SetResultCode(TooBusy),
+				SetOriginHost(Host),
+				SetOriginRealm(Realm)}
 		} else {
 			m = c.send(m)
 			avp, err = m.GetAVP()

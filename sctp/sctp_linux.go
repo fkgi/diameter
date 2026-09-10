@@ -92,7 +92,7 @@ func eventINOUT(fd int) *syscall.EpollEvent {
 }
 
 func registerPoll(c *SCTPConn) (e error) {
-	type opt struct {
+	event := struct {
 		dataIo          uint8
 		association     uint8
 		address         uint8
@@ -103,36 +103,38 @@ func registerPoll(c *SCTPConn) (e error) {
 		adaptationLayer uint8
 		authentication  uint8
 		senderDry       uint8
-	}
+	}{
+		association: 1}
 
-	event := opt{
-		dataIo:          0,
-		association:     1,
-		address:         0,
-		sendFailed:      0,
-		peerError:       0,
-		shutdown:        0,
-		partialDelivery: 0,
-		adaptationLayer: 0,
-		authentication:  0,
-		senderDry:       0}
+	/*
+		event := struct {
+			assocID uint32 // sctp_assoc_t
+			seType  uint16 // uint16_t
+			seOn    uint16 // uint8_t + padding
+		}{
+			assocID: 0, // SCTP_CURRENT_ASSOC
+			seType:  1, // SCTP_ASSOC_CHANGE
+			seOn:    1} // on
+	*/
 
 	if _, _, ne := syscall.Syscall6(
 		syscall.SYS_SETSOCKOPT,
 		uintptr(c.sock),
-		132, // SOL_SCTP
-		11,  // SCTP_EVENTS
+		syscall.IPPROTO_SCTP,
+		// 127, // SCTP_EVENT
+		11, // SCTP_EVENTS
 		uintptr(unsafe.Pointer(&event)),
 		uintptr(unsafe.Sizeof(event)),
 		0); ne != 0 {
+		e = ne
 	} else if e = syscall.EpollCtl(
 		epfd,
 		syscall.EPOLL_CTL_ADD,
 		c.sock,
 		eventINOUT(c.sock)); e != nil {
 	} else {
-		c.wPoll = make(chan any, 128)
-		c.rPoll = make(chan any, 128)
+		c.wPoll = make(chan any, 16)
+		c.rPoll = make(chan any, 16)
 		cs := <-cmap
 		cs[int32(c.sock)] = c
 		cmap <- cs
@@ -177,11 +179,11 @@ func sockListen(l *SCTPListener) (e error) {
 		l.sock,
 		eventIN(l.sock)); e != nil {
 	} else {
-		l.rPoll = make(chan any, 128)
+		l.rPoll = make(chan any, 16)
 		l.cPoll = make(chan any, 1)
 		cs := <-cmap
 		cs[int32(l.sock)] = &SCTPConn{
-			sock: l.sock, rPoll: l.rPoll, wPoll: make(chan any, 1)}
+			sock: l.sock, rPoll: l.rPoll, wPoll: make(chan any, 16)}
 		cmap <- cs
 	}
 	return
@@ -312,12 +314,12 @@ func sctpRecvmsg(c *SCTPConn, b []byte) (n int, e error) {
 	for {
 		n, on, f, _, e = syscall.Recvmsg(
 			c.sock, b, make([]byte, syscall.CmsgSpace(32)), 0)
-
 		switch e {
 		case nil:
-			if f&0x8000 != 0 {
-				if b[0] == 0x01 && b[1] == 0x80 &&
+			if f&0x8000 != 0 { // MSG_NOTIFICATION
+				if b[1] == 0x80 && b[0] == 0x01 && // SCTP_ASSOC_CHANGE
 					(b[8] == 0x03 || b[8] == 0x01) {
+					// SCTP_COMM_LOST | SCTP_SHUTDOWN_COMP
 					cs := <-cmap
 					delete(cs, int32(c.sock))
 					cmap <- cs
