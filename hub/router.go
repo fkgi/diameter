@@ -99,7 +99,8 @@ func getDestination(m diameter.Message) (peers []diameter.Identity) {
 			avps = append(avps, a)
 		}
 	}
-	root, _ := dictionary.DecodeAVPs(avps)
+	// root, _ := dictionary.DecodeAVPs(avps)
+	root := map[string]any{}
 
 	peers = []diameter.Identity{}
 	for _, route := range routes {

@@ -96,7 +96,12 @@ func main() {
 		dt := t.Clone()
 		dt.MaxIdleConns = 0
 		dt.MaxIdleConnsPerHost = 1000
-		client := http.Client{Transport: dt, Timeout: diameter.TransactionWait}
+		client := http.Client{
+			Transport: dt,
+			Timeout:   diameter.TransactionWait,
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+				return http.ErrUseLastResponse
+			}}
 		defer client.CloseIdleConnections()
 
 		dictionary.RegisterHandler(

@@ -24,8 +24,15 @@ func EncodeMessage(name string) (m diameter.Message, e error) {
 	return
 }
 
-// EncodeAVPs encodes a map of dictionary AVP names and values into Diameter AVPs.
-func EncodeAVPs(d map[string]any) ([]diameter.AVP, error) {
+// EncodeAVP encodes a value using the dictionary definition for an AVP name.
+func EncodeAVP(name string, value any) (diameter.AVP, error) {
+	if f, ok := encAVPs[name]; ok {
+		return f(value)
+	}
+	return diameter.AVP{}, errors.New("unknown AVP name")
+}
+
+func encodeAVPs(d map[string]any) ([]diameter.AVP, error) {
 	avps := map[uint32][]diameter.AVP{}
 	codes := make([]uint32, 0, 20)
 	for k, v := range d {
@@ -70,14 +77,6 @@ func EncodeAVPs(d map[string]any) ([]diameter.AVP, error) {
 }
 
 var order = []uint32{263, 301, 260, 268, 298, 277, 264, 296, 293, 283}
-
-// EncodeAVP encodes a value using the dictionary definition for an AVP name.
-func EncodeAVP(name string, value any) (diameter.AVP, error) {
-	if f, ok := encAVPs[name]; ok {
-		return f(value)
-	}
-	return diameter.AVP{}, errors.New("unknown AVP name")
-}
 
 func encOctetString(v any, avp *diameter.AVP) error {
 	if s, ok := v.(string); !ok {

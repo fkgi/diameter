@@ -13,16 +13,32 @@ HTTP REST request/answer must have specific format JSON document. Dictionary fil
 
 <img width="500" alt="overview" src="https://github.com/user-attachments/assets/96ab1303-c168-4f45-aad2-a478e3c7006f" />
 
-# How to run Round-Robin
+Round-Robin can connect to multiple peer node.
+But there is no routing function. Round-Robin select destination only by loadshare.
+
+## Features
+- Control Diameter message sending/receiving via HTTP API
+- Support for Diameter transaction
+- Support any Diameter Application interfaces by dictionary
+- APIs for status and statistics
+- SCTP multi-homing support
+
+## Build
+```sh
+cd roundrobin
+go build -o roundrobin
+```
+
+# Usage
 No commandline options. Configuration parameters are indicated by environment variable.
 
-```
+```sh
 roundrobin
 ```
 
 Commandline example
 
-```
+```sh
 export LOCAL_HOSTPORT=sctp://mme.epc.mcc99.mnc999.3gppnetwork.org:3868
 export PEER_HOSTPORT0=dra1.epc.mcc99.mnc999.3gppnetwork.org
 export PEER_HOSTPORT1=dra2.epc.mcc99.mnc999.3gppnetwork.org
@@ -275,3 +291,5 @@ If peer HTTP server returns 503 Service Unabailable response, Round-Robbin disca
 ## Others
 If peer HTTP server returns any other response, Round-Robbin make Diameter response with 5012 UNABLE_TO_COMPLY response code..
 
+# License
+MIT

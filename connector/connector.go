@@ -17,12 +17,12 @@ func Dial(la, pa string) (con net.Conn, host, realm diameter.Identity, err error
 	var pport, lport int
 	var scheme string
 
-	scheme, host, realm, pips, pport, err = ResolveIdentity(pa)
+	_, host, realm, pips, pport, err = ResolveIdentity(pa)
 	if err != nil {
 		err = fmt.Errorf("invalid peer identity: %s", err)
 		return
 	}
-	_, diameter.Host, diameter.Realm, lips, lport, err = ResolveIdentity(la)
+	scheme, diameter.Host, diameter.Realm, lips, lport, err = ResolveIdentity(la)
 	if err != nil {
 		err = fmt.Errorf("invalid local identity: %s", err)
 		return
@@ -68,12 +68,12 @@ func Accept(la, pa string) (con net.Conn, host, realm diameter.Identity, err err
 	var pport, lport int
 	var scheme string
 
-	scheme, host, realm, pips, pport, err = ResolveIdentity(pa)
+	_, host, realm, pips, pport, err = ResolveIdentity(pa)
 	if err != nil {
 		err = fmt.Errorf("invalid peer identity: %s", err)
 		return
 	}
-	_, diameter.Host, diameter.Realm, lips, lport, err = ResolveIdentity(la)
+	scheme, diameter.Host, diameter.Realm, lips, lport, err = ResolveIdentity(la)
 	if err != nil {
 		err = fmt.Errorf("invalid local identity: %s", err)
 		return

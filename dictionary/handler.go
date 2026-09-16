@@ -40,7 +40,7 @@ func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Rout
 			}
 		}
 
-		data, e := DecodeAVPs(avps)
+		data, e := decodeAVPs(avps)
 		if e != nil {
 			return diameterErr(avps, diameter.InvalidAvpValue,
 				"unable to decode Diameter AVP by dictionary: "+e.Error())
@@ -81,7 +81,7 @@ func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Rout
 			return diameterErr(avps, diameter.UnableToComply,
 				"invalid JSON data of AVP: "+e.Error())
 		}
-		avps, e = EncodeAVPs(data)
+		avps, e = encodeAVPs(data)
 		if e != nil {
 			return diameterErr(avps, diameter.UnableToComply,
 				"unable to encode Diameter AVP by dictionary: "+e.Error())
@@ -119,7 +119,7 @@ func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Rout
 				http.StatusBadRequest, w)
 			return
 		}
-		avps, e := EncodeAVPs(data)
+		avps, e := encodeAVPs(data)
 		if e != nil {
 			httpErr("unable to encode Diameter AVP by dictionary", e.Error(),
 				http.StatusBadRequest, w)
@@ -155,7 +155,7 @@ func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Rout
 		}
 		_, avps = handleTx(retry, avps)
 
-		if data, e = DecodeAVPs(avps); e != nil {
+		if data, e = decodeAVPs(avps); e != nil {
 			httpErr("unable to decode Diameter AVP by dictionary", e.Error(),
 				http.StatusBadRequest, w)
 			return

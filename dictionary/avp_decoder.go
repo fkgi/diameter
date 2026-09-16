@@ -19,8 +19,15 @@ func DecodeMessage(m diameter.Message) (string, error) {
 	return fmt.Sprintf("UNKNOWN(%d)", m.Code), nil
 }
 
-// DecodeAVPs decodes Diameter AVPs into a map keyed by dictionary AVP names.
-func DecodeAVPs(avps []diameter.AVP) (map[string]any, error) {
+// DecodeAVP decodes a Diameter AVP into its dictionary name and value.
+func DecodeAVP(a diameter.AVP) (string, any, error) {
+	if f, ok := decAVPs[(uint64(a.VendorID)<<32)|uint64(a.Code)]; ok {
+		return f(a)
+	}
+	return fmt.Sprintf("UNKNOWN(%d)", a.Code), hex.EncodeToString(a.Data), nil
+}
+
+func decodeAVPs(avps []diameter.AVP) (map[string]any, error) {
 	result := make(map[string][]any)
 	for _, a := range avps {
 		n, v, e := DecodeAVP(a)
@@ -43,14 +50,6 @@ func DecodeAVPs(avps []diameter.AVP) (map[string]any, error) {
 		}
 	}
 	return compat, nil
-}
-
-// DecodeAVP decodes a Diameter AVP into its dictionary name and value.
-func DecodeAVP(a diameter.AVP) (string, any, error) {
-	if f, ok := decAVPs[(uint64(a.VendorID)<<32)|uint64(a.Code)]; ok {
-		return f(a)
-	}
-	return fmt.Sprintf("UNKNOWN(%d)", a.Code), hex.EncodeToString(a.Data), nil
 }
 
 func decOctetString(avp *diameter.AVP) (any, error) {
