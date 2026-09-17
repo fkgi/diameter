@@ -211,7 +211,7 @@ type eventStop struct {
 }
 
 func (v eventStop) String() string {
-	return fmt.Sprintf("Stop(%x)", v.cause)
+	return "Stop"
 }
 
 func (v eventStop) exec(c *Connection) error {
@@ -260,7 +260,11 @@ type eventPeerDisc struct {
 }
 
 func (v eventPeerDisc) String() string {
-	return fmt.Sprintf("Peer-Disc(%s)", v.reason)
+	if v.reason == nil {
+		return "Peer-Disc(shutdown)"
+	} else {
+		return fmt.Sprintf("Peer-Disc(%s)", v.reason)
+	}
 }
 
 func (v eventPeerDisc) exec(c *Connection) error {

@@ -45,23 +45,34 @@ func Handle(code, appID, venID uint32, h Handler, rt Router) Handler {
 		} else if c := rt(m); c == nil {
 			err = errors.New("no route found")
 		} else if len(c.notify) > int(TransactionWait/busyTO*4/5) {
-			return true, []AVP{
-				SetResultCode(TooBusy),
-				SetOriginHost(Host),
-				SetOriginRealm(Realm)}
+			return true, makeHandleErrorResult(avp, TooBusy, "congested")
 		} else {
 			m = c.send(m)
 			avp, err = m.GetAVP()
 		}
 
 		if err != nil {
-			return true, []AVP{
-				SetResultCode(UnableToDeliver),
-				SetOriginHost(Host),
-				SetOriginRealm(Realm)}
+			return true, makeHandleErrorResult(avp, UnableToDeliver, err.Error())
 		}
 		return m.FlgE, avp
 	}
+}
+
+func makeHandleErrorResult(avp []AVP, result uint32, msg string) []AVP {
+	res := make([]AVP, 0, 6)
+	for _, a := range avp {
+		switch a.Code {
+		case 277: // Auth-Session-State
+			res = append(res, a)
+		case 263: // Session-Id
+			res = append(res, a)
+		}
+	}
+	res = append(res, SetResultCode(result))
+	res = append(res, SetOriginHost(Host))
+	res = append(res, SetOriginRealm(Realm))
+	res = append(res, SetErrorMessage(msg))
+	return res
 }
 
 // DefaultRxHandler for receiving Diameter request message without Handler or ralay application.

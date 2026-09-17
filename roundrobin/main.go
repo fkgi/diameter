@@ -39,6 +39,17 @@ func main() {
 				log.Printf("[INFO] event %s handling failed on peer %s: %v",
 					event, c.Host, err)
 			}
+			if old != "open" && c.State() == "open" {
+				buf := new(strings.Builder)
+				fmt.Fprint(buf, "Diameter connection up")
+				fmt.Fprintf(buf, "\n| local host/realm: %s/%s", diameter.Host, diameter.Realm)
+				fmt.Fprintf(buf, "\n| peer  host/realm: %s/%s", c.Host, c.Realm)
+				fmt.Fprint(buf, "\n| available application: ")
+				for _, ap := range c.AvailableApplications() {
+					fmt.Fprintf(buf, "%s(%d), ", dictionary.GetApplicationName(ap), ap)
+				}
+				log.Print("[INFO] ", buf)
+			}
 		}
 		diameter.TraceTxMessage = func(
 			_ *diameter.Connection, msg diameter.Message, err error) {

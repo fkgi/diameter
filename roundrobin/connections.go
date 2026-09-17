@@ -34,7 +34,7 @@ func appendCon(c net.Conn, con *diameter.Connection, f func(net.Conn) error) {
 
 	e := f(c)
 	buf := new(strings.Builder)
-	fmt.Fprint(buf, "diameter connection down:", e)
+	fmt.Fprint(buf, "Diameter connection down: ", e)
 	fmt.Fprintf(buf, "\n| local host/realm: %s/%s", diameter.Host, diameter.Realm)
 	fmt.Fprintf(buf, "\n| peer  host/realm: %s/%s", con.Host, con.Realm)
 	log.Print("[WARN] ", buf)

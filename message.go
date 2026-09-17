@@ -141,9 +141,9 @@ func (m Message) GenerateAnswerBy(result uint32) Message {
 			continue
 		}
 		switch a.Code {
-		case 277:
+		case 277: // Auth-Session-State
 			a.MarshalTo(buf)
-		case 263:
+		case 263: // Session-Id
 			a.MarshalTo(buf)
 		}
 	}
