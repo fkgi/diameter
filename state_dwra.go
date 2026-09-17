@@ -40,8 +40,8 @@ func (v eventRcvDWR) exec(c *Connection) error {
 		err = RejectRxMessage{
 			State: c.state, ErrMsg: "DWR is not acceptable"}
 	}
-	if TraceMessage != nil {
-		TraceMessage(v.m, Rx, err)
+	if TraceRxMessage != nil {
+		TraceRxMessage(c, v.m, err)
 	}
 	if err != nil {
 		return err
@@ -154,8 +154,8 @@ func (v eventRcvDWR) exec(c *Connection) error {
 		c.wdTimer.Reset(WDInterval)
 	}
 
-	if TraceMessage != nil {
-		TraceMessage(dwa, Tx, err)
+	if TraceTxMessage != nil {
+		TraceTxMessage(c, dwa, err)
 	}
 	return err
 }
@@ -186,8 +186,8 @@ func (v eventRcvDWA) exec(c *Connection) error {
 	}
 
 	if err != nil {
-		if TraceMessage != nil {
-			TraceMessage(v.m, Rx, err)
+		if TraceRxMessage != nil {
+			TraceRxMessage(c, v.m, err)
 		}
 		return err
 	}
@@ -292,8 +292,8 @@ func (v eventRcvDWA) exec(c *Connection) error {
 		})
 	}
 
-	if TraceMessage != nil {
-		TraceMessage(v.m, Rx, err)
+	if TraceRxMessage != nil {
+		TraceRxMessage(c, v.m, err)
 	}
 	return err
 }

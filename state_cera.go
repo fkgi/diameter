@@ -59,8 +59,8 @@ func (v eventRcvCER) exec(c *Connection) error {
 		err = RejectRxMessage{
 			State: c.state, ErrMsg: "CER is not acceptable"}
 	}
-	if TraceMessage != nil {
-		TraceMessage(v.m, Rx, err)
+	if TraceRxMessage != nil {
+		TraceRxMessage(c, v.m, err)
 	}
 	if err != nil {
 		return err
@@ -304,13 +304,10 @@ func (v eventRcvCER) exec(c *Connection) error {
 		c.wdTimer = time.AfterFunc(WDInterval, func() {
 			c.notify <- eventWatchdog{}
 		})
-		if ConnectionUpNotify != nil {
-			ConnectionUpNotify(c)
-		}
 	}
 
-	if TraceMessage != nil {
-		TraceMessage(cea, Tx, err)
+	if TraceTxMessage != nil {
+		TraceTxMessage(c, cea, err)
 	}
 	return err
 }
@@ -341,8 +338,8 @@ func (v eventRcvCEA) exec(c *Connection) error {
 	}
 
 	if err != nil {
-		if TraceMessage != nil {
-			TraceMessage(v.m, Rx, err)
+		if TraceRxMessage != nil {
+			TraceRxMessage(c, v.m, err)
 		}
 		return err
 	}
@@ -539,12 +536,9 @@ func (v eventRcvCEA) exec(c *Connection) error {
 		})
 		delete(c.sndQueue, v.m.HbHID)
 		//ch <- v.m
-		if ConnectionUpNotify != nil {
-			ConnectionUpNotify(c)
-		}
 	}
-	if TraceMessage != nil {
-		TraceMessage(v.m, Rx, err)
+	if TraceRxMessage != nil {
+		TraceRxMessage(c, v.m, err)
 	}
 
 	if err != nil {

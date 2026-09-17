@@ -3,6 +3,7 @@ package dictionary
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
@@ -25,8 +26,8 @@ func RegisterHandler(p Post, path string, rt diameter.Router) {
 			}
 		}
 	}
-	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
-		httpErr("not found", "invalid URI path", http.StatusNotFound, w)
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		httpErr(r.URL.Path, nil, http.StatusNotFound, "not found", "invalid URI path", w)
 	})
 }
 
@@ -40,53 +41,38 @@ func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Rout
 			}
 		}
 
-		data, e := decodeAVPs(avps)
+		txjson, e := encodeAVPtoJSON(avps)
 		if e != nil {
-			return diameterErr(avps, diameter.InvalidAvpValue,
-				"unable to decode Diameter AVP by dictionary: "+e.Error())
-		}
-		jsondata, e := json.Marshal(data)
-		if e != nil {
-			return diameterErr(avps, diameter.InvalidAvpValue,
-				"unable to marshal AVPs to JSON: "+e.Error())
+			return diameterErr(path, nil, 0, nil, avps, diameter.InvalidAvpValue, e)
 		}
 
 		hdr := http.Header{}
 		if retry {
 			hdr.Add("X-Retry", "true")
 		}
-		r, e := p(path, hdr, bytes.NewBuffer(jsondata))
+		r, e := p(path, hdr, bytes.NewBuffer(txjson))
 		if e != nil {
-			return diameterErr(avps, diameter.UnableToDeliver,
-				"unable to send HTTP request to backend: "+e.Error())
+			e = errors.New("unable to send HTTP request to backend: " + e.Error())
+			return diameterErr(path, txjson, 0, nil, avps, diameter.UnableToDeliver, e)
 		}
 		defer r.Body.Close()
 
 		switch r.StatusCode {
 		case http.StatusOK:
 		case http.StatusServiceUnavailable:
+			if TraceTxHttpRequest != nil {
+				TraceTxHttpRequest(path, txjson, r.StatusCode, nil, nil)
+			}
 			return true, nil
 		default:
-			return diameterErr(avps, diameter.UnableToComply,
-				"error in HTTP")
+			e = errors.New("unknown error in HTTP")
+			return diameterErr(path, txjson, r.StatusCode, nil, avps, diameter.UnableToComply, e)
 		}
 
-		jsondata, e = io.ReadAll(r.Body)
+		avps, rxjson, e := decodeJSONtoAVP(r.Body)
 		if e != nil {
-			return diameterErr(avps, diameter.UnableToDeliver,
-				"unable to receive HTTP response: "+e.Error())
+			return diameterErr(path, txjson, r.StatusCode, nil, avps, diameter.UnableToComply, e)
 		}
-		data = make(map[string]any)
-		if e = json.Unmarshal(jsondata, &data); e != nil {
-			return diameterErr(avps, diameter.UnableToComply,
-				"invalid JSON data of AVP: "+e.Error())
-		}
-		avps, e = encodeAVPs(data)
-		if e != nil {
-			return diameterErr(avps, diameter.UnableToComply,
-				"unable to encode Diameter AVP by dictionary: "+e.Error())
-		}
-
 		for i := range avps {
 			if len(avps[i].Data) != 0 {
 				continue
@@ -101,28 +87,19 @@ func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Rout
 			}
 		}
 
+		if TraceTxHttpRequest != nil {
+			TraceTxHttpRequest(path, txjson, r.StatusCode, rxjson, nil)
+		}
 		return false, avps
 	}
 	handleTx := diameter.Handle(cid, aid, vid, serveDiameter, rt)
 
 	serveHttp := func(w http.ResponseWriter, r *http.Request) {
-		jsondata, e := io.ReadAll(r.Body)
-		defer r.Body.Close()
+		avps, txJson, e := decodeJSONtoAVP(r.Body)
+		r.Body.Close()
 		if e != nil {
-			httpErr("unable to read HTTP request body", e.Error(),
-				http.StatusBadRequest, w)
-			return
-		}
-		data := make(map[string]any)
-		if e = json.Unmarshal(jsondata, &data); e != nil {
-			httpErr("invalid JSON data of AVPs", e.Error(),
-				http.StatusBadRequest, w)
-			return
-		}
-		avps, e := encodeAVPs(data)
-		if e != nil {
-			httpErr("unable to encode Diameter AVP by dictionary", e.Error(),
-				http.StatusBadRequest, w)
+			httpErr(path, txJson, http.StatusBadRequest,
+				"failed to get AVP data", e.Error(), w)
 			return
 		}
 
@@ -155,42 +132,48 @@ func registerHandler(p Post, path string, cid, aid, vid uint32, rt diameter.Rout
 		}
 		_, avps = handleTx(retry, avps)
 
-		if data, e = decodeAVPs(avps); e != nil {
-			httpErr("unable to decode Diameter AVP by dictionary", e.Error(),
-				http.StatusBadRequest, w)
+		rxJson, e := encodeAVPtoJSON(avps)
+		if e != nil {
+			httpErr(path, txJson, http.StatusInternalServerError,
+				"failed to get JSON data", e.Error(), w)
 			return
 		}
-		if jsondata, e = json.Marshal(data); e != nil {
-			httpErr("unable to marshal AVPs to JSON", e.Error(),
-				http.StatusInternalServerError, w)
-			return
+
+		if TraceRxHttpRequest != nil {
+			TraceRxHttpRequest(path, txJson, http.StatusOK, rxJson, nil)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write(jsondata)
+		w.Write(rxJson)
 	}
 	http.HandleFunc("POST "+path, serveHttp)
 }
 
-func httpErr(title, detail string, code int, w http.ResponseWriter) {
-	if NotifyHandlerError != nil {
-		NotifyHandlerError("HTTP", title+": "+detail)
-	}
+func httpErr(
+	path string, txj []byte, hcode int,
+	title, detail string, w http.ResponseWriter) {
 
 	data, _ := json.Marshal(struct {
 		T string `json:"title"`
 		D string `json:"detail"`
 	}{T: title, D: detail})
 
+	if TraceRxHttpRequest != nil {
+		TraceRxHttpRequest(path, txj, hcode, data, errors.New(title+": "+detail))
+	}
+
 	w.Header().Add("Content-Type", "application/problem+json")
-	w.WriteHeader(code)
+	w.WriteHeader(hcode)
 	w.Write(data)
 }
 
-func diameterErr(avp []diameter.AVP, code uint32, err string) (bool, []diameter.AVP) {
-	if NotifyHandlerError != nil {
-		NotifyHandlerError("Diameter", err)
+func diameterErr(
+	path string, txj []byte, hcode int, rxj []byte,
+	avp []diameter.AVP, dcode uint32, e error) (bool, []diameter.AVP) {
+
+	if TraceTxHttpRequest != nil {
+		TraceTxHttpRequest(path, txj, hcode, rxj, e)
 	}
 
 	ret := []diameter.AVP{}
@@ -199,16 +182,41 @@ func diameterErr(avp []diameter.AVP, code uint32, err string) (bool, []diameter.
 			continue
 		}
 		switch a.Code {
-		case 277:
+		case 277: // Auth-Session-State
 			ret = append(ret, a)
-		case 263:
+		case 263: // Session-ID
 			ret = append(ret, a)
 		}
 	}
-	ret = append(ret, diameter.SetResultCode(code))
+	ret = append(ret, diameter.SetResultCode(dcode))
 	ret = append(ret, diameter.SetOriginHost(diameter.Host))
 	ret = append(ret, diameter.SetOriginRealm(diameter.Realm))
-	ret = append(ret, diameter.SetErrorMessage(err))
+	ret = append(ret, diameter.SetErrorMessage(e.Error()))
 
 	return true, ret
+}
+
+func encodeAVPtoJSON(avps []diameter.AVP) ([]byte, error) {
+	if a, e := decodeAVPs(avps); e != nil {
+		return nil, errors.New(
+			"unable to decode Diameter AVP by dictionary: " + e.Error())
+	} else if j, e := json.Marshal(a); e != nil {
+		return nil, errors.New(
+			"unable to marshal AVPs to JSON: " + e.Error())
+	} else {
+		return j, nil
+	}
+}
+
+func decodeJSONtoAVP(r io.ReadCloser) ([]diameter.AVP, []byte, error) {
+	data := make(map[string]any)
+	if j, e := io.ReadAll(r); e != nil {
+		return nil, nil, errors.New("unable to receive HTTP response: " + e.Error())
+	} else if e = json.Unmarshal(j, &data); e != nil {
+		return nil, j, errors.New("invalid JSON data of AVP: " + e.Error())
+	} else if a, e := encodeAVPs(data); e != nil {
+		return nil, j, errors.New("unable to encode Diameter AVP by dictionary: " + e.Error())
+	} else {
+		return a, j, nil
+	}
 }

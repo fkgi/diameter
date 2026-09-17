@@ -20,8 +20,8 @@ func (v eventRcvReq) exec(c *Connection) error {
 		err = RejectRxMessage{
 			State: c.state, ErrMsg: "Request Message is not acceptable"}
 	}
-	if TraceMessage != nil {
-		TraceMessage(v.m, Rx, err)
+	if TraceRxMessage != nil {
+		TraceRxMessage(c, v.m, err)
 	}
 	if err != nil {
 		return err
@@ -64,8 +64,8 @@ func (v eventRcvReq) exec(c *Connection) error {
 			err = e
 			c.notify <- eventPeerDisc{reason: err}
 		}
-		if TraceMessage != nil {
-			TraceMessage(ans, Tx, err)
+		if TraceTxMessage != nil {
+			TraceTxMessage(c, ans, err)
 		}
 	}
 
@@ -95,8 +95,8 @@ func (v eventRcvAns) exec(c *Connection) error {
 			ErrMsg: "correlated request with the Hop-by-Hop ID not found"}
 	}
 
-	if TraceMessage != nil {
-		TraceMessage(v.m, Rx, err)
+	if TraceRxMessage != nil {
+		TraceRxMessage(c, v.m, err)
 	}
 	if err == nil {
 		delete(c.sndQueue, v.m.HbHID)

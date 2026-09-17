@@ -4,36 +4,18 @@ import (
 	"net"
 )
 
-// Direction of Diameter message.
-// Tx or Rx.
-type Direction bool
-
-func (v Direction) String() string {
-	if v {
-		return "Tx"
-	}
-	return "Rx"
-}
-
-const (
-	Tx Direction = true
-	Rx Direction = false
-)
-
 var (
-	// TraceMessage is called when Diameter message is receved or sent.
-	// Inputs are handled message, message direction and occured error while message handling.
-	TraceMessage func(Message, Direction, error)
+	// TraceTxMessage is called when Diameter message is sent.
+	// Inputs are handled message and occured error while message handling.
+	TraceTxMessage func(*Connection, Message, error)
+
+	// TraceRxMessage is called when Diameter message is receved.
+	// Inputs are handled message and occured error while message handling.
+	TraceRxMessage func(*Connection, Message, error)
 
 	// TraceEvent is called on event.
-	// Inputs are old state, new state, event name and occured error while event handling.
-	TraceEvent func(string, string, string, error)
-
-	// ConnectionUpNotify is called when Diameter connection up.
-	ConnectionUpNotify func(*Connection)
-
-	// ConnectionDownNotify is called when Diameter connection down.
-	ConnectionDownNotify func(*Connection, error)
+	// Inputs are old state, event name and occured error while event handling.
+	TraceEvent func(*Connection, string, string, error)
 )
 
 // RxQueue returns length of Rx queue

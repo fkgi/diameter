@@ -85,11 +85,11 @@ func statsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func count(msg diameter.Message, dct diameter.Direction, err error) {
+func count(msg diameter.Message, rx bool, err error) {
 	s := <-stats
 
 	if msg.FlgR {
-		if dct == diameter.Rx {
+		if rx {
 			s.RxReq++
 			if _, ok := err.(diameter.RejectRxMessage); ok {
 				s.TxDisc++
@@ -113,7 +113,7 @@ func count(msg diameter.Message, dct diameter.Direction, err error) {
 				}
 			}
 		}
-		if dct == diameter.Rx {
+		if rx {
 			if _, ok := err.(diameter.FailureAnswer); err != nil && !ok {
 				s.RxIvld++
 			} else if code < 1000 {

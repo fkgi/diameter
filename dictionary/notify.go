@@ -86,5 +86,8 @@ func printAVP(prefix, name string, depth int, value any, buf *strings.Builder) {
 	}
 }
 
+var TraceTxHttpRequest func(string, []byte, int, []byte, error) = nil
+var TraceRxHttpRequest func(string, []byte, int, []byte, error) = nil
+
 // NotifyHandlerError is called when handling HTTP/Diameter message is failed
-var NotifyHandlerError func(proto, msg string) = nil
+//var NotifyHandlerError func(proto, msg string) = nil

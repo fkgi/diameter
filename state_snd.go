@@ -130,8 +130,8 @@ func (v eventConnect) exec(c *Connection) error {
 		c.notify <- eventPeerDisc{reason: err}
 	}
 
-	if TraceMessage != nil {
-		TraceMessage(cer, Tx, err)
+	if TraceTxMessage != nil {
+		TraceTxMessage(c, cer, err)
 	}
 	return err
 }
@@ -184,8 +184,8 @@ func (v eventWatchdog) exec(c *Connection) error {
 		c.notify <- eventPeerDisc{reason: err}
 	}
 
-	if TraceMessage != nil {
-		TraceMessage(dwr, Tx, err)
+	if TraceTxMessage != nil {
+		TraceTxMessage(c, dwr, err)
 	}
 	return err
 }
@@ -210,8 +210,8 @@ type eventStop struct {
 	cause Enumerated
 }
 
-func (eventStop) String() string {
-	return "Stop"
+func (v eventStop) String() string {
+	return fmt.Sprintf("Stop(%x)", v.cause)
 }
 
 func (v eventStop) exec(c *Connection) error {
@@ -248,8 +248,8 @@ func (v eventStop) exec(c *Connection) error {
 		c.notify <- eventPeerDisc{reason: err}
 	}
 
-	if TraceMessage != nil {
-		TraceMessage(dpr, Tx, err)
+	if TraceTxMessage != nil {
+		TraceTxMessage(c, dpr, err)
 	}
 	return err
 }
@@ -259,8 +259,8 @@ type eventPeerDisc struct {
 	reason error
 }
 
-func (eventPeerDisc) String() string {
-	return "Peer-Disc"
+func (v eventPeerDisc) String() string {
+	return fmt.Sprintf("Peer-Disc(%s)", v.reason)
 }
 
 func (v eventPeerDisc) exec(c *Connection) error {
@@ -330,8 +330,8 @@ func (v eventSndMsg) exec(c *Connection) error {
 		}
 	}
 
-	if TraceMessage != nil {
-		TraceMessage(v.m, Tx, err)
+	if TraceTxMessage != nil {
+		TraceTxMessage(c, v.m, err)
 	}
 	return err
 }

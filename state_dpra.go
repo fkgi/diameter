@@ -38,8 +38,8 @@ func (v eventRcvDPR) exec(c *Connection) error {
 		err = RejectRxMessage{
 			State: c.state, ErrMsg: "DPR is not acceptable"}
 	}
-	if TraceMessage != nil {
-		TraceMessage(v.m, Rx, err)
+	if TraceRxMessage != nil {
+		TraceRxMessage(c, v.m, err)
 	}
 	if err != nil {
 		return err
@@ -150,8 +150,8 @@ func (v eventRcvDPR) exec(c *Connection) error {
 		})
 	}
 
-	if TraceMessage != nil {
-		TraceMessage(dpa, Tx, err)
+	if TraceRxMessage != nil {
+		TraceRxMessage(c, dpa, err)
 	}
 	return err
 }
@@ -181,8 +181,8 @@ func (v eventRcvDPA) exec(c *Connection) error {
 	}
 
 	if err != nil {
-		if TraceMessage != nil {
-			TraceMessage(v.m, Rx, err)
+		if TraceRxMessage != nil {
+			TraceRxMessage(c, v.m, err)
 		}
 		return err
 	}
@@ -273,8 +273,8 @@ func (v eventRcvDPA) exec(c *Connection) error {
 		c.notify <- eventPeerDisc{}
 	}
 
-	if TraceMessage != nil {
-		TraceMessage(v.m, Rx, err)
+	if TraceRxMessage != nil {
+		TraceRxMessage(c, v.m, err)
 	}
 	return err
 }

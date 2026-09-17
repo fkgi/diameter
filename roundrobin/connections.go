@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/fkgi/diameter"
@@ -29,7 +31,13 @@ func appendCon(c net.Conn, con *diameter.Connection, f func(net.Conn) error) {
 	}
 	reference = cons
 	connections <- list
-	log.Println("[WARN]", "Diameter connection", con.Host, "closed:", f(c))
+
+	e := f(c)
+	buf := new(strings.Builder)
+	fmt.Fprint(buf, "diameter connection down:", e)
+	fmt.Fprintf(buf, "\n| local host/realm: %s/%s", diameter.Host, diameter.Realm)
+	fmt.Fprintf(buf, "\n| peer  host/realm: %s/%s", con.Host, con.Realm)
+	log.Print("[WARN] ", buf)
 
 	list = <-connections
 	delete(list, c)

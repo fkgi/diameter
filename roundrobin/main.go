@@ -32,13 +32,31 @@ func main() {
 		if v != "no" {
 			log.Println("[INFO]", "parameter VERBOSE is empty or invalid, set to default")
 		}
-		diameter.TraceEvent = func(old, new, event string, err error) {
+
+		diameter.TraceEvent = func(
+			c *diameter.Connection, old, event string, err error) {
 			if err != nil {
-				log.Printf("[INFO] event %s handling failed: %v", event, err)
+				log.Printf("[INFO] event %s handling failed on peer %s: %v",
+					event, c.Host, err)
 			}
 		}
-		diameter.TraceMessage = func(msg diameter.Message, dct diameter.Direction, err error) {
-			count(msg, dct, err)
+		diameter.TraceTxMessage = func(
+			_ *diameter.Connection, msg diameter.Message, err error) {
+			count(msg, false, err)
+		}
+		diameter.TraceRxMessage = func(
+			_ *diameter.Connection, msg diameter.Message, err error) {
+			count(msg, true, err)
+		}
+		dictionary.TraceTxHttpRequest = func(p string, tx []byte, c int, rx []byte, err error) {
+			if err != nil {
+				log.Printf("[INFO] Tx HTTP request handling failed: %v", err)
+			}
+		}
+		dictionary.TraceRxHttpRequest = func(p string, tx []byte, c int, rx []byte, err error) {
+			if err != nil {
+				log.Printf("[INFO] Rx HTTP request handling failed: %v", err)
+			}
 		}
 	}
 

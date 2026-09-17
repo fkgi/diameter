@@ -45,6 +45,7 @@ func (c *Connection) DialAndServe(con net.Conn) (e error) {
 		return errors.New("reusing connection is not acceptable")
 	}
 	c.conn = con
+	c.state = closed
 	return c.serve()
 }
 
@@ -103,7 +104,7 @@ func (c *Connection) serve() error {
 	}()
 
 	if TraceEvent != nil {
-		TraceEvent(shutdown.String(), c.state.String(), eventInit{}.String(), nil)
+		TraceEvent(c, shutdown.String(), eventInit{}.String(), nil)
 	}
 
 	if c.state != waitCER {
@@ -116,7 +117,7 @@ func (c *Connection) serve() error {
 		old = c.state
 		err := event.exec(c)
 		if TraceEvent != nil {
-			TraceEvent(old.String(), c.state.String(), event.String(), err)
+			TraceEvent(c, old.String(), event.String(), err)
 		}
 
 		if _, ok := event.(eventPeerDisc); ok {
@@ -127,10 +128,6 @@ func (c *Connection) serve() error {
 	var e error
 	if old != closing {
 		e = errors.New("connection aborted")
-	}
-
-	if ConnectionDownNotify != nil {
-		ConnectionDownNotify(c, e)
 	}
 	return e
 }
