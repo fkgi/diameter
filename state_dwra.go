@@ -66,12 +66,14 @@ func (v eventRcvDWR) exec(c *Connection) error {
 
 		switch a.Code {
 		case 264:
+			a.Mandatory = true
 			if len(oHost) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oHost, err = GetOriginHost(a)
 			}
 		case 296:
+			a.Mandatory = true
 			if len(oRealm) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
@@ -84,12 +86,10 @@ func (v eventRcvDWR) exec(c *Connection) error {
 				oState, err = getOriginStateID(a)
 			}
 		default:
-			if a.Mandatory {
-				err = InvalidAVP{Code: AvpUnsupported, AVP: a}
-			}
+			err = InvalidAVP{Code: AvpUnsupported, AVP: a}
 		}
 
-		if err != nil {
+		if err != nil && a.Mandatory {
 			break
 		}
 	}
@@ -109,35 +109,32 @@ func (v eventRcvDWR) exec(c *Connection) error {
 		err = InvalidAVP{Code: result, AVP: SetOriginRealm("")}
 	} else if oHost != c.Host {
 		result = UnknownPeer
-		err = InvalidMessage{
-			Code: result,
-			ErrMsg: fmt.Sprintf(
-				"peer host %s is not match with %s",
-				oHost, c.Host)}
+		err = InvalidMessage{Code: result, ErrMsg: fmt.Sprintf(
+			"peer host %s is not match with %s", oHost, c.Host)}
 	} else if oRealm != c.Realm {
 		result = UnknownPeer
-		err = InvalidMessage{
-			Code: result,
-			ErrMsg: fmt.Sprintf(
-				"peer realm %s is not match with %s",
-				oRealm, c.Realm)}
+		err = InvalidMessage{Code: result, ErrMsg: fmt.Sprintf(
+			"peer realm %s is not match with %s", oRealm, c.Realm)}
 	} else if oState != 0 && oState != c.stateID {
 		result = UnknownPeer
-		err = InvalidMessage{
-			Code: result,
-			ErrMsg: fmt.Sprintf("peer state %d is not match with %d",
-				oState, c.stateID)}
+		err = InvalidMessage{Code: result, ErrMsg: fmt.Sprintf(
+			"peer state %d is not match with %d", oState, c.stateID)}
+	}
+
+	avps := []AVP{}
+	avps = append(avps, SetResultCode(result))
+	avps = append(avps, SetOriginHost(Host))
+	avps = append(avps, SetOriginRealm(Realm))
+	if stateID != 0 {
+		avps = append(avps, setOriginStateID(stateID))
+	}
+	if iavp, ok := err.(InvalidAVP); ok {
+		avps = append(avps, setFailedAVP([]AVP{iavp.AVP}))
 	}
 
 	buf := new(bytes.Buffer)
-	SetResultCode(result).MarshalTo(buf)
-	SetOriginHost(Host).MarshalTo(buf)
-	SetOriginRealm(Realm).MarshalTo(buf)
-	if stateID != 0 {
-		setOriginStateID(stateID).MarshalTo(buf)
-	}
-	if iavp, ok := err.(InvalidAVP); ok {
-		setFailedAVP([]AVP{iavp.AVP}).MarshalTo(buf)
+	for _, a := range overwriteAVP(avps, OverrideDWA) {
+		a.MarshalTo(buf)
 	}
 
 	dwa := Message{
@@ -195,8 +192,8 @@ func (v eventRcvDWA) exec(c *Connection) error {
 	var result uint32
 	var oHost Identity
 	var oRealm Identity
-	// var errorMsg string
-	// var failedAVP []AVP
+	var errorMsg string
+	var failedAVP []AVP
 	var oState uint32
 
 	for rdr := bytes.NewReader(v.m.AVPs); rdr.Len() != 0; {
@@ -214,18 +211,21 @@ func (v eventRcvDWA) exec(c *Connection) error {
 
 		switch a.Code {
 		case 268:
+			a.Mandatory = true
 			if result != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				result, err = GetResultCode(a)
 			}
 		case 264:
+			a.Mandatory = true
 			if len(oHost) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oHost, err = GetOriginHost(a)
 			}
 		case 296:
+			a.Mandatory = true
 			if len(oRealm) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
@@ -238,23 +238,20 @@ func (v eventRcvDWA) exec(c *Connection) error {
 				oState, err = getOriginStateID(a)
 			}
 		case 281:
-			//	errorMsg, e = getErrorMessage(a)
+			errorMsg, err = GetErrorMessage(a)
 		case 279:
-			// failedAVP, e = getFailedAVP(a)
+			failedAVP, err = getFailedAVP(a)
 		default:
-			if a.Mandatory {
-				err = InvalidAVP{Code: AvpUnsupported, AVP: a}
-			}
+			err = InvalidAVP{Code: AvpUnsupported, AVP: a}
 		}
 
-		if err != nil {
+		if err != nil && a.Mandatory {
 			break
 		}
 	}
 
 	if v.m.FlgE && result == Success {
-		err = InvalidMessage{
-			Code:   InvalidHdrBits,
+		err = InvalidMessage{Code: InvalidHdrBits,
 			ErrMsg: "error flag is true but success response code"}
 	} else if result == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetResultCode(0)}
@@ -263,37 +260,32 @@ func (v eventRcvDWA) exec(c *Connection) error {
 	} else if len(oRealm) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetOriginRealm("")}
 	} else if oHost != c.Host && oHost != Host {
-		err = InvalidMessage{
-			Code: UnknownPeer,
-			ErrMsg: fmt.Sprintf(
-				"peer host %s is not match with %s or %s",
-				oHost, c.Host, Host)}
+		err = InvalidMessage{Code: UnknownPeer, ErrMsg: fmt.Sprintf(
+			"peer host %s is not match with %s or %s", oHost, c.Host, Host)}
 	} else if oRealm != c.Realm && oRealm != Realm {
-		err = InvalidMessage{
-			Code: UnknownPeer,
-			ErrMsg: fmt.Sprintf(
-				"peer realm %s is not match with %s or %s",
-				oRealm, c.Realm, Host)}
+		err = InvalidMessage{Code: UnknownPeer, ErrMsg: fmt.Sprintf(
+			"peer realm %s is not match with %s or %s", oRealm, c.Realm, Host)}
 	} else if oState != 0 && oState != c.stateID {
 		err = errors.New("peer may be abruptly restarted")
 		c.Close(Rebooting)
-	} else if result == Success && err != nil {
-		// invalid AVP value
-	} else {
-		if result == Success {
-			c.wdCount = 0
-		} else {
-			err = FailureAnswer{Code: result}
-		}
-		delete(c.sndQueue, v.m.HbHID)
-		c.wdTimer.Stop()
-		c.wdTimer = time.AfterFunc(WDInterval, func() {
-			c.notify <- eventWatchdog{}
-		})
+	} else if result != Success {
+		err = FailureAnswer{Code: result, ErrMsg: errorMsg, Avps: failedAVP}
+	} else if err == nil {
+		c.wdCount = 0
 	}
 
 	if TraceRxMessage != nil {
 		TraceRxMessage(c, v.m, err)
+	}
+
+	c.wdTimer.Stop()
+	delete(c.sndQueue, v.m.HbHID)
+	if result%10000 > 4999 {
+		c.notify <- eventPeerDisc{reason: err}
+	} else {
+		c.wdTimer = time.AfterFunc(WDInterval, func() {
+			c.notify <- eventWatchdog{}
+		})
 	}
 	return err
 }

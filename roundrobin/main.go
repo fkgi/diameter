@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -77,9 +78,9 @@ func main() {
 		}
 		log.Println("[INFO]", "loading dictionary file", path)
 		if data, e := os.ReadFile(path); e != nil {
-			log.Fatalln("[ERROR]", "failed to open dictionary file:", e)
+			log.Fatalln("[ERROR]", "failed to open dictionary file", path, ":", e)
 		} else if e = dictionary.AppendDictionary(data); e != nil {
-			log.Fatalln("[ERROR]", "failed to open dictionary file:", e)
+			log.Fatalln("[ERROR]", "failed to load dictionary file", path, ":", e)
 		}
 	}
 	if e := dictionary.LoadDictionary(); e != nil {
@@ -101,6 +102,26 @@ func main() {
 			fmt.Fprintf(buf, " %s(%d/%s),", avp.Name, aid, avp.Type)
 		}
 		log.Println("[INFO]", buf)
+	}
+
+	var e error
+	if diameter.OverrideCER, e = encodeAVPs(os.Getenv("OVERRIDE_CER")); e != nil {
+		log.Println("[WARN]", "failed to load CER AVP override:", e)
+	}
+	if diameter.OverrideCEA, e = encodeAVPs(os.Getenv("OVERRIDE_CEA")); e != nil {
+		log.Println("[WARN]", "failed to load CEA AVP override:", e)
+	}
+	if diameter.OverrideDWR, e = encodeAVPs(os.Getenv("OVERRIDE_DWR")); e != nil {
+		log.Println("[WARN]", "failed to load DWR AVP override:", e)
+	}
+	if diameter.OverrideDWA, e = encodeAVPs(os.Getenv("OVERRIDE_DWA")); e != nil {
+		log.Println("[WARN]", "failed to load DWA AVP override:", e)
+	}
+	if diameter.OverrideDPR, e = encodeAVPs(os.Getenv("OVERRIDE_DPR")); e != nil {
+		log.Println("[WARN]", "failed to load DPR AVP override:", e)
+	}
+	if diameter.OverrideDPA, e = encodeAVPs(os.Getenv("OVERRIDE_DPA")); e != nil {
+		log.Println("[WARN]", "failed to load DPA AVP override:", e)
 	}
 
 	if to := os.Getenv("TIMEOUT"); to == "" {
@@ -160,7 +181,6 @@ func main() {
 	}()
 
 	log.Println("[INFO]", "connecting Diameter...")
-	var e error
 	dlocal := os.Getenv("LOCAL_HOSTPORT")
 	if dlocal != "" {
 	} else if dlocal, e = os.Hostname(); e != nil {
@@ -289,4 +309,34 @@ func dial(f func() (net.Conn, error), a net.Addr, host, realm diameter.Identity)
 		case <-time.After(ct):
 		}
 	}
+}
+
+func encodeAVPs(s string) ([]diameter.AVP, error) {
+	s = strings.TrimSpace(s)
+	if len(s) == 0 {
+		return nil, nil
+	}
+
+	d := map[string]any{}
+	if e := json.Unmarshal([]byte(s), &d); e != nil {
+		return nil, e
+	}
+
+	avps := []diameter.AVP{}
+	for k, v := range d {
+		if l, ok := v.([]any); ok {
+			for _, v := range l {
+				if a, e := dictionary.EncodeAVP(k, v); e != nil {
+					return nil, fmt.Errorf("%s is invalid: %v", k, e)
+				} else {
+					avps = append(avps, a)
+				}
+			}
+		} else if a, e := dictionary.EncodeAVP(k, v); e != nil {
+			return nil, fmt.Errorf("%s is invalid: %v", k, e)
+		} else {
+			avps = append(avps, a)
+		}
+	}
+	return avps, nil
 }

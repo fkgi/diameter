@@ -72,45 +72,44 @@ func (v eventConnect) exec(c *Connection) error {
 	}
 	c.state = waitCEA
 
-	buf := new(bytes.Buffer)
-	SetOriginHost(Host).MarshalTo(buf)
-	SetOriginRealm(Realm).MarshalTo(buf)
+	avps := []AVP{}
+	avps = append(avps, SetOriginHost(Host))
+	avps = append(avps, SetOriginRealm(Realm))
 
-	if len(c.OverwriteAddr) != 0 {
-		for _, h := range c.OverwriteAddr {
-			setHostIPAddress(h).MarshalTo(buf)
-		}
-	} else {
-		h, _, _ := net.SplitHostPort(c.conn.LocalAddr().String())
-		for _, h := range strings.Split(h, "/") {
-			setHostIPAddress(net.ParseIP(h)).MarshalTo(buf)
-		}
+	h, _, _ := net.SplitHostPort(c.conn.LocalAddr().String())
+	for _, h := range strings.Split(h, "/") {
+		avps = append(avps, setHostIPAddress(net.ParseIP(h)))
 	}
 
-	SetVendorID(VendorID).MarshalTo(buf)
-	setProductName(ProductName).MarshalTo(buf)
+	avps = append(avps, SetVendorID(VendorID))
+	avps = append(avps, setProductName(ProductName))
 	if stateID != 0 {
-		setOriginStateID(stateID).MarshalTo(buf)
+		avps = append(avps, setOriginStateID(stateID))
 	}
 	if len(applications) == 0 {
-		SetAuthAppID(0xffffffff).MarshalTo(buf)
+		avps = append(avps, SetAuthAppID(0xffffffff))
 	} else {
 		vmap := make(map[uint32]interface{})
 		for aid, app := range applications {
 			if app.venID == 0 {
-				SetAuthAppID(aid).MarshalTo(buf)
+				avps = append(avps, SetAuthAppID(aid))
 			} else if _, ok := vmap[app.venID]; ok {
-				SetVendorSpecAppID(app.venID, aid).MarshalTo(buf)
+				avps = append(avps, SetVendorSpecAppID(app.venID, aid))
 			} else {
-				setSupportedVendorID(app.venID).MarshalTo(buf)
-				SetVendorSpecAppID(app.venID, aid).MarshalTo(buf)
+				avps = append(avps, setSupportedVendorID(app.venID))
+				avps = append(avps, SetVendorSpecAppID(app.venID, aid))
 				vmap[app.venID] = nil
 			}
 		}
 	}
 	// Inband-Security-Id
 	// Acct-Application-Id
-	setFirmwareRevision(FirmwareRev).MarshalTo(buf)
+	avps = append(avps, setFirmwareRevision(FirmwareRev))
+
+	buf := new(bytes.Buffer)
+	for _, a := range overwriteAVP(avps, OverrideCER) {
+		a.MarshalTo(buf)
+	}
 
 	cer := Message{
 		FlgR: true, FlgP: false, FlgE: false, FlgT: false,
@@ -156,11 +155,16 @@ func (v eventWatchdog) exec(c *Connection) error {
 	}
 	c.wdTimer.Stop()
 
-	buf := new(bytes.Buffer)
-	SetOriginHost(Host).MarshalTo(buf)
-	SetOriginRealm(Realm).MarshalTo(buf)
+	avps := []AVP{}
+	avps = append(avps, SetOriginHost(Host))
+	avps = append(avps, SetOriginRealm(Realm))
 	if stateID != 0 {
-		setOriginStateID(stateID).MarshalTo(buf)
+		avps = append(avps, setOriginStateID(stateID))
+	}
+
+	buf := new(bytes.Buffer)
+	for _, a := range overwriteAVP(avps, OverrideDWR) {
+		a.MarshalTo(buf)
 	}
 
 	dwr := Message{
@@ -223,10 +227,15 @@ func (v eventStop) exec(c *Connection) error {
 	c.state = closing
 	c.wdTimer.Stop()
 
+	avps := []AVP{}
+	avps = append(avps, SetOriginHost(Host))
+	avps = append(avps, SetOriginRealm(Realm))
+	avps = append(avps, setDisconnectCause(v.cause))
+
 	buf := new(bytes.Buffer)
-	SetOriginHost(Host).MarshalTo(buf)
-	SetOriginRealm(Realm).MarshalTo(buf)
-	setDisconnectCause(v.cause).MarshalTo(buf)
+	for _, a := range overwriteAVP(avps, OverrideDPR) {
+		a.MarshalTo(buf)
+	}
 
 	dpr := Message{
 		FlgR: true, FlgP: false, FlgE: false, FlgT: false,

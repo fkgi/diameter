@@ -53,48 +53,73 @@ func decodeAVPs(avps []diameter.AVP) (map[string]any, error) {
 }
 
 func decOctetString(avp *diameter.AVP) (any, error) {
+	if avp.Data == nil {
+		return nil, nil
+	}
 	d := new([]byte)
 	e := avp.Decode(d)
 	return hex.EncodeToString(*d), e
 }
 
 func decInteger32(avp *diameter.AVP) (any, error) {
+	if avp.Data == nil {
+		return nil, nil
+	}
 	d := new(int32)
 	e := avp.Decode(d)
 	return *d, e
 }
 
 func decInteger64(avp *diameter.AVP) (any, error) {
+	if avp.Data == nil {
+		return nil, nil
+	}
 	d := new(int64)
 	e := avp.Decode(d)
 	return *d, e
 }
 
 func decUnsigned32(avp *diameter.AVP) (any, error) {
+	if avp.Data == nil {
+		return nil, nil
+	}
 	d := new(uint32)
 	e := avp.Decode(d)
 	return *d, e
 }
 
 func decUnsigned64(avp *diameter.AVP) (any, error) {
+	if avp.Data == nil {
+		return nil, nil
+	}
 	d := new(uint64)
 	e := avp.Decode(d)
 	return *d, e
 }
 
 func decFloat32(avp *diameter.AVP) (any, error) {
+	if avp.Data == nil {
+		return nil, nil
+	}
 	d := new(float32)
 	e := avp.Decode(d)
 	return *d, e
 }
 
 func decFloat64(avp *diameter.AVP) (any, error) {
+	if avp.Data == nil {
+		return nil, nil
+	}
 	d := new(float64)
 	e := avp.Decode(d)
 	return *d, e
 }
 
 func decGrouped(avp *diameter.AVP) (any, error) {
+	if avp.Data == nil {
+		return nil, nil
+	}
+
 	result := make(map[string][]any)
 	for buf := bytes.NewBuffer(avp.Data); buf.Len() != 0; {
 		a := diameter.AVP{}
@@ -125,36 +150,54 @@ func decGrouped(avp *diameter.AVP) (any, error) {
 }
 
 func decAddress(avp *diameter.AVP) (any, error) {
+	if avp.Data == nil {
+		return nil, nil
+	}
 	d := new(net.IP)
 	e := avp.Decode(d)
 	return d.String(), e
 }
 
 func decTime(avp *diameter.AVP) (any, error) {
+	if avp.Data == nil {
+		return nil, nil
+	}
 	d := new(time.Time)
 	e := avp.Decode(d)
 	return d.Format(time.RFC3339), e
 }
 
 func decUTF8String(avp *diameter.AVP) (any, error) {
+	if avp.Data == nil {
+		return nil, nil
+	}
 	d := new(string)
 	e := avp.Decode(d)
 	return *d, e
 }
 
 func decDiameterIdentity(avp *diameter.AVP) (any, error) {
+	if avp.Data == nil {
+		return nil, nil
+	}
 	d := new(diameter.Identity)
 	e := avp.Decode(d)
 	return d.String(), e
 }
 
 func decDiameterURI(avp *diameter.AVP) (any, error) {
+	if avp.Data == nil {
+		return nil, nil
+	}
 	d := new(diameter.URI)
 	e := avp.Decode(d)
 	return d.String(), e
 }
 
 func decEnumerated(avp *diameter.AVP, enum map[int32]string) (any, error) {
+	if avp.Data == nil {
+		return nil, nil
+	}
 	d := new(diameter.Enumerated)
 	if e := avp.Decode(d); e != nil {
 		return nil, e
@@ -166,6 +209,9 @@ func decEnumerated(avp *diameter.AVP, enum map[int32]string) (any, error) {
 }
 
 func decIPFilterRule(avp *diameter.AVP) (any, error) {
+	if avp.Data == nil {
+		return nil, nil
+	}
 	d := new(diameter.IPFilterRule)
 	e := avp.Decode(d)
 	return *d, e

@@ -16,6 +16,13 @@ var (
 	Host    Identity // Local diameter hostname
 	Realm   Identity // Local diameter realm
 	stateID uint32   // Local diameter state ID
+
+	OverrideCER []AVP // Override CER by this AVPs
+	OverrideCEA []AVP // Override CEA by this AVPs
+	OverrideDWR []AVP // Override DWR by this AVPs
+	OverrideDWA []AVP // Override DWA by this AVPs
+	OverrideDPR []AVP // Override DPR by this AVPs
+	OverrideDPA []AVP // Override DPA by this AVPs
 )
 
 // Connection of Diameter
@@ -35,8 +42,36 @@ type Connection struct {
 	rcvQueue chan Message            // Receiving Request message queue
 
 	commonApp map[uint32]application
+}
 
-	OverwriteAddr []net.IP // Overwrite IP addresses of local host in CER
+func overwriteAVP(org []AVP, overwrite []AVP) []AVP {
+	m := map[uint32][]AVP{}
+	for _, a := range overwrite {
+		if avps, ok := m[a.Code]; ok {
+			m[a.Code] = append(avps, a)
+		} else {
+			m[a.Code] = []AVP{a}
+		}
+	}
+	res := []AVP{}
+	for _, a := range org {
+		if avps, ok := m[a.Code]; ok {
+			for _, a := range avps {
+				if a.Data != nil {
+					res = append(res, a)
+				}
+			}
+			m[a.Code] = nil
+		} else if !ok {
+			res = append(res, a)
+		}
+	}
+	for _, v := range m {
+		for _, a := range v {
+			res = append(res, a)
+		}
+	}
+	return res
 }
 
 // DialAndServe start handling Diameter connection as initiator

@@ -34,8 +34,8 @@ Capabilities-Exchange-Answer message
 		   { Vendor-Id }
 		   { Product-Name }
 		   [ Origin-State-Id ]
-		   [ Error-Message ]                  // ignored
-		   [ Failed-AVP ]                     // ignored
+		   [ Error-Message ]
+		   [ Failed-AVP ]
 		 * [ Supported-Vendor-Id ]
 		 * [ Auth-Application-Id ]
 		 * [ Inband-Security-Id ]             // not supported (not recommended)
@@ -91,30 +91,35 @@ func (v eventRcvCER) exec(c *Connection) error {
 
 		switch a.Code {
 		case 264:
+			a.Mandatory = true
 			if len(oHost) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oHost, err = GetOriginHost(a)
 			}
 		case 296:
+			a.Mandatory = true
 			if len(oRealm) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oRealm, err = GetOriginRealm(a)
 			}
 		case 257:
+			a.Mandatory = true
 			if ip, e := getHostIPAddress(a); e == nil {
 				hostIP = append(hostIP, ip)
 			} else {
 				err = e
 			}
 		case 266:
+			a.Mandatory = true
 			if venID != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				venID, err = GetVendorID(a)
 			}
 		case 269:
+			a.Mandatory = true
 			if len(prodName) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
@@ -146,12 +151,10 @@ func (v eventRcvCER) exec(c *Connection) error {
 		case 267:
 			_, err = getFirmwareRevision(a)
 		default:
-			if a.Mandatory {
-				err = InvalidAVP{Code: AvpUnsupported, AVP: a}
-			}
+			err = InvalidAVP{Code: AvpUnsupported, AVP: a}
 		}
 
-		if err != nil {
+		if err != nil && a.Mandatory {
 			break
 		}
 	}
@@ -190,8 +193,7 @@ func (v eventRcvCER) exec(c *Connection) error {
 					rap = fmt.Sprintf("%s, %d", rap, k)
 				}
 				err = InvalidMessage{
-					Code:   ApplicationUnsupported,
-					ErrMsg: rap}
+					Code: ApplicationUnsupported, ErrMsg: rap}
 			}
 		}
 	}
@@ -199,8 +201,8 @@ func (v eventRcvCER) exec(c *Connection) error {
 	result := Success
 	if v.m.FlgP || v.m.FlgT {
 		result = InvalidHdrBits
-		err = InvalidMessage{
-			Code: result, ErrMsg: "CER must not enable P and T flag"}
+		err = InvalidMessage{Code: result,
+			ErrMsg: "CER must not enable P and T flag"}
 	} else if iavp, ok := err.(InvalidAVP); ok {
 		result = iavp.Code
 	} else if imsg, ok := err.(InvalidMessage); ok {
@@ -211,31 +213,23 @@ func (v eventRcvCER) exec(c *Connection) error {
 	} else if len(oRealm) == 0 {
 		result = MissingAvp
 		err = InvalidAVP{Code: result, AVP: SetOriginRealm("")}
-	} else if c.Host != "" && oHost != c.Host {
-		result = UnknownPeer
-		err = InvalidMessage{
-			Code: result,
-			ErrMsg: fmt.Sprintf(
-				"peer host %s is not match with %s",
-				oHost, c.Host)}
-	} else if c.Realm != "" && oRealm != c.Realm {
-		result = UnknownPeer
-		err = InvalidMessage{
-			Code: result,
-			ErrMsg: fmt.Sprintf(
-				"peer realm %s is not match with %s",
-				oRealm, c.Realm)}
 	} else if len(hostIP) == 0 {
 		result = MissingAvp
 		err = InvalidAVP{Code: result, AVP: setHostIPAddress(net.IPv4zero)}
-		/*
-			} else if venID == 0 {
-				result = MissingAvp
-				err = InvalidAVP{Code: result, AVP: SetVendorID(0)}
-			} else if len(prodName) == 0 {
-				result = MissingAvp
-				err = InvalidAVP{Code: result, AVP: setProductName("")}
-		*/
+		//	} else if venID == 0 {
+		//		result = MissingAvp
+		//		err = InvalidAVP{Code: result, AVP: SetVendorID(0)}
+		//	} else if len(prodName) == 0 {
+		//		result = MissingAvp
+		//		err = InvalidAVP{Code: result, AVP: setProductName("")}
+	} else if c.Host != "" && oHost != c.Host {
+		result = UnknownPeer
+		err = InvalidMessage{Code: result, ErrMsg: fmt.Sprintf(
+			"peer host %s is not match with %s", oHost, c.Host)}
+	} else if c.Realm != "" && oRealm != c.Realm {
+		result = UnknownPeer
+		err = InvalidMessage{Code: result, ErrMsg: fmt.Sprintf(
+			"peer realm %s is not match with %s", oRealm, c.Realm)}
 	} else {
 		if oState != 0 {
 			c.stateID = oState
@@ -244,50 +238,48 @@ func (v eventRcvCER) exec(c *Connection) error {
 		c.Realm = oRealm
 	}
 
-	buf := new(bytes.Buffer)
-	SetResultCode(result).MarshalTo(buf)
-	SetOriginHost(Host).MarshalTo(buf)
-	SetOriginRealm(Realm).MarshalTo(buf)
-
-	if len(c.OverwriteAddr) != 0 {
-		for _, h := range c.OverwriteAddr {
-			setHostIPAddress(h).MarshalTo(buf)
-		}
-	} else {
-		h, _, _ := net.SplitHostPort(c.conn.LocalAddr().String())
-		for _, h := range strings.Split(h, "/") {
-			setHostIPAddress(net.ParseIP(h)).MarshalTo(buf)
-		}
+	avps := []AVP{}
+	avps = append(avps, SetResultCode(result))
+	avps = append(avps, SetOriginHost(Host))
+	avps = append(avps, SetOriginRealm(Realm))
+	h, _, _ := net.SplitHostPort(c.conn.LocalAddr().String())
+	for _, h := range strings.Split(h, "/") {
+		avps = append(avps, setHostIPAddress(net.ParseIP(h)))
 	}
 
-	SetVendorID(VendorID).MarshalTo(buf)
-	setProductName(ProductName).MarshalTo(buf)
+	avps = append(avps, SetVendorID(VendorID))
+	avps = append(avps, setProductName(ProductName))
 
 	if stateID != 0 {
-		setOriginStateID(stateID).MarshalTo(buf)
+		avps = append(avps, setOriginStateID(stateID))
 	}
 	if err != nil {
 	} else if len(c.commonApp) == 0 {
-		SetAuthAppID(0xffffffff).MarshalTo(buf)
+		avps = append(avps, SetAuthAppID(0xffffffff))
 	} else {
 		vmap := make(map[uint32]interface{})
 		for aid, app := range c.commonApp {
 			if app.venID == 0 {
-				SetAuthAppID(aid).MarshalTo(buf)
+				avps = append(avps, SetAuthAppID(aid))
 			} else if _, ok := vmap[app.venID]; ok {
-				SetVendorSpecAppID(app.venID, aid).MarshalTo(buf)
+				avps = append(avps, SetVendorSpecAppID(app.venID, aid))
 			} else {
-				setSupportedVendorID(app.venID).MarshalTo(buf)
-				SetVendorSpecAppID(app.venID, aid).MarshalTo(buf)
+				avps = append(avps, setSupportedVendorID(app.venID))
+				avps = append(avps, SetVendorSpecAppID(app.venID, aid))
 				vmap[app.venID] = nil
 			}
 		}
 	}
 
 	if iavp, ok := err.(InvalidAVP); ok {
-		setFailedAVP([]AVP{iavp.AVP}).MarshalTo(buf)
+		avps = append(avps, setFailedAVP([]AVP{iavp.AVP}))
 	}
-	setFirmwareRevision(FirmwareRev).MarshalTo(buf)
+	avps = append(avps, setFirmwareRevision(FirmwareRev))
+
+	buf := new(bytes.Buffer)
+	for _, a := range overwriteAVP(avps, OverrideCEA) {
+		a.MarshalTo(buf)
+	}
 
 	cea := Message{
 		FlgR: false, FlgP: false, FlgE: result != Success, FlgT: false,
@@ -373,36 +365,42 @@ func (v eventRcvCEA) exec(c *Connection) error {
 
 		switch a.Code {
 		case 268:
+			a.Mandatory = true
 			if result != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				result, err = GetResultCode(a)
 			}
 		case 264:
+			a.Mandatory = true
 			if len(oHost) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oHost, err = GetOriginHost(a)
 			}
 		case 296:
+			a.Mandatory = true
 			if len(oRealm) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oRealm, err = GetOriginRealm(a)
 			}
 		case 257:
+			a.Mandatory = true
 			if ip, e := getHostIPAddress(a); e == nil {
 				hostIP = append(hostIP, ip)
 			} else {
 				err = e
 			}
 		case 266:
+			a.Mandatory = true
 			if venID != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				venID, err = GetVendorID(a)
 			}
 		case 269:
+			a.Mandatory = true
 			if len(prodName) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
@@ -438,12 +436,10 @@ func (v eventRcvCEA) exec(c *Connection) error {
 		case 267:
 			_, err = getFirmwareRevision(a)
 		default:
-			if a.Mandatory {
-				err = InvalidAVP{Code: AvpUnsupported, AVP: a}
-			}
+			err = InvalidAVP{Code: AvpUnsupported, AVP: a}
 		}
 
-		if err != nil {
+		if err != nil && a.Mandatory {
 			break
 		}
 	}
@@ -483,16 +479,13 @@ func (v eventRcvCEA) exec(c *Connection) error {
 				for k := range authApps {
 					rap = fmt.Sprintf("%s, %d", rap, k)
 				}
-				err = InvalidMessage{
-					Code:   ApplicationUnsupported,
-					ErrMsg: rap}
+				err = InvalidMessage{Code: ApplicationUnsupported, ErrMsg: rap}
 			}
 		}
 	}
 
 	if v.m.FlgE && result == Success {
-		err = InvalidMessage{
-			Code:   InvalidHdrBits,
+		err = InvalidMessage{Code: InvalidHdrBits,
 			ErrMsg: "error flag is true but success response code"}
 	} else if result == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetResultCode(0)}
@@ -500,31 +493,21 @@ func (v eventRcvCEA) exec(c *Connection) error {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetOriginHost("")}
 	} else if len(oRealm) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetOriginRealm("")}
-	} else if oHost != c.Host && oHost != Host {
-		err = InvalidMessage{
-			Code: UnknownPeer,
-			ErrMsg: fmt.Sprintf(
-				"peer host %s is not match with %s or %s",
-				oHost, c.Host, Host)}
-	} else if oRealm != c.Realm && oRealm != Realm {
-		err = InvalidMessage{
-			Code: UnknownPeer,
-			ErrMsg: fmt.Sprintf(
-				"peer realm %s is not match with %s or %s",
-				oRealm, c.Realm, Host)}
-	} else if result != Success {
-		err = FailureAnswer{Code: result, ErrMsg: errorMsg, Avps: failedAVP}
-	} else if err != nil {
-		// invalid AVP value
 	} else if len(hostIP) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: setHostIPAddress(net.IPv4zero)}
-		/*
-			} else if venID == 0 {
-				err = InvalidAVP{Code: MissingAvp, AVP: SetVendorID(0)}
-			} else if len(prodName) == 0 {
-				err = InvalidAVP{Code: MissingAvp, AVP: setProductName("")}
-		*/
-	} else {
+		// } else if venID == 0 {
+		//		err = InvalidAVP{Code: MissingAvp, AVP: SetVendorID(0)}
+		//	} else if len(prodName) == 0 {
+		//		err = InvalidAVP{Code: MissingAvp, AVP: setProductName("")}
+	} else if oHost != c.Host && oHost != Host {
+		err = InvalidMessage{Code: UnknownPeer, ErrMsg: fmt.Sprintf(
+			"peer host %s is not match with %s or %s", oHost, c.Host, Host)}
+	} else if oRealm != c.Realm && oRealm != Realm {
+		err = InvalidMessage{Code: UnknownPeer, ErrMsg: fmt.Sprintf(
+			"peer realm %s is not match with %s or %s", oRealm, c.Realm, Host)}
+	} else if result != Success {
+		err = FailureAnswer{Code: result, ErrMsg: errorMsg, Avps: failedAVP}
+	} else if err == nil {
 		if oState != 0 {
 			c.stateID = oState
 		}
@@ -535,7 +518,6 @@ func (v eventRcvCEA) exec(c *Connection) error {
 			c.notify <- eventWatchdog{}
 		})
 		delete(c.sndQueue, v.m.HbHID)
-		//ch <- v.m
 	}
 	if TraceRxMessage != nil {
 		TraceRxMessage(c, v.m, err)
@@ -544,7 +526,6 @@ func (v eventRcvCEA) exec(c *Connection) error {
 	if err != nil {
 		c.wdTimer.Stop()
 		delete(c.sndQueue, v.m.HbHID)
-		// close(ch)
 		c.notify <- eventPeerDisc{reason: err}
 	}
 	return err

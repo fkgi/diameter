@@ -58,9 +58,9 @@ func traceMessage(host, direction string, msg diameter.Message, err error) {
 func traceHTTPHandling(d string, p string, tx []byte, c int, rx []byte, e error) {
 	buf := new(strings.Builder)
 	fmt.Fprintf(buf, "%s HTTP request handling: error=%v\n", d, e)
-	fmt.Fprintln(buf, "| path:", p)
-	fmt.Fprintln(buf, "| body:", string(tx))
+	fmt.Fprintln(buf, "| path:  ", p)
+	fmt.Fprintln(buf, "| body:  ", strings.TrimSpace(string(tx)))
 	fmt.Fprintln(buf, "| result:", c, http.StatusText(c))
-	fmt.Fprintln(buf, "| body:  ", string(rx))
+	fmt.Fprintln(buf, "| body:  ", strings.TrimSpace(string(rx)))
 	log.Print("[INFO] ", buf)
 }
