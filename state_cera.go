@@ -91,40 +91,40 @@ func (v eventRcvCER) exec(c *Connection) error {
 
 		switch a.Code {
 		case 264:
-			a.Mandatory = true
 			if len(oHost) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oHost, err = GetOriginHost(a)
 			}
-		case 296:
 			a.Mandatory = true
+		case 296:
 			if len(oRealm) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oRealm, err = GetOriginRealm(a)
 			}
-		case 257:
 			a.Mandatory = true
+		case 257:
 			if ip, e := getHostIPAddress(a); e == nil {
 				hostIP = append(hostIP, ip)
 			} else {
 				err = e
 			}
-		case 266:
 			a.Mandatory = true
+		case 266:
 			if venID != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				venID, err = GetVendorID(a)
 			}
-		case 269:
 			a.Mandatory = true
+		case 269:
 			if len(prodName) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				prodName, err = getProductName(a)
 			}
+			a.Mandatory = true
 		case 265:
 			var vid uint32
 			if vid, err = getSupportedVendorID(a); err == nil {
@@ -159,7 +159,7 @@ func (v eventRcvCER) exec(c *Connection) error {
 		}
 	}
 
-	if len(authApps) == 0 {
+	if err == nil && len(authApps) == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetAuthAppID(0)}
 	} else if err == nil {
 		for _, vid := range supportVendor {
@@ -207,6 +207,8 @@ func (v eventRcvCER) exec(c *Connection) error {
 		result = iavp.Code
 	} else if imsg, ok := err.(InvalidMessage); ok {
 		result = imsg.Code
+	} else if err != nil {
+		result = UnableToComply
 	} else if len(oHost) == 0 {
 		result = MissingAvp
 		err = InvalidAVP{Code: result, AVP: SetOriginHost("")}
@@ -365,47 +367,47 @@ func (v eventRcvCEA) exec(c *Connection) error {
 
 		switch a.Code {
 		case 268:
-			a.Mandatory = true
 			if result != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				result, err = GetResultCode(a)
 			}
-		case 264:
 			a.Mandatory = true
+		case 264:
 			if len(oHost) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oHost, err = GetOriginHost(a)
 			}
-		case 296:
 			a.Mandatory = true
+		case 296:
 			if len(oRealm) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oRealm, err = GetOriginRealm(a)
 			}
-		case 257:
 			a.Mandatory = true
+		case 257:
 			if ip, e := getHostIPAddress(a); e == nil {
 				hostIP = append(hostIP, ip)
 			} else {
 				err = e
 			}
-		case 266:
 			a.Mandatory = true
+		case 266:
 			if venID != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				venID, err = GetVendorID(a)
 			}
-		case 269:
 			a.Mandatory = true
+		case 269:
 			if len(prodName) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				prodName, err = getProductName(a)
 			}
+			a.Mandatory = true
 		case 265:
 			var vid uint32
 			if vid, err = getSupportedVendorID(a); err == nil {
@@ -487,6 +489,7 @@ func (v eventRcvCEA) exec(c *Connection) error {
 	if v.m.FlgE && result == Success {
 		err = InvalidMessage{Code: InvalidHdrBits,
 			ErrMsg: "error flag is true but success response code"}
+	} else if err != nil {
 	} else if result == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetResultCode(0)}
 	} else if len(oHost) == 0 {
@@ -507,7 +510,7 @@ func (v eventRcvCEA) exec(c *Connection) error {
 			"peer realm %s is not match with %s or %s", oRealm, c.Realm, Host)}
 	} else if result != Success {
 		err = FailureAnswer{Code: result, ErrMsg: errorMsg, Avps: failedAVP}
-	} else if err == nil {
+	} else {
 		if oState != 0 {
 			c.stateID = oState
 		}

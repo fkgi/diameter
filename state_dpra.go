@@ -64,26 +64,26 @@ func (v eventRcvDPR) exec(c *Connection) error {
 
 		switch a.Code {
 		case 264:
-			a.Mandatory = true
 			if len(oHost) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oHost, err = GetOriginHost(a)
 			}
-		case 296:
 			a.Mandatory = true
+		case 296:
 			if len(oRealm) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oRealm, err = GetOriginRealm(a)
 			}
-		case 273:
 			a.Mandatory = true
+		case 273:
 			if cause != -1 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				cause, err = getDisconnectCause(a)
 			}
+			a.Mandatory = true
 		default:
 			err = InvalidAVP{Code: AvpUnsupported, AVP: a}
 		}
@@ -100,6 +100,8 @@ func (v eventRcvDPR) exec(c *Connection) error {
 			Code: result, ErrMsg: "DPR must not enable P and T flag"}
 	} else if iavp, ok := err.(InvalidAVP); ok {
 		result = iavp.Code
+	} else if err != nil {
+		result = UnableToComply
 	} else if len(oHost) == 0 {
 		result = MissingAvp
 		err = InvalidAVP{Code: result, AVP: SetOriginHost("")}
@@ -207,26 +209,26 @@ func (v eventRcvDPA) exec(c *Connection) error {
 
 		switch a.Code {
 		case 268:
-			a.Mandatory = true
 			if result != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				result, err = GetResultCode(a)
 			}
-		case 264:
 			a.Mandatory = true
+		case 264:
 			if len(oHost) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oHost, err = GetOriginHost(a)
 			}
-		case 296:
 			a.Mandatory = true
+		case 296:
 			if len(oRealm) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oRealm, err = GetOriginRealm(a)
 			}
+			a.Mandatory = true
 		case 281:
 			errorMsg, err = GetErrorMessage(a)
 		case 279:
@@ -243,6 +245,7 @@ func (v eventRcvDPA) exec(c *Connection) error {
 	if v.m.FlgE && result == Success {
 		err = InvalidMessage{Code: InvalidHdrBits,
 			ErrMsg: "error flag is true but success response code"}
+	} else if err != nil {
 	} else if result == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetResultCode(0)}
 	} else if len(oHost) == 0 {
@@ -258,7 +261,7 @@ func (v eventRcvDPA) exec(c *Connection) error {
 	} else if result != Success {
 		err = FailureAnswer{Code: result, ErrMsg: errorMsg, Avps: failedAVP}
 		delete(c.sndQueue, v.m.HbHID)
-	} else if err == nil {
+	} else {
 		delete(c.sndQueue, v.m.HbHID)
 		c.wdTimer.Stop()
 		c.notify <- eventPeerDisc{}

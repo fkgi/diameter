@@ -66,19 +66,19 @@ func (v eventRcvDWR) exec(c *Connection) error {
 
 		switch a.Code {
 		case 264:
-			a.Mandatory = true
 			if len(oHost) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oHost, err = GetOriginHost(a)
 			}
-		case 296:
 			a.Mandatory = true
+		case 296:
 			if len(oRealm) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oRealm, err = GetOriginRealm(a)
 			}
+			a.Mandatory = true
 		case 278:
 			if oState != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
@@ -101,6 +101,8 @@ func (v eventRcvDWR) exec(c *Connection) error {
 			Code: result, ErrMsg: "DWR must not enable P and T flag"}
 	} else if iavp, ok := err.(InvalidAVP); ok {
 		result = iavp.Code
+	} else if err != nil {
+		result = UnableToComply
 	} else if len(oHost) == 0 {
 		result = MissingAvp
 		err = InvalidAVP{Code: result, AVP: SetOriginHost("")}
@@ -211,26 +213,26 @@ func (v eventRcvDWA) exec(c *Connection) error {
 
 		switch a.Code {
 		case 268:
-			a.Mandatory = true
 			if result != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				result, err = GetResultCode(a)
 			}
-		case 264:
 			a.Mandatory = true
+		case 264:
 			if len(oHost) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oHost, err = GetOriginHost(a)
 			}
-		case 296:
 			a.Mandatory = true
+		case 296:
 			if len(oRealm) != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
 			} else {
 				oRealm, err = GetOriginRealm(a)
 			}
+			a.Mandatory = true
 		case 278:
 			if oState != 0 {
 				err = InvalidAVP{Code: AvpOccursTooManyTimes, AVP: a}
@@ -253,6 +255,7 @@ func (v eventRcvDWA) exec(c *Connection) error {
 	if v.m.FlgE && result == Success {
 		err = InvalidMessage{Code: InvalidHdrBits,
 			ErrMsg: "error flag is true but success response code"}
+	} else if err != nil {
 	} else if result == 0 {
 		err = InvalidAVP{Code: MissingAvp, AVP: SetResultCode(0)}
 	} else if len(oHost) == 0 {
@@ -270,7 +273,7 @@ func (v eventRcvDWA) exec(c *Connection) error {
 		c.Close(Rebooting)
 	} else if result != Success {
 		err = FailureAnswer{Code: result, ErrMsg: errorMsg, Avps: failedAVP}
-	} else if err == nil {
+	} else {
 		c.wdCount = 0
 	}
 

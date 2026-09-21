@@ -134,7 +134,7 @@ Overriding configurations are defined as JSON. Refer to "Format of REST message"
 
 Below example change `Auth-Application-Id` AVP value of outgoing `CER` message to `relay(=0xffffffff)`.
 ```sh
-> export OVERRIDE_CER='{"Auth-Application-Id": 4294967295}'
+> export OVERRIDE_CER='{"Vendor-Specific-Application-Id":null, "Auth-Application-Id": 4294967295}'
 ```
 If value of the AVP is available, the AVP is added to the message.
 If single/multiple AVPs with same code are already exist in original message, all such AVPs are removed and replaced to the new value.
