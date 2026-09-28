@@ -34,6 +34,7 @@ func (v eventRcvReq) exec(c *Connection) error {
 		ch = c.rcvQueue
 	} else {
 		ch = sharedQ
+		workerCheck()
 	}
 	v.m.notify = c.notify
 

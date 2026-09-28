@@ -298,6 +298,8 @@ func (v eventRcvCER) exec(c *Connection) error {
 		c.wdTimer = time.AfterFunc(WDInterval, func() {
 			c.notify <- eventWatchdog{}
 		})
+	} else {
+		c.notify <- eventPeerDisc{}
 	}
 
 	if TraceTxMessage != nil {

@@ -171,7 +171,7 @@ func sockOpenV6(seq bool) (int, error) {
 }
 
 func sockListen(l *SCTPListener) (e error) {
-	if e = syscall.Listen(l.sock, 128); e != nil {
+	if e = syscall.Listen(l.sock, syscall.SOMAXCONN); e != nil {
 	} else if e = syscall.SetNonblock(l.sock, true); e != nil {
 	} else if e = syscall.EpollCtl(
 		epfd,

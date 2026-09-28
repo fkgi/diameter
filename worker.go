@@ -2,13 +2,13 @@ package diameter
 
 import (
 	"bytes"
-	"math/rand/v2"
 	"time"
 )
 
 const (
 	minWorkers = 10
 	maxWorkers = 20000 - minWorkers
+	cooltime   = time.Second * 5
 )
 
 var (
@@ -25,41 +25,52 @@ func init() {
 			}
 		}()
 	}
-	go func() {
-		act := true
-		for act {
-			acl := len(sharedQ)
-			if acl < minWorkers/2 {
-				time.Sleep(time.Millisecond * 10)
-				continue
+	/*
+		go func() {
+			t := time.NewTicker(time.Second)
+			for {
+				<-t.C
+				fmt.Println("q=", SharedMessagegQueue(),
+					"wkr=", ActiveSharedWorkers())
 			}
+		}()
+	*/
+}
 
-			a := <-activeWorkers
-			if a+acl > maxWorkers {
-				acl = maxWorkers - a
-			}
-			a += acl
-			activeWorkers <- a
+func workerCheck() {
+	a := <-activeWorkers
+	acl := len(sharedQ)
+	if acl < (a+minWorkers)*4/5 {
+		activeWorkers <- a
+		return
+	}
 
-			for range acl {
-				go func() {
-					for c := 0; c < 500; c++ {
-						if len(sharedQ) < minWorkers/2 {
-							time.Sleep(time.Millisecond * time.Duration(8+rand.IntN(4)))
-						} else if req, ok := <-sharedQ; !ok {
-							act = false
-							break
-						} else {
-							handleMsg(req)
-							c = 0
-						}
+	if a+acl > maxWorkers {
+		acl = maxWorkers - a
+	}
+	a += acl
+	activeWorkers <- a
+
+	for range acl {
+		go func() {
+			t := time.NewTimer(cooltime)
+			for run := true; run; {
+				select {
+				case req, ok := <-sharedQ:
+					if ok {
+						handleMsg(req)
+						t.Reset(cooltime)
+					} else {
+						run = false
 					}
-					activeWorkers <- (<-activeWorkers - 1)
-				}()
+				case <-t.C:
+					run = false
+				}
 			}
-			time.Sleep(time.Millisecond * 10)
-		}
-	}()
+			t.Stop()
+			activeWorkers <- (<-activeWorkers - 1)
+		}()
+	}
 }
 
 func handleMsg(req Message) {
