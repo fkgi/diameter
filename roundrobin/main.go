@@ -34,38 +34,25 @@ func main() {
 			log.Println("[INFO]", "parameter VERBOSE is empty or invalid, set to default")
 		}
 
-		diameter.TraceEvent = func(
-			c *diameter.Connection, old, event string, err error) {
+		diameter.TraceEvent = func(c *diameter.Connection, old, event string, err error) {
 			if err != nil {
 				log.Printf("[INFO] event %s handling failed on peer %s: %v",
 					event, c.Host, err)
 			}
-			if old != "open" && c.State() == "open" {
-				buf := new(strings.Builder)
-				fmt.Fprint(buf, "Diameter connection up")
-				fmt.Fprintf(buf, "\n| local host/realm: %s/%s", diameter.Host, diameter.Realm)
-				fmt.Fprintf(buf, "\n| peer  host/realm: %s/%s", c.Host, c.Realm)
-				fmt.Fprint(buf, "\n| available application: ")
-				for _, ap := range c.AvailableApplications() {
-					fmt.Fprintf(buf, "%s(%d), ", dictionary.GetApplicationName(ap), ap)
-				}
-				log.Print("[INFO] ", buf)
-			}
+			traceOpenConnection(c, old, c.State())
 		}
-		diameter.TraceTxMessage = func(
-			_ *diameter.Connection, msg diameter.Message, err error) {
+		diameter.TraceTxMessage = func(_ *diameter.Connection, msg diameter.Message, err error) {
 			count(msg, false, err)
 		}
-		diameter.TraceRxMessage = func(
-			_ *diameter.Connection, msg diameter.Message, err error) {
+		diameter.TraceRxMessage = func(_ *diameter.Connection, msg diameter.Message, err error) {
 			count(msg, true, err)
 		}
-		dictionary.TraceTxHttpRequest = func(p string, tx []byte, c int, rx []byte, err error) {
+		dictionary.TraceTxHttpRequest = func(_ string, _ []byte, _ int, _ []byte, err error) {
 			if err != nil {
 				log.Printf("[INFO] Tx HTTP request handling failed: %v", err)
 			}
 		}
-		dictionary.TraceRxHttpRequest = func(p string, tx []byte, c int, rx []byte, err error) {
+		dictionary.TraceRxHttpRequest = func(_ string, _ []byte, _ int, _ []byte, err error) {
 			if err != nil {
 				log.Printf("[INFO] Rx HTTP request handling failed: %v", err)
 			}

@@ -11,10 +11,12 @@ import (
 )
 
 func init() {
-	dictionary.TraceTxHttpRequest = func(p string, tx []byte, c int, rx []byte, e error) {
+	dictionary.TraceTxHttpRequest = func(
+		p string, tx []byte, c int, rx []byte, e error) {
 		traceHTTPHandling("Tx", p, tx, c, rx, e)
 	}
-	dictionary.TraceRxHttpRequest = func(p string, tx []byte, c int, rx []byte, e error) {
+	dictionary.TraceRxHttpRequest = func(
+		p string, tx []byte, c int, rx []byte, e error) {
 		traceHTTPHandling("Rx", p, tx, c, rx, e)
 	}
 
@@ -23,18 +25,7 @@ func init() {
 		n := c.State()
 		log.Printf("[INFO] Diameter state update: %s->%s by event %s, peer=%s, error=%v",
 			old, n, event, c.Host, err)
-
-		if old != "open" && n == "open" {
-			buf := new(strings.Builder)
-			fmt.Fprint(buf, "Diameter connection up")
-			fmt.Fprintf(buf, "\n| local host/realm: %s/%s", diameter.Host, diameter.Realm)
-			fmt.Fprintf(buf, "\n| peer  host/realm: %s/%s", c.Host, c.Realm)
-			fmt.Fprint(buf, "\n| available application: ")
-			for _, ap := range c.AvailableApplications() {
-				fmt.Fprintf(buf, "%s(%d), ", dictionary.GetApplicationName(ap), ap)
-			}
-			log.Print("[INFO] ", buf)
-		}
+		traceOpenConnection(c, old, n)
 	}
 	diameter.TraceTxMessage = func(
 		c *diameter.Connection, msg diameter.Message, err error) {
@@ -50,7 +41,8 @@ func init() {
 
 func traceMessage(host, direction string, msg diameter.Message, err error) {
 	buf := new(strings.Builder)
-	fmt.Fprintf(buf, "%s Diameter message handling: peer=%s, error=%v\n", direction, host, err)
+	fmt.Fprintf(buf, "%s Diameter message handling: peer=%s, error=%v\n",
+		direction, host, err)
 	fmt.Fprint(buf, dictionary.TraceMessageVarbose("| ", msg))
 	log.Print("[INFO] ", buf)
 }
@@ -62,5 +54,20 @@ func traceHTTPHandling(d string, p string, tx []byte, c int, rx []byte, e error)
 	fmt.Fprintln(buf, "| body:  ", strings.TrimSpace(string(tx)))
 	fmt.Fprintln(buf, "| result:", c, http.StatusText(c))
 	fmt.Fprintln(buf, "| body:  ", strings.TrimSpace(string(rx)))
+	log.Print("[INFO] ", buf)
+}
+
+func traceOpenConnection(c *diameter.Connection, old, n string) {
+	if old == "open" || n != "open" {
+		return
+	}
+	buf := new(strings.Builder)
+	fmt.Fprint(buf, "Diameter connection up")
+	fmt.Fprintf(buf, "\n| local host/realm: %s/%s", diameter.Host, diameter.Realm)
+	fmt.Fprintf(buf, "\n| peer  host/realm: %s/%s", c.Host, c.Realm)
+	fmt.Fprint(buf, "\n| available application: ")
+	for _, ap := range c.AvailableApplications() {
+		fmt.Fprintf(buf, "%s(%d), ", dictionary.GetApplicationName(ap), ap)
+	}
 	log.Print("[INFO] ", buf)
 }

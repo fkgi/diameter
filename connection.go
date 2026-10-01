@@ -152,7 +152,14 @@ func (c *Connection) serve() error {
 		old = c.state
 		err := event.exec(c)
 		if TraceEvent != nil {
-			TraceEvent(c, old.String(), event.String(), err)
+			switch event.(type) {
+			case eventRcvReq, eventRcvAns, eventSndMsg:
+				if err != nil {
+					TraceEvent(c, old.String(), event.String(), err)
+				}
+			default:
+				TraceEvent(c, old.String(), event.String(), err)
+			}
 		}
 
 		if _, ok := event.(eventPeerDisc); ok {
