@@ -75,8 +75,6 @@ IP address is resolved from hostname if hostname is specified.
 - `DICTIONARY`  
 Path of dictionary XML file.
 Multiple file path can be configured by separating by `:`.
-Diameter base protocol messages and AVPs are pre-defined.
-If defined items are overlapped, last definition is available.
 
 - `OVERRIDE_...`  
 AVP name and value list for override AVPs of specific system message.
@@ -142,6 +140,8 @@ If value of the AVP is `null`, the AVP of the message is removed.
 
 # Format of Dictionary file
 Dictionary file is XML document.
+Multiple dicationaries can be loaded. If defined items are overlapped between multiple dictionaries, last definition is available.
+Diameter base protocol messages and AVPs are pre-defined.
 
 ```xml
 <dictionary>
@@ -152,12 +152,6 @@ Dictionary file is XML document.
         </application>
         <avp name="Subscription-Data" id="1400" type="Grouped" mandatory="true" />
         <avp name="Terminal-Information" id="1401" type="Grouped" mandatory="true" />
-    </vendor>
-    <vendor name="IETF" id="0">
-        <application name="base" id="0">
-            <command name="Capabilities-Exchange" id="257" />
-        </application>
-        <avp name="Acct-Interim-Interval" id="85" type="Unsigned32" mandatory="true" />
     </vendor>
 </dictionary>
 ```
