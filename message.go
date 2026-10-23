@@ -3,6 +3,7 @@ package diameter
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"math/rand"
@@ -210,6 +211,9 @@ func (m *Message) UnmarshalFrom(r io.Reader) error {
 	b[0] = 0x00
 	var lng uint32
 	binary.Read(bytes.NewBuffer(b[0:4]), binary.BigEndian, &lng)
+	if lng < 20 {
+		return errors.New("invalid message length value")
+	}
 
 	m.FlgR = b[4]&0x80 == 0x80
 	m.FlgP = b[4]&0x40 == 0x40

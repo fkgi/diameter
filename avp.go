@@ -3,6 +3,7 @@ package diameter
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -134,6 +135,9 @@ func (a *AVP) UnmarshalFrom(r io.Reader) error {
 	buf[4] = 0x00
 	var lng uint32
 	binary.Read(bytes.NewBuffer(buf[4:8]), binary.BigEndian, &lng)
+	if lng < 8 {
+		return errors.New("invalid AVP length value")
+	}
 	l := lng - 8
 
 	if vid {
@@ -141,6 +145,9 @@ func (a *AVP) UnmarshalFrom(r io.Reader) error {
 			return err
 		}
 		binary.Read(bytes.NewBuffer(buf), binary.BigEndian, &a.VendorID)
+		if l < 4 {
+			return errors.New("invalid AVP length value")
+		}
 		l -= 4
 	}
 
@@ -183,7 +190,7 @@ func (a *AVP) Encode(d interface{}) (e error) {
 			e = fmt.Errorf("invalid net.IP struct")
 		}
 	case time.Time:
-		e = binary.Write(buf, binary.BigEndian, int64(d.Unix()+2208988800))
+		e = binary.Write(buf, binary.BigEndian, uint32(d.Unix()+2208988800))
 	case Identity:
 		buf.Write([]byte(d))
 	case URI:
@@ -234,7 +241,9 @@ func (a AVP) Decode(d interface{}) (e error) {
 
 	switch d := d.(type) {
 	case *net.IP:
-		if a.Data[0] != 0x00 || a.Data[1] < 0x01 || a.Data[1] > 0x02 {
+		if len(a.Data) < 2 {
+			e = io.EOF
+		} else if a.Data[0] != 0x00 || a.Data[1] < 0x01 || a.Data[1] > 0x02 {
 			e = fmt.Errorf("invalid address family")
 		} else if len(a.Data) == 6 && a.Data[1] == 0x01 {
 			*d = net.IP(a.Data[2:6])
@@ -248,7 +257,7 @@ func (a AVP) Decode(d interface{}) (e error) {
 			e = io.EOF
 		} else {
 			buf := bytes.NewReader(a.Data)
-			var t uint64
+			var t uint32
 			if e = binary.Read(buf, binary.BigEndian, &t); e == nil {
 				*d = time.Unix(int64(t-2208988800), int64(0))
 			}

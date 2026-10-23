@@ -23,7 +23,7 @@ type Dialer struct {
 // NewDialer bind local interface for SCTP connection
 func NewDialer(laddr *SCTPAddr) (d *Dialer, e error) {
 	d = &Dialer{}
-	if laddr == nil {
+	if laddr == nil || len(laddr.IP) == 0{
 		e = fmt.Errorf("no local address")
 	} else if laddr.IP[0].To4() != nil {
 		d.sock, e = sockOpenV4(true)

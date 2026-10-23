@@ -16,7 +16,7 @@ type SCTPListener struct {
 // and returns a SCTP listener.
 func ListenSCTP(laddr *SCTPAddr) (l *SCTPListener, e error) {
 	l = &SCTPListener{}
-	if laddr == nil {
+	if laddr == nil || len(laddr.IP) == 0 {
 		e = fmt.Errorf("no local address")
 	} else if laddr.IP[0].To4() != nil {
 		l.sock, e = sockOpenV4(false)
