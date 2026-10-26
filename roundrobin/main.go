@@ -155,8 +155,7 @@ func main() {
 			apiPath, selectCon)
 	}
 
-	http.HandleFunc("GET /diastate/v1/connection", conStateHandler)
-	http.HandleFunc("GET /diastate/v1/statistics", statsHandler)
+	http.HandleFunc("GET /metrics", metricsHandler)
 
 	frontend := os.Getenv("LOCALAPI_ADDR")
 	log.Println("[INFO]", "listening HTTP...\n | local port:", frontend)

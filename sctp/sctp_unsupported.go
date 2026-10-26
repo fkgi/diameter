@@ -3,6 +3,7 @@
 package sctp
 
 import (
+	"syscall"
 	"unsafe"
 )
 
@@ -54,7 +55,7 @@ func sctpFreeladdrs(unsafe.Pointer) {
 }
 
 func sctpGetpaddrs(int) (unsafe.Pointer, int, error) {
-	return nil, 0, nisyscall.ENOSYSl
+	return nil, 0, syscall.ENOSYS
 }
 
 func sctpFreepaddrs(unsafe.Pointer) {}

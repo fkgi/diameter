@@ -1,12 +1,71 @@
 package main
 
 import (
-	"encoding/json"
+	"fmt"
 	"net/http"
+	"runtime"
 
 	"github.com/fkgi/diameter"
 )
 
+var txMetrics = make(chan map[string]uint64, 1)
+var rxMetrics = make(chan map[string]uint64, 1)
+
+func init() {
+	txMetrics <- map[string]uint64{}
+	rxMetrics <- map[string]uint64{}
+}
+
+func metricsHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+
+	sysmetricsHandler(w)
+
+	var ms runtime.MemStats
+	runtime.ReadMemStats(&ms)
+	fmt.Fprintln(w, "# HELP heap_alloc_bytes Number of heap bytes allocated and still in use")
+	fmt.Fprintln(w, "# TYPE heap_alloc_bytes gauge")
+	fmt.Fprintf(w, "heap_alloc_bytes %d\n", ms.Alloc)
+
+	fmt.Fprintln(w, "# HELP roundrobin_active_worker_count Count of active worker")
+	fmt.Fprintln(w, "# TYPE roundrobin_active_worker gauge")
+	fmt.Fprintf(w, "roundrobin_active_worker %d\n", diameter.ActiveSharedWorkers())
+
+	if len(reference) != 0 {
+		fmt.Fprintln(w, "# HELP roundrobin_diameter_connection_state Status of Diameter connection(down=0, up=1)")
+		fmt.Fprintln(w, "# TYPE roundrobin_diameter_connection_state gauge")
+	}
+	for _, a := range reference {
+		switch a.State() {
+		case "open", "locked":
+			fmt.Fprintf(w, "roundrobin_diameter_connection_state{peer=\"%s\"} 1\n", a.Host)
+		default:
+			fmt.Fprintf(w, "roundrobin_diameter_connection_state{peer=\"%s\"} 0\n", a.Host)
+		}
+	}
+
+	m := <-txMetrics
+	if len(m) != 0 {
+		fmt.Fprintln(w, "# HELP roundrobin_tx_diam_message Total number of outgoing Diameter message")
+		fmt.Fprintln(w, "# TYPE roundrobin_tx_diam_message counter")
+	}
+	for k, v := range m {
+		fmt.Fprintf(w, "roundrobin_tx_diam_message{type=\"%s\"} %d\n", k, v)
+	}
+	txMetrics <- m
+
+	m = <-rxMetrics
+	if len(m) != 0 {
+		fmt.Fprintln(w, "# HELP roundrobin_rx_diam_message Total number of incoming Diameter message")
+		fmt.Fprintln(w, "# TYPE roundrobin_rx_diam_message counter")
+	}
+	for k, v := range m {
+		fmt.Fprintf(w, "roundrobin_rx_diam_message{type=\"%s\"} %d\n", k, v)
+	}
+	rxMetrics <- m
+}
+
+/*
 type statFmt struct {
 	L peerFmt   `json:"local"`
 	P []peerFmt `json:"peer"`
@@ -46,7 +105,8 @@ func conStateHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write(jd)
 	}
 }
-
+*/
+/*
 type statistics struct {
 	RxReq     uint64 `json:"rx_request"`
 	TxDisc    uint64 `json:"tx_discard"`
@@ -84,71 +144,98 @@ func statsHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write(jd)
 	}
 }
+*/
 
 func count(msg diameter.Message, rx bool, err error) {
-	s := <-stats
+	if rx {
+		if msg.FlgR {
+			s := <-rxMetrics
+			s["request"] = s["request"] + 1
+			rxMetrics <- s
 
-	if msg.FlgR {
-		if rx {
-			s.RxReq++
 			if _, ok := err.(diameter.RejectRxMessage); ok {
-				s.TxDisc++
+				s := <-txMetrics
+				s["discard"] = s["discard"] + 1
+				txMetrics <- s
 			}
+		} else if _, ok := err.(diameter.FailureAnswer); err != nil && !ok {
+			s := <-txMetrics
+			s["invalid"] = s["invalid"] + 1
+			txMetrics <- s
 		} else {
-			s.TxReq++
+			var code uint32
+			if avps, e := msg.GetAVP(); e == nil {
+				for _, a := range avps {
+					switch a.Code {
+					case 268:
+						code, _ = diameter.GetResultCode(a)
+					case 297:
+						code, _ = diameter.GetResultCode(a)
+						code %= 10000
+					}
+					if code != 0 {
+						break
+					}
+				}
+			}
+
+			s := <-rxMetrics
+			if code < 1000 {
+				s["etc"] = s["etc"] + 1
+			} else if code < 2000 {
+				s["1000"] = s["1000"] + 1
+			} else if code < 3000 {
+				s["2000"] = s["2000"] + 1
+			} else if code < 4000 {
+				s["3000"] = s["3000"] + 1
+			} else if code < 5000 {
+				s["4000"] = s["4000"] + 1
+			} else if code < 6000 {
+				s["5000"] = s["5000"] + 1
+			} else {
+				s["etc"] = s["etc"] + 1
+			}
+			rxMetrics <- s
 		}
 	} else {
-		var code uint32
-		if avps, e := msg.GetAVP(); e == nil {
-			for _, a := range avps {
-				switch a.Code {
-				case 268:
-					code, _ = diameter.GetResultCode(a)
-				case 297:
-					code, _ = diameter.GetResultCode(a)
-					code %= 10000
-				}
-				if code != 0 {
-					break
-				}
-			}
-		}
-		if rx {
-			if _, ok := err.(diameter.FailureAnswer); err != nil && !ok {
-				s.RxIvld++
-			} else if code < 1000 {
-				s.RxAnsEtc++
-			} else if code < 2000 {
-				s.RxAns1xxx++
-			} else if code < 3000 {
-				s.RxAns2xxx++
-			} else if code < 4000 {
-				s.RxAns3xxx++
-			} else if code < 5000 {
-				s.RxAns4xxx++
-			} else if code < 6000 {
-				s.RxAns5xxx++
-			} else {
-				s.RxAnsEtc++
-			}
+		if msg.FlgR {
+			s := <-txMetrics
+			s["request"] = s["request"] + 1
+			txMetrics <- s
 		} else {
-			if code < 1000 {
-				s.TxAnsEtc++
-			} else if code < 2000 {
-				s.TxAns1xxx++
-			} else if code < 3000 {
-				s.TxAns2xxx++
-			} else if code < 4000 {
-				s.TxAns3xxx++
-			} else if code < 5000 {
-				s.TxAns4xxx++
-			} else if code < 6000 {
-				s.TxAns5xxx++
-			} else {
-				s.TxAnsEtc++
+			var code uint32
+			if avps, e := msg.GetAVP(); e == nil {
+				for _, a := range avps {
+					switch a.Code {
+					case 268:
+						code, _ = diameter.GetResultCode(a)
+					case 297:
+						code, _ = diameter.GetResultCode(a)
+						code %= 10000
+					}
+					if code != 0 {
+						break
+					}
+				}
 			}
+
+			s := <-txMetrics
+			if code < 1000 {
+				s["etc"] = s["etc"] + 1
+			} else if code < 2000 {
+				s["1000"] = s["1000"] + 1
+			} else if code < 3000 {
+				s["2000"] = s["2000"] + 1
+			} else if code < 4000 {
+				s["3000"] = s["3000"] + 1
+			} else if code < 5000 {
+				s["4000"] = s["4000"] + 1
+			} else if code < 6000 {
+				s["5000"] = s["5000"] + 1
+			} else {
+				s["etc"] = s["etc"] + 1
+			}
+			txMetrics <- s
 		}
 	}
-
-	stats <- s
 }
