@@ -68,5 +68,5 @@ func SharedMessagegQueue() int {
 func ActiveSharedWorkers() int {
 	a := <-activeWorkers
 	activeWorkers <- a
-	return a
+	return a + minWorkers
 }
